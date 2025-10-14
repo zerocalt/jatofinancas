@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <!-- Fundo escuro (overlay) -->
+    <View
+        android:id="@+id/overlay"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#80000000"
+        android:visibility="gone" />
+
+    <!-- Menus flutuantes das ações, ancorados acima do FAB -->
+    <LinearLayout
+        android:id="@+id/quickActions"
+        android:orientation="horizontal"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="90dp"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <!-- Receita -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:layout_marginHorizontal="8dp">
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabReceita"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:fabSize="mini"
+                app:srcCompat="@drawable/ic_trending_up"
+                app:backgroundTint="#199B19"
+                app:tint="@color/white"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Receita"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+        <!-- Despesa -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:layout_marginHorizontal="8dp">
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabDespesa"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:fabSize="mini"
+                app:srcCompat="@drawable/ic_trending_down"
+                app:backgroundTint="#B51919"
+                app:tint="@color/white"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Despesa"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+        <!-- Transferência -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:layout_marginHorizontal="8dp">
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabTransferencia"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:fabSize="mini"
+                app:srcCompat="@drawable/ic_sync_alt"
+                app:backgroundTint="#1951B5"
+                app:tint="@color/white"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Transferência"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+
+        <!-- Despesa Cartão -->
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="80dp"
+            android:layout_height="wrap_content"
+            android:gravity="center_horizontal"
+            android:layout_marginHorizontal="8dp">
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/fabDespesaCartao"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:fabSize="mini"
+                app:srcCompat="@drawable/ic_credit_add"
+                app:backgroundTint="#7919B5"
+                app:tint="@color/white"/>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Despesa Cartão"
+                android:textColor="@color/white"
+                android:textSize="11sp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="4dp"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Barra de menu inferior azul -->
+    <LinearLayout
+        android:id="@+id/menuInferior"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_gravity="bottom"
+        android:background="@drawable/menu_bottom_background"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <LinearLayout
+            android:id="@+id/btnPrincipal"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/icPrincipal"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_home"
+                android:tint="@color/white"/>
+            <TextView
+                android:id="@+id/txtPrincipal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Principal"
+                android:textSize="10sp"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnTransacoes"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/icTransacoes"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_bar_chart"
+                android:tint="@color/white"/>
+            <TextView
+                android:id="@+id/txtTransacoes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Transações"
+                android:textSize="10sp"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <Space
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1" />
+
+        <LinearLayout
+            android:id="@+id/btnCartoes"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/icCartoes"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_credit_card"
+                android:tint="@color/white"/>
+            <TextView
+                android:id="@+id/txtCartoes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Cartões"
+                android:textSize="10sp"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/btnOpcoes"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center">
+            <ImageView
+                android:id="@+id/icOpcoes"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_menu"
+                android:tint="@color/white"/>
+            <TextView
+                android:id="@+id/txtOpcoes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Opções"
+                android:textSize="10sp"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- FAB central -->
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/addmovimentacao"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        app:fabSize="normal"
+        app:srcCompat="@drawable/ic_add"
+        app:tint="@color/white"
+        app:backgroundTint="#FF777FFF"
+        app:borderWidth="4dp"
+        android:layout_gravity="center_horizontal|bottom"
+        android:layout_marginBottom="15dp"/>
+</FrameLayout>
