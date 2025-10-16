@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace = "com.example.app1"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.example.app1"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -49,6 +49,8 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.13.0")
     implementation("com.github.dewinjm:monthyear-picker:1.0.2")
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("com.google.android.material:material:1.14.0-alpha05")
+    implementation("com.github.skydoves:colorpickerview:2.3.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/bandeira_visa"
+        android:icon="@drawable/visa"
+        android:title="Visa" />
+    <item
+        android:id="@+id/bandeira_mastercard"
+        android:icon="@drawable/mastercard"
+        android:title="MasterCard" />
+    <item
+        android:id="@+id/bandeira_outros"
+        android:icon="@drawable/ic_credit_card"
+        android:title="Outros" />
+</menu>
