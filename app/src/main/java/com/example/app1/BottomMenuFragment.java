@@ -1,6 +1,7 @@
 package com.example.app1;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -103,7 +104,10 @@ public class BottomMenuFragment extends Fragment {
             if (botaoInativo != TRANSACOES) { /* navegação */ }
         });
         btnCartoes.setOnClickListener(vi -> {
-            if (botaoInativo != CARTOES) { /* navegação */ }
+            if (botaoInativo != CARTOES) { /* navegação */
+                Intent intent = new Intent(getActivity(), TelaCadCartao.class);
+                startActivity(intent);
+            }
         });
         btnOpcoes.setOnClickListener(vi -> {
             if (botaoInativo != OPCOES) { /* navegação */ }

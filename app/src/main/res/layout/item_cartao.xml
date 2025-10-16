@@ -1,0 +1,32 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="10dp"
+    android:background="@drawable/background_lista_cartoes"
+    android:layout_margin="10dp">
+
+    <ImageView
+        android:id="@+id/icTipoCartao"
+        android:layout_width="20dp"
+        android:layout_height="20dp"
+        android:src="@drawable/ic_credit_card"
+        android:layout_marginEnd="10dp" />
+
+    <TextView
+        android:id="@+id/NomeCartao"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="#fff"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:ellipsize="end"
+        android:singleLine="true" />
+
+    <ImageView
+        android:id="@+id/icMenuCartao"
+        android:layout_width="18dp"
+        android:layout_height="20dp"
+        android:src="@drawable/ic_more_vert" />
+</LinearLayout>

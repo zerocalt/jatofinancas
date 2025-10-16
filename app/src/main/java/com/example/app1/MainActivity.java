@@ -1,6 +1,7 @@
 package com.example.app1;
 
 import android.content.Intent;
+import android.database.Cursor;
 import android.os.Bundle;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
@@ -32,6 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private MeuDbHelper dbHelper;
     private static final String PREFS_NAME = "secure_login_prefs";
     private static final String KEY_EMAIL = "saved_email";
+    private static final String KEY_USER_ID = "saved_user_id";  // CHAVE PARA O ID DO USUARIO
     private SharedPreferences sharedPreferences;
 
     @Override
@@ -116,6 +118,13 @@ public class MainActivity extends AppCompatActivity {
         editor.apply();
     }
 
+    // Salva o id do usuário de forma segura
+    private void salvarUserId(int userId) {
+        SharedPreferences.Editor editor = sharedPreferences.edit();
+        editor.putInt(KEY_USER_ID, userId);
+        editor.apply();
+    }
+
     // Verifica no banco se o usuário ainda está ativo
     private boolean usuarioEstaAtivo(String email) {
         var db = dbHelper.getReadableDatabase();
@@ -129,11 +138,11 @@ public class MainActivity extends AppCompatActivity {
         return ativo;
     }
 
-    // Autenticação com senha
+    // Autenticação com senha e salvamento do userId
     private boolean autenticarUsuario(String loginDigitado, String senhaDigitada) {
         var db = dbHelper.getReadableDatabase();
         var cursor = db.rawQuery(
-                "SELECT senha FROM usuarios WHERE email = ? AND status = 'ativo' LIMIT 1",
+                "SELECT id, senha FROM usuarios WHERE email = ? AND status = 'ativo' LIMIT 1",
                 new String[]{loginDigitado}
         );
 
@@ -143,12 +152,18 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
 
-        String senhaArmazenada = cursor.getString(0);
+        int userId = cursor.getInt(0); // id na primeira coluna
+        String senhaArmazenada = cursor.getString(1); // senha na segunda coluna
+
         cursor.close();
         db.close();
 
         try {
-            return verificarSenha(senhaDigitada, senhaArmazenada);
+            boolean senhaValida = verificarSenha(senhaDigitada, senhaArmazenada);
+            if (senhaValida) {
+                salvarUserId(userId); // salva o id do usuário
+            }
+            return senhaValida;
         } catch (Exception e) {
             e.printStackTrace();
             return false;
