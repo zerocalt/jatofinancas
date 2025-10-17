@@ -77,69 +77,120 @@
         android:text="Inscreva-se para começar"
         android:layout_marginBottom="30dp"/>
 
-    <EditText
-        android:id="@+id/nome"
-        style="@style/HINTCOR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/edittext_rounded"
-        android:padding="12dp"
-        android:hint="Nome"
-        android:layout_marginBottom="16dp"
-        android:textColor="@android:color/black"
-        android:drawableLeft="@drawable/ic_person"/>
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outNome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_person"
+            app:startIconTint="@color/colorPrimary"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="clear_text"
+            android:layout_marginBottom="16dp"
+            android:hint="* Nome">
 
-    <EditText
-        android:id="@+id/tel"
-        style="@style/HINTCOR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/edittext_rounded"
-        android:padding="12dp"
-        android:hint="Telefone"
-        android:inputType="phone"
-        android:layout_marginBottom="16dp"
-        android:textColor="@android:color/black"
-        android:drawableLeft="@drawable/ic_local_phone"/>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/nome"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                />
 
-    <EditText
-        android:id="@+id/email"
-        style="@style/HINTCOR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/edittext_rounded"
-        android:padding="12dp"
-        android:hint="E-mail"
-        android:layout_marginBottom="16dp"
-        android:textColor="@android:color/black"
-        android:drawableLeft="@drawable/ic_email"
-        android:inputType="textEmailAddress"/>
+        </com.google.android.material.textfield.TextInputLayout>
 
-    <EditText
-        android:id="@+id/senha"
-        style="@style/HINTCOR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/edittext_rounded"
-        android:padding="12dp"
-        android:hint="Senha"
-        android:inputType="textPassword"
-        android:textColor="@android:color/black"
-        android:layout_marginBottom="16dp"
-        android:drawableLeft="@drawable/ic_lock"/>
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outTel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_local_phone"
+            app:startIconTint="@color/colorPrimary"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="clear_text"
+            android:layout_marginBottom="16dp"
+            android:hint="* Telefone">
 
-    <EditText
-        android:id="@+id/senha2"
-        style="@style/HINTCOR"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/edittext_rounded"
-        android:padding="12dp"
-        android:hint="Confirmar Senha"
-        android:inputType="textPassword"
-        android:textColor="@android:color/black"
-        android:layout_marginBottom="30dp"
-        android:drawableLeft="@drawable/ic_lock"/>
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/tel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="phone"
+                />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_email"
+            app:startIconTint="@color/colorPrimary"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="clear_text"
+            android:layout_marginBottom="16dp"
+            android:hint="* E-mail">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/email"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textEmailAddress"
+                />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outSenha"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_lock"
+            app:startIconTint="@color/colorPrimary"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="password_toggle"
+            android:layout_marginBottom="16dp"
+            android:hint="* Senha">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/senha"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/outSenha2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_lock"
+            app:startIconTint="@color/colorPrimary"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="password_toggle"
+            android:layout_marginBottom="16dp"
+            android:hint="* Confirmar Senha">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/senha2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textPassword"
+                />
+
+        </com.google.android.material.textfield.TextInputLayout>
 
     <Button
         android:id="@+id/btnCadastrar"

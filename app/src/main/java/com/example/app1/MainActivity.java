@@ -7,7 +7,6 @@ import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -28,12 +27,15 @@ import javax.crypto.spec.PBEKeySpec;
 
 import android.content.SharedPreferences;
 
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
+
 public class MainActivity extends AppCompatActivity {
 
     private MeuDbHelper dbHelper;
     private static final String PREFS_NAME = "secure_login_prefs";
     private static final String KEY_EMAIL = "saved_email";
-    private static final String KEY_USER_ID = "saved_user_id";  // CHAVE PARA O ID DO USUARIO
+    private static final String KEY_USER_ID = "saved_user_id";
     private SharedPreferences sharedPreferences;
 
     @Override
@@ -47,8 +49,12 @@ public class MainActivity extends AppCompatActivity {
             return insets;
         });
 
-        EditText login = findViewById(R.id.email);
-        EditText senha = findViewById(R.id.senha);
+        TextInputLayout outEmail = findViewById(R.id.outEmail);
+        TextInputLayout outSenha = findViewById(R.id.outSenha);
+
+        TextInputEditText login = findViewById(R.id.email);
+        TextInputEditText senha = findViewById(R.id.senha);
+
         Button seuBotao = findViewById(R.id.seuBotao);
         TextView cadTexto = findViewById(R.id.cadTexto);
 
@@ -73,25 +79,59 @@ public class MainActivity extends AppCompatActivity {
             sharedPreferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         }
 
+        // TextWatchers para limpar erro
+        login.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                outEmail.setError(null);
+                outEmail.setErrorEnabled(false);
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
+        senha.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                outSenha.setError(null);
+                outSenha.setErrorEnabled(false);
+            }
+            @Override public void afterTextChanged(android.text.Editable s) {}
+        });
+
         // Verifica se veio do logout — se sim, não redireciona
         if (getIntent().getBooleanExtra("from_logout", false)) {
-            // Não verifica login salvo
             return;
         }
-        // Verifica se há login salvo
         verificarLoginSalvo();
 
         seuBotao.setOnClickListener(v -> {
-            String loginDigitado = login.getText().toString().trim();
-            String senhaDigitada = senha.getText().toString().trim();
+            boolean valid = true;
 
-            if (autenticarUsuario(loginDigitado, senhaDigitada)) {
-                salvarLogin(loginDigitado);
-                Intent intent = new Intent(MainActivity.this, TelaPrincipal.class);
-                startActivity(intent);
-                finish();
-            } else {
-                Toast.makeText(MainActivity.this, "Erro! E-mail ou Senha Incorretos!", Toast.LENGTH_SHORT).show();
+            String loginDigitado = login.getText() != null ? login.getText().toString().trim() : "";
+            String senhaDigitada = senha.getText() != null ? senha.getText().toString().trim() : "";
+
+            outEmail.setError(null);
+            outSenha.setError(null);
+
+            if (loginDigitado.isEmpty()) {
+                outEmail.setErrorEnabled(true);
+                outEmail.setError("Preencha o e-mail");
+                valid = false;
+            }
+            if (senhaDigitada.isEmpty()) {
+                outSenha.setErrorEnabled(true);
+                outSenha.setError("Preencha a senha");
+                valid = false;
+            }
+
+            if (valid) {
+                if (autenticarUsuario(loginDigitado, senhaDigitada)) {
+                    salvarLogin(loginDigitado);
+                    Intent intent = new Intent(MainActivity.this, TelaPrincipal.class);
+                    startActivity(intent);
+                    finish();
+                } else {
+                    Toast.makeText(MainActivity.this, "Erro! E-mail ou Senha Incorretos!", Toast.LENGTH_SHORT).show();
+                }
             }
         });
 
@@ -101,7 +141,6 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    // Verifica se há login salvo e se o usuário ainda é ativo
     private void verificarLoginSalvo() {
         String emailSalvo = sharedPreferences.getString(KEY_EMAIL, null);
         if (emailSalvo != null && usuarioEstaAtivo(emailSalvo)) {
@@ -111,21 +150,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Salva o e-mail de forma segura
     private void salvarLogin(String email) {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString(KEY_EMAIL, email);
         editor.apply();
     }
 
-    // Salva o id do usuário de forma segura
     private void salvarUserId(int userId) {
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putInt(KEY_USER_ID, userId);
         editor.apply();
     }
 
-    // Verifica no banco se o usuário ainda está ativo
     private boolean usuarioEstaAtivo(String email) {
         var db = dbHelper.getReadableDatabase();
         var cursor = db.rawQuery(
@@ -138,7 +174,6 @@ public class MainActivity extends AppCompatActivity {
         return ativo;
     }
 
-    // Autenticação com senha e salvamento do userId
     private boolean autenticarUsuario(String loginDigitado, String senhaDigitada) {
         var db = dbHelper.getReadableDatabase();
         var cursor = db.rawQuery(
@@ -152,8 +187,8 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
 
-        int userId = cursor.getInt(0); // id na primeira coluna
-        String senhaArmazenada = cursor.getString(1); // senha na segunda coluna
+        int userId = cursor.getInt(0);
+        String senhaArmazenada = cursor.getString(1);
 
         cursor.close();
         db.close();
@@ -161,7 +196,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             boolean senhaValida = verificarSenha(senhaDigitada, senhaArmazenada);
             if (senhaValida) {
-                salvarUserId(userId); // salva o id do usuário
+                salvarUserId(userId);
             }
             return senhaValida;
         } catch (Exception e) {
@@ -170,7 +205,6 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // Verifica hash da senha
     private boolean verificarSenha(String senhaDigitada, String senhaArmazenada) throws Exception {
         String[] partes = senhaArmazenada.split(":");
         if (partes.length != 2) return false;

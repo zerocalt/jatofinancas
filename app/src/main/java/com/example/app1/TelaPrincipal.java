@@ -9,18 +9,19 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
-import com.github.dewinjm.monthyearpicker.MonthFormat;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialog;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.util.Calendar;
-import java.util.Locale;
 
-public class TelaPrincipal extends AppCompatActivity {
+public class TelaPrincipal extends BaseActivity {
     private TextView txtMes;
     private TextView txtAno;
 
@@ -28,6 +29,14 @@ public class TelaPrincipal extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tela_principal);
+        setSystemBarsColor();
+
+        final View root = findViewById(R.id.main);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBarsInsets.left, systemBarsInsets.top, systemBarsInsets.right, systemBarsInsets.bottom);
+            return insets;
+        });
 
         txtMes = findViewById(R.id.txtMes);
         txtAno = findViewById(R.id.txtAno);
@@ -41,36 +50,26 @@ public class TelaPrincipal extends AppCompatActivity {
         txtAno.setText(String.valueOf(agora.get(Calendar.YEAR)));
 
         LinearLayout btnMesAno = findViewById(R.id.btnMesAno);
-        btnMesAno.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showMonthYearPicker();
-            }
-        });
+        btnMesAno.setOnClickListener(v -> showMonthYearPicker());
 
-        //Carrega o Menu de Baixo
         Bundle args = new Bundle();
-        args.putInt("botaoInativo", BottomMenuFragment.PRINCIPAL); // ou PRINCIPAL etc.
+        args.putInt("botaoInativo", BottomMenuFragment.PRINCIPAL);
         BottomMenuFragment fragment = new BottomMenuFragment();
         fragment.setArguments(args);
 
         getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.menu_container, fragment) // menu_container é um FrameLayout na tela
+                .replace(R.id.menu_container, fragment)
                 .commit();
 
-
-        // Botão de Logout (seguro, sem depender de MainActivity.instancia)
         Button btnLogout = findViewById(R.id.btnLogout);
         if (btnLogout != null) {
             btnLogout.setOnClickListener(v -> {
                 try {
-                    // Recria o MasterKey
                     MasterKey masterKey = new MasterKey.Builder(getApplicationContext())
                             .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                             .build();
 
-                    // Usa o mesmo EncryptedSharedPreferences
                     SharedPreferences prefs = EncryptedSharedPreferences.create(
                             getApplicationContext(),
                             "secure_login_prefs",
@@ -79,10 +78,9 @@ public class TelaPrincipal extends AppCompatActivity {
                             EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
                     );
 
-                    // Remove o login
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.remove("saved_email");
-                    editor.commit(); // ou apply()
+                    editor.commit();
 
                     Toast.makeText(this, "Sessão encerrada", Toast.LENGTH_SHORT).show();
 
@@ -110,16 +108,13 @@ public class TelaPrincipal extends AppCompatActivity {
         MonthYearPickerDialogFragment dialogFragment = MonthYearPickerDialogFragment
                 .getInstance(monthSelected, yearSelected);
 
-        dialogFragment.setOnDateSetListener(new MonthYearPickerDialog.OnDateSetListener() {
-            @Override
-            public void onDateSet(int year, int monthOfYear) {
-                String[] nomesMes = {
-                        "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-                        "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
-                };
-                txtMes.setText(nomesMes[monthOfYear]);
-                txtAno.setText(String.valueOf(year));
-            }
+        dialogFragment.setOnDateSetListener((year, monthOfYear) -> {
+            String[] nomesMes = {
+                    "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                    "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"
+            };
+            txtMes.setText(nomesMes[monthOfYear]);
+            txtAno.setText(String.valueOf(year));
         });
 
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");

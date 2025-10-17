@@ -8,7 +8,7 @@ import androidx.annotation.Nullable;
 
 public class MeuDbHelper extends SQLiteOpenHelper {
     private static final String DB_NAME = "bdJatoFinancas.db";
-    private static final int DB_VERSION = 1;
+    private static final int DB_VERSION = 2;
 
     public MeuDbHelper(Context context) {
         super(context, DB_NAME, null, DB_VERSION);
@@ -101,6 +101,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                 "CREATE TABLE IF NOT EXISTS cartoes (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID do cartão
                         "id_usuario INTEGER NOT NULL, " +                             // Dono do cartão
+                        "id_conta INTEGER NOT NULL, " +                               // Conta associada ao cartão
                         "nome TEXT NOT NULL, " +                                      // Nome do cartão (ex: Meu Visa)
                         "limite REAL NOT NULL, " +                                    // Limite total do cartão
                         "data_vencimento_fatura INTEGER NOT NULL, " +                 // Dia do vencimento (ex: 10)
@@ -109,7 +110,8 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "bandeira TEXT, " +                                           // Bandeira: Visa, Mastercard, etc.
                         "ativo INTEGER DEFAULT 1, " +                                 // 1=ativo, 0=inativo
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de cadastro
-                        "FOREIGN KEY (id_usuario) REFERENCES usuarios(id)" +
+                        "FOREIGN KEY (id_usuario) REFERENCES usuarios(id)," +
+                        "FOREIGN KEY (id_conta) REFERENCES contas(id)" +
                         ")"
         );
 
