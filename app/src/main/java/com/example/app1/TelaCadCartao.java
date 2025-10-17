@@ -10,7 +10,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -38,7 +37,8 @@ import com.skydoves.colorpickerview.ColorEnvelope;
 import com.skydoves.colorpickerview.ColorPickerDialog;
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TelaCadCartao extends AppCompatActivity {
 
@@ -56,6 +56,9 @@ public class TelaCadCartao extends AppCompatActivity {
     private static final String KEY_USER_ID = "saved_user_id";
 
     private TextInputLayout tilNomeCartao;
+    private TextInputLayout tilNomeConta;
+
+    private MenuCadContaFragment menuCadContaFragment;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,6 +73,23 @@ public class TelaCadCartao extends AppCompatActivity {
         slidingMenu = findViewById(R.id.slidingMenu);
 
         tilNomeCartao = findViewById(R.id.textInputNomeCartao);
+        tilNomeConta = findViewById(R.id.menuConta);
+
+        TextInputLayout outNomeCartao = findViewById(R.id.textInputNomeCartao);
+        TextInputEditText VERnomeCartao = findViewById(R.id.inputNomeCartao);
+
+        //verifica se os campos estão com erro, quando começar a digitar sai o erro do campo
+        VERnomeCartao.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                outNomeCartao.setError(null);
+                outNomeCartao.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
 
         // Ajuste para edge-to-edge
         ViewCompat.setOnApplyWindowInsetsListener(mainLayout, (v, insets) -> {
@@ -126,6 +146,34 @@ public class TelaCadCartao extends AppCompatActivity {
         ArrayAdapter<String> arrayAdapter = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, bandeiras);
         autoCompleteBandeira.setAdapter(arrayAdapter);
 
+        // Popula menu conta com placeholder e contas do usuário
+        MaterialAutoCompleteTextView autoCompleteConta = findViewById(R.id.autoCompleteConta);
+        List<String> contas = new ArrayList<>();
+        contas.add("Escolha uma Conta");
+        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
+        if (idUsuarioLogado != -1) {
+            MeuDbHelper dbHelper = new MeuDbHelper(this);
+            try (SQLiteDatabase dbRead = dbHelper.getReadableDatabase();
+                 Cursor cursorConta = dbRead.rawQuery("SELECT nome FROM contas WHERE id_usuario = ?", new String[]{String.valueOf(idUsuarioLogado)})) {
+                while (cursorConta.moveToNext()) {
+                    contas.add(cursorConta.getString(cursorConta.getColumnIndexOrThrow("nome")));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        ArrayAdapter<String> adapterConta = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(adapterConta);
+        autoCompleteConta.setText(contas.get(0), false); // mostra placeholder
+
+        //Fragment AddConta
+        menuCadContaFragment = MenuCadContaFragment.newInstance(idUsuarioLogado);
+        getSupportFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainerConta, menuCadContaFragment)
+                .commit();
+        View btnAddConta = findViewById(R.id.btnAddConta);
+        btnAddConta.setOnClickListener(v -> abrirMenuConta());
+
         // Abrir palheta para cor escolha
         TextInputEditText inputCor = findViewById(R.id.inputCor);
         inputCor.setOnClickListener(v -> {
@@ -137,10 +185,7 @@ public class TelaCadCartao extends AppCompatActivity {
                         public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
                             String hexColor = "#" + envelope.getHexCode();
                             inputCor.setText(hexColor);
-                            inputCor.setBackgroundColor(envelope.getColor());
-
-                            int corTexto = (envelope.getColor() == Color.BLACK) ? Color.WHITE : Color.BLACK;
-                            inputCor.setTextColor(corTexto);
+                            inputCor.setTextColor(envelope.getColor());
                         }
                     })
                     .setNegativeButton("Cancelar", (dialogInterface, i) -> dialogInterface.dismiss())
@@ -149,8 +194,6 @@ public class TelaCadCartao extends AppCompatActivity {
                     .show();
         });
 
-        // Recupera id usuário logado e configura interface e listener salvar caso valido
-        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
         if (idUsuarioLogado == -1) {
             semCartao.setVisibility(View.VISIBLE);
             listaCartoes.setVisibility(View.GONE);
@@ -172,8 +215,9 @@ public class TelaCadCartao extends AppCompatActivity {
                 String diaVencimentoStr = ((TextInputEditText) findViewById(R.id.inputDiaVencimento)).getText().toString().trim();
                 String diaFechamentoStr = ((TextInputEditText) findViewById(R.id.inputDiaFechamento)).getText().toString().trim();
 
-                String corHex = ((TextInputEditText) findViewById(R.id.inputCor)).getText().toString().trim();
                 String bandeiraSelecionada = ((MaterialAutoCompleteTextView) findViewById(R.id.autoCompleteBandeira)).getText().toString().trim();
+                String corHex = ((TextInputEditText) findViewById(R.id.inputCor)).getText().toString().trim();
+                String contaSelecionada = autoCompleteConta.getText().toString().trim();
 
                 // Validação obrigatória do nome do cartão
                 if (nomeCartao.isEmpty()) {
@@ -182,6 +226,33 @@ public class TelaCadCartao extends AppCompatActivity {
                     return;
                 } else {
                     tilNomeCartao.setError(null);
+                }
+
+                // Validação obrigatória da conta
+                if (contaSelecionada.isEmpty() || contaSelecionada.equals("Escolha uma Conta")) {
+                    tilNomeConta.setError("Informe a conta do cartão");
+                    Snackbar.make(v, "Por favor, selecione uma conta válida", Snackbar.LENGTH_LONG).show();
+                    return;
+                } else {
+                    tilNomeConta.setError(null);
+                }
+
+                // Recuperar id da conta selecionada
+                int idContaSelecionada = -1;
+                try (SQLiteDatabase dbRead = new MeuDbHelper(this).getReadableDatabase();
+                     Cursor cursorConta = dbRead.rawQuery(
+                             "SELECT id FROM contas WHERE id_usuario = ? AND nome = ?",
+                             new String[]{String.valueOf(idUsuarioLogado), contaSelecionada})) {
+                    if (cursorConta.moveToFirst()) {
+                        idContaSelecionada = cursorConta.getInt(cursorConta.getColumnIndexOrThrow("id"));
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+
+                if (idContaSelecionada == -1) {
+                    Snackbar.make(v, "Conta selecionada inválida", Snackbar.LENGTH_LONG).show();
+                    return;
                 }
 
                 double limite = 0;
@@ -214,8 +285,7 @@ public class TelaCadCartao extends AppCompatActivity {
                 int radioCheckedId = ((android.widget.RadioGroup) findViewById(R.id.radioGroupAtivo)).getCheckedRadioButtonId();
                 if (radioCheckedId == R.id.radioAtivo) ativo = 1;
 
-                try {
-                    db = dbHelper.getWritableDatabase();
+                try (SQLiteDatabase dbWrite = new MeuDbHelper(this).getWritableDatabase()) {
                     ContentValues valores = new ContentValues();
                     valores.put("nome", nomeCartao);
                     valores.put("limite", limite);
@@ -225,8 +295,10 @@ public class TelaCadCartao extends AppCompatActivity {
                     valores.put("bandeira", bandeiraSelecionada);
                     valores.put("ativo", ativo);
                     valores.put("id_usuario", idUsuarioLogado);
+                    valores.put("id_conta", idContaSelecionada);
 
-                    long resultado = db.insert("cartoes", null, valores);
+                    long resultado = dbWrite.insert("cartoes", null, valores);
+
                     if (resultado != -1) {
                         Snackbar.make(v, "Cartão salvo com sucesso!", Snackbar.LENGTH_LONG).show();
 
@@ -241,17 +313,26 @@ public class TelaCadCartao extends AppCompatActivity {
                                 }).start();
 
                         limparCampos();
-
                     } else {
                         Snackbar.make(v, "Erro ao salvar cartão.", Snackbar.LENGTH_LONG).show();
                     }
-                    db.close();
                 } catch (Exception e) {
                     e.printStackTrace();
                     Snackbar.make(v, "Erro ao salvar cartão.", Snackbar.LENGTH_LONG).show();
                 }
             });
         }
+    }
+
+    //abre e fecha o menuAddConta
+    private void abrirMenuConta() {
+        findViewById(R.id.fragmentContainerConta).setVisibility(View.VISIBLE);
+        menuCadContaFragment.abrirMenu();
+    }
+
+    private void fecharMenuConta() {
+        menuCadContaFragment.fecharMenu();
+        findViewById(R.id.fragmentContainerConta).setVisibility(View.GONE);
     }
 
     private void limparCampos() {
@@ -261,6 +342,7 @@ public class TelaCadCartao extends AppCompatActivity {
         ((TextInputEditText) findViewById(R.id.inputDiaFechamento)).setText("");
         ((TextInputEditText) findViewById(R.id.inputCor)).setText("");
         ((MaterialAutoCompleteTextView) findViewById(R.id.autoCompleteBandeira)).setText("");
+        ((MaterialAutoCompleteTextView) findViewById(R.id.autoCompleteConta)).setText("Escolha uma Conta", false);
         ((android.widget.RadioGroup) findViewById(R.id.radioGroupAtivo)).check(R.id.radioAtivo);
     }
 
@@ -287,7 +369,6 @@ public class TelaCadCartao extends AppCompatActivity {
                 ImageView icTipoCartao = item.findViewById(R.id.icTipoCartao);
                 txtNomeCartao.setText(nomeCartao);
 
-                // Muda o icone conforme a bandeira
                 if (bandeira != null) {
                     switch (bandeira.toLowerCase()) {
                         case "visa":

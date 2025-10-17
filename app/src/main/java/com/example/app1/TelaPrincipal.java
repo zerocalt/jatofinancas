@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
@@ -21,7 +22,7 @@ import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.util.Calendar;
 
-public class TelaPrincipal extends BaseActivity {
+public class TelaPrincipal extends AppCompatActivity {
     private TextView txtMes;
     private TextView txtAno;
 
@@ -29,7 +30,6 @@ public class TelaPrincipal extends BaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tela_principal);
-        setSystemBarsColor();
 
         final View root = findViewById(R.id.main);
         ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
