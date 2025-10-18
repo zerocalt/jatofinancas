@@ -1,36 +1,137 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:orientation="horizontal"
+    android:orientation="vertical"
     android:background="@drawable/background_lista_cartoes"
-    android:padding="10dp"
-    android:layout_margin="5dp"
-    android:elevation="4dp">
+    android:padding="18dp"
+    android:layout_margin="12dp"
+    android:elevation="4dp"
+    android:gravity="center_vertical">
 
-    <ImageView
-        android:id="@+id/icTipoCartao"
-        android:layout_width="20dp"
-        android:layout_height="20dp"
-        android:src="@drawable/ic_credit_card"
-        app:tint="@color/white"
-        android:layout_marginEnd="10dp" />
-
-    <TextView
-        android:id="@+id/NomeCartao"
-        android:layout_width="0dp"
+    <!-- Linha de título do cartão -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
-        android:textColor="#fff"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:ellipsize="end"
-        android:singleLine="true" />
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
 
-    <ImageView
-        android:id="@+id/icMenuCartao"
-        android:layout_width="18dp"
-        android:layout_height="20dp"
-        android:src="@drawable/ic_more_vert" />
+        <ImageView
+            android:id="@+id/icTipoCartao"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@drawable/ic_credit_card"
+            app:tint="@color/white"
+            android:layout_marginEnd="12dp" />
+
+        <TextView
+            android:id="@+id/NomeCartao"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#fff"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            android:ellipsize="end"
+            android:singleLine="true" />
+
+        <ImageView
+            android:id="@+id/icMenuCartao"
+            android:layout_width="24dp"
+            android:layout_height="14dp"
+            android:src="@drawable/ic_more_vert"
+            android:tint="#CED1D6" />
+    </LinearLayout>
+
+    <!-- Limite, vencimento, fechamento -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"> <!-- alinhamento vertical no centro -->
+
+        <TextView
+            android:id="@+id/txtValorParcial1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fatura Parcial: "
+            android:textColor="#FFFFFF"
+            android:textSize="15sp"
+            />
+
+        <TextView
+            android:id="@+id/txtValorParcial"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="R$ 0,00"
+            android:textColor="#ff726c"
+            android:textSize="20sp"
+            android:layout_marginEnd="12dp"
+            android:textStyle="bold"/>
+
+        <!-- Espaço flexível para empurrar venc/fech para a direita -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/txtDiaVencimento"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Venc: 10"
+            android:textColor="#CED1D6"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/txtDiaFechamento"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="  |  Fech: 02"
+            android:textColor="#CED1D6"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+
+    <!-- Barra de uso do limite -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginTop="14dp">
+
+        <TextView
+            android:id="@+id/txtLimite"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="R$ 0,00"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:layout_marginEnd="10dp"/>
+
+        <ProgressBar
+            android:id="@+id/barraLimite"
+            style="@android:style/Widget.ProgressBar.Horizontal"
+            android:layout_width="0dp"
+            android:layout_height="16dp"
+            android:layout_weight="1"
+            android:progress="25"
+            android:max="100"
+            />
+
+        <TextView
+            android:id="@+id/txtPorcentagem"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0,00%"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginStart="10dp" />
+    </LinearLayout>
 </LinearLayout>

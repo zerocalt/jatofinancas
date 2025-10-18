@@ -13,6 +13,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -37,8 +38,10 @@ import com.skydoves.colorpickerview.ColorEnvelope;
 import com.skydoves.colorpickerview.ColorPickerDialog;
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener;
 
+import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class TelaCadCartao extends AppCompatActivity {
 
@@ -391,7 +394,8 @@ public class TelaCadCartao extends AppCompatActivity {
 
     private void mostrarCartoesDoUsuario(int idUsuario) {
         Cursor cursor = db.rawQuery(
-                "SELECT nome, bandeira FROM cartoes WHERE id_usuario = ? AND ativo = 1",
+                "SELECT nome, bandeira, limite, data_vencimento_fatura, data_fechamento_fatura " +
+                        "FROM cartoes WHERE id_usuario = ? AND ativo = 1",
                 new String[]{String.valueOf(idUsuario)}
         );
 
@@ -407,10 +411,37 @@ public class TelaCadCartao extends AppCompatActivity {
             while (cursor.moveToNext()) {
                 String nomeCartao = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
                 String bandeira = cursor.getString(cursor.getColumnIndexOrThrow("bandeira"));
+                double limite = cursor.getDouble(cursor.getColumnIndexOrThrow("limite"));
+                int diaVenc = cursor.getInt(cursor.getColumnIndexOrThrow("data_vencimento_fatura"));
+                int diaFech = cursor.getInt(cursor.getColumnIndexOrThrow("data_fechamento_fatura"));
+
+                double valorParcial = 0.0; // sempre zero por enquanto
+
                 LinearLayout item = (LinearLayout) inflater.inflate(R.layout.item_cartao, listaCartoes, false);
+
                 TextView txtNomeCartao = item.findViewById(R.id.NomeCartao);
                 ImageView icTipoCartao = item.findViewById(R.id.icTipoCartao);
+                TextView txtLimite = item.findViewById(R.id.txtLimite);
+                TextView txtDiaVencimento = item.findViewById(R.id.txtDiaVencimento);
+                TextView txtDiaFechamento = item.findViewById(R.id.txtDiaFechamento);
+                TextView txtValorParcial = item.findViewById(R.id.txtValorParcial);
+                TextView txtPorcentagem = item.findViewById(R.id.txtPorcentagem);
+                ProgressBar barraLimite = item.findViewById(R.id.barraLimite);
+
+                NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
+
                 txtNomeCartao.setText(nomeCartao);
+                txtLimite.setText(formatoBR.format(limite));
+                //txtLimite.setText("Limite: R$ " + String.format("%.2f", limite));
+                txtDiaVencimento.setText("Venc.: " + diaVenc);
+                txtDiaFechamento.setText("  |  Fech.: " + diaFech);
+                //txtValorParcial.setText("R$" + String.format("%.2f", valorParcial));
+                txtValorParcial.setText(formatoBR.format(valorParcial));
+
+                double porcentagem = (limite > 0) ? (valorParcial / limite) * 100.0 : 0.0;
+                txtPorcentagem.setText(String.format("%.2f", porcentagem) + "%");
+                barraLimite.setMax(100);
+                barraLimite.setProgress((int) porcentagem);
 
                 if (bandeira != null) {
                     switch (bandeira.toLowerCase()) {
@@ -435,4 +466,5 @@ public class TelaCadCartao extends AppCompatActivity {
         }
         cursor.close();
     }
+
 }
