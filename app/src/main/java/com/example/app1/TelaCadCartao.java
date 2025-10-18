@@ -148,29 +148,19 @@ public class TelaCadCartao extends AppCompatActivity {
 
         // Popula menu conta com placeholder e contas do usuário
         MaterialAutoCompleteTextView autoCompleteConta = findViewById(R.id.autoCompleteConta);
-        List<String> contas = new ArrayList<>();
-        contas.add("Escolha uma Conta");
-        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
-        if (idUsuarioLogado != -1) {
-            MeuDbHelper dbHelper = new MeuDbHelper(this);
-            try (SQLiteDatabase dbRead = dbHelper.getReadableDatabase();
-                 Cursor cursorConta = dbRead.rawQuery("SELECT nome FROM contas WHERE id_usuario = ?", new String[]{String.valueOf(idUsuarioLogado)})) {
-                while (cursorConta.moveToNext()) {
-                    contas.add(cursorConta.getString(cursorConta.getColumnIndexOrThrow("nome")));
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-        ArrayAdapter<String> adapterConta = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, contas);
-        autoCompleteConta.setAdapter(adapterConta);
-        autoCompleteConta.setText(contas.get(0), false); // mostra placeholder
+        carregarListaContas(null);
 
         //Fragment AddConta
+        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
         menuCadContaFragment = MenuCadContaFragment.newInstance(idUsuarioLogado);
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragmentContainerConta, menuCadContaFragment)
                 .commit();
+
+        menuCadContaFragment.setOnContaSalvaListener(nomeConta -> {
+            carregarListaContas(nomeConta); // atualiza e seleciona nova conta
+        });
+
         View btnAddConta = findViewById(R.id.btnAddConta);
         btnAddConta.setOnClickListener(v -> abrirMenuConta());
 
@@ -324,6 +314,33 @@ public class TelaCadCartao extends AppCompatActivity {
         }
     }
 
+    private void carregarListaContas(String nomeContaSelecionada) {
+        List<String> contas = new ArrayList<>();
+        contas.add("Escolha uma Conta");
+        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
+        if (idUsuarioLogado != -1) {
+            MeuDbHelper dbHelper = new MeuDbHelper(this);
+            try (SQLiteDatabase dbRead = dbHelper.getReadableDatabase();
+                 Cursor cursorConta = dbRead.rawQuery("SELECT nome FROM contas WHERE id_usuario = ?", new String[]{String.valueOf(idUsuarioLogado)})) {
+                while (cursorConta.moveToNext()) {
+                    contas.add(cursorConta.getString(cursorConta.getColumnIndexOrThrow("nome")));
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        MaterialAutoCompleteTextView autoCompleteConta = findViewById(R.id.autoCompleteConta);
+        ArrayAdapter<String> adapterConta = new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(adapterConta);
+
+        if (nomeContaSelecionada != null && contas.contains(nomeContaSelecionada)) {
+            autoCompleteConta.setText(nomeContaSelecionada, false);
+        } else {
+            autoCompleteConta.setText(contas.get(0), false);
+        }
+    }
+
     //abre e fecha o menuAddConta
     private void abrirMenuConta() {
         findViewById(R.id.fragmentContainerConta).setVisibility(View.VISIBLE);
@@ -334,6 +351,32 @@ public class TelaCadCartao extends AppCompatActivity {
         menuCadContaFragment.fecharMenu();
         findViewById(R.id.fragmentContainerConta).setVisibility(View.GONE);
     }
+
+    //fecha apenas os menus e não a tela
+    @Override
+    public void onBackPressed() {
+        // Fecha primeiro o menu Adicionar Conta, se estiver aberto e visível
+        View containerConta = findViewById(R.id.fragmentContainerConta);
+        if (containerConta != null && containerConta.getVisibility() == View.VISIBLE) {
+            fecharMenuConta();
+            return;
+        }
+        // Fecha o menu Adicionar Cartão de Crédito se estiver aberto e visível
+        if (slidingMenu.getVisibility() == View.VISIBLE) {
+            slidingMenu.animate().translationY(slidingMenu.getHeight())
+                    .setDuration(300)
+                    .withEndAction(() -> {
+                        slidingMenu.setVisibility(View.GONE);
+                        overlay.setVisibility(View.GONE);
+                        fabAddCartao.setVisibility(View.VISIBLE);
+                    }).start();
+            return;
+        }
+
+        // Se nenhum menu estiver aberto, chama comportamento padrão
+        super.onBackPressed();
+    }
+
 
     private void limparCampos() {
         ((TextInputEditText) findViewById(R.id.inputNomeCartao)).setText("");

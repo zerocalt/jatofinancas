@@ -2,7 +2,6 @@ package com.example.app1;
 
 import android.content.ContentValues;
 import android.database.sqlite.SQLiteDatabase;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -11,11 +10,13 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.RadioGroup;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.app1.utils.MascaraMonetaria;
+import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -38,6 +39,19 @@ public class MenuCadContaFragment extends Fragment {
 
     private int idUsuarioLogado = -1;
 
+    private OnBackPressedCallback backCallback;
+
+    // Interface para callback quando uma conta for salva
+    public interface OnContaSalvaListener {
+        void onContaSalva(String nomeConta);
+    }
+
+    private OnContaSalvaListener listener;
+
+    public void setOnContaSalvaListener(OnContaSalvaListener listener) {
+        this.listener = listener;
+    }
+
     public static MenuCadContaFragment newInstance(int idUsuario) {
         MenuCadContaFragment fragment = new MenuCadContaFragment();
         Bundle args = new Bundle();
@@ -52,6 +66,19 @@ public class MenuCadContaFragment extends Fragment {
         if (getArguments() != null) {
             idUsuarioLogado = getArguments().getInt("id_usuario", -1);
         }
+
+        backCallback = new OnBackPressedCallback(false) {
+            @Override
+            public void handleOnBackPressed() {
+                fecharMenu();
+                if (getActivity() != null) {
+                    View container = getActivity().findViewById(R.id.fragmentContainerConta);
+                    if (container != null) container.setVisibility(View.GONE);
+                }
+                setEnabled(false);
+            }
+        };
+        requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
     }
 
     @Nullable
@@ -73,15 +100,24 @@ public class MenuCadContaFragment extends Fragment {
 
         dbHelper = new MeuDbHelper(requireContext());
 
-        // Popula spinner tipo conta
+        inputNomeConta.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tilNomeConta.setError(null);
+                tilNomeConta.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
         String[] tiposConta = {"Corrente", "Poupança", "Investimento", "Outros"};
         ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, tiposConta);
         autoCompleteTipoConta.setAdapter(adapter);
 
-        // Mascarar campo saldo
         inputSaldoConta.addTextChangedListener(new MascaraMonetaria(inputSaldoConta));
 
-        // Abrir palheta para cor escolha
         inputCorConta.setOnClickListener(v -> {
             new ColorPickerDialog.Builder(requireContext())
                     .setTitle("Escolha uma cor")
@@ -90,10 +126,7 @@ public class MenuCadContaFragment extends Fragment {
                         public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
                             String hex = "#" + envelope.getHexCode();
                             inputCorConta.setText(hex);
-                            inputCorConta.setBackgroundColor(envelope.getColor());
-
-                            int corTexto = (envelope.getColor() == Color.BLACK) ? Color.WHITE : Color.BLACK;
-                            inputCorConta.setTextColor(corTexto);
+                            inputCorConta.setTextColor(envelope.getColor());
                         }
                     })
                     .setNegativeButton("Cancelar", (dialogInterface, i) -> dialogInterface.dismiss())
@@ -102,10 +135,7 @@ public class MenuCadContaFragment extends Fragment {
                     .show();
         });
 
-        // Fechar menu ao clicar no overlay
         overlayConta.setOnClickListener(v -> fecharMenu());
-
-        // Botão salvar
         btnSalvarConta.setOnClickListener(v -> salvarConta());
 
         return root;
@@ -118,6 +148,7 @@ public class MenuCadContaFragment extends Fragment {
             slidingMenuConta.setTranslationY(slidingMenuConta.getHeight());
             slidingMenuConta.animate().translationY(0).setDuration(300).start();
         });
+        backCallback.setEnabled(true);
     }
 
     public void fecharMenu() {
@@ -125,12 +156,14 @@ public class MenuCadContaFragment extends Fragment {
                 .withEndAction(() -> {
                     slidingMenuConta.setVisibility(View.GONE);
                     overlayConta.setVisibility(View.GONE);
+                    backCallback.setEnabled(false);
                 }).start();
     }
 
     private void salvarConta() {
         String nome = inputNomeConta.getText().toString().trim();
         String saldoStr = inputSaldoConta.getText().toString().trim();
+        saldoStr = saldoStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
         String cor = inputCorConta.getText().toString().trim();
         String tipoStr = autoCompleteTipoConta.getText().toString().trim();
 
@@ -147,7 +180,7 @@ public class MenuCadContaFragment extends Fragment {
                 saldo = Double.parseDouble(saldoStr.replace(",", "."));
             }
         } catch (NumberFormatException e) {
-            // Tratar erro se necessário
+            Snackbar.make(requireView(), "Saldo inválido. Use apenas números.", Snackbar.LENGTH_LONG).show();
             return;
         }
 
@@ -187,9 +220,11 @@ public class MenuCadContaFragment extends Fragment {
         if (res != -1) {
             fecharMenu();
             limparCampos();
-            // Opcional: notificar atividade pai para atualizar lista de contas
+            if (listener != null) {
+                listener.onContaSalva(nome);
+            }
         } else {
-            // Tratar erro aqui, exibir snackbar etc
+            Snackbar.make(requireView(), "Erro ao salvar conta.", Snackbar.LENGTH_LONG).show();
         }
     }
 
