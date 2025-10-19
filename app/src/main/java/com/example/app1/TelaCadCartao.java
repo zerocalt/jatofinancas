@@ -2,10 +2,13 @@ package com.example.app1;
 
 import static androidx.core.content.ContentProviderCompat.requireContext;
 
+import android.app.Activity;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -62,6 +65,7 @@ public class TelaCadCartao extends AppCompatActivity {
     private TextInputLayout tilNomeConta;
 
     private MenuCadContaFragment menuCadContaFragment;
+    private int idUsuarioLogado = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -166,26 +170,6 @@ public class TelaCadCartao extends AppCompatActivity {
 
         View btnAddConta = findViewById(R.id.btnAddConta);
         btnAddConta.setOnClickListener(v -> abrirMenuConta());
-
-        // Abrir palheta para cor escolha
-        TextInputEditText inputCor = findViewById(R.id.inputCor);
-        inputCor.setOnClickListener(v -> {
-            new ColorPickerDialog.Builder(this)
-                    .setTitle("Escolha uma cor")
-                    .setPreferenceName("ColorPickerDialog")
-                    .setPositiveButton("Confirmar", new ColorEnvelopeListener() {
-                        @Override
-                        public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
-                            String hexColor = "#" + envelope.getHexCode();
-                            inputCor.setText(hexColor);
-                            inputCor.setTextColor(envelope.getColor());
-                        }
-                    })
-                    .setNegativeButton("Cancelar", (dialogInterface, i) -> dialogInterface.dismiss())
-                    .attachAlphaSlideBar(true)
-                    .attachBrightnessSlideBar(true)
-                    .show();
-        });
 
         if (idUsuarioLogado == -1) {
             semCartao.setVisibility(View.VISIBLE);
@@ -394,7 +378,7 @@ public class TelaCadCartao extends AppCompatActivity {
 
     private void mostrarCartoesDoUsuario(int idUsuario) {
         Cursor cursor = db.rawQuery(
-                "SELECT nome, bandeira, limite, data_vencimento_fatura, data_fechamento_fatura " +
+                "SELECT id, nome, bandeira, limite, data_vencimento_fatura, data_fechamento_fatura, cor " +
                         "FROM cartoes WHERE id_usuario = ? AND ativo = 1",
                 new String[]{String.valueOf(idUsuario)}
         );
@@ -409,6 +393,7 @@ public class TelaCadCartao extends AppCompatActivity {
             LayoutInflater inflater = getLayoutInflater();
 
             while (cursor.moveToNext()) {
+                int idCartao = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
                 String nomeCartao = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
                 String bandeira = cursor.getString(cursor.getColumnIndexOrThrow("bandeira"));
                 double limite = cursor.getDouble(cursor.getColumnIndexOrThrow("limite"));
@@ -427,15 +412,14 @@ public class TelaCadCartao extends AppCompatActivity {
                 TextView txtValorParcial = item.findViewById(R.id.txtValorParcial);
                 TextView txtPorcentagem = item.findViewById(R.id.txtPorcentagem);
                 ProgressBar barraLimite = item.findViewById(R.id.barraLimite);
+                Button btnAdicionarDespesa = item.findViewById(R.id.btnAdicionarDespesa);
 
                 NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
 
                 txtNomeCartao.setText(nomeCartao);
                 txtLimite.setText(formatoBR.format(limite));
-                //txtLimite.setText("Limite: R$ " + String.format("%.2f", limite));
-                txtDiaVencimento.setText("Venc.: " + diaVenc);
-                txtDiaFechamento.setText("  |  Fech.: " + diaFech);
-                //txtValorParcial.setText("R$" + String.format("%.2f", valorParcial));
+                txtDiaVencimento.setText("Venc: " + diaVenc);
+                txtDiaFechamento.setText(" | Fech: " + diaFech);
                 txtValorParcial.setText(formatoBR.format(valorParcial));
 
                 double porcentagem = (limite > 0) ? (valorParcial / limite) * 100.0 : 0.0;
@@ -459,6 +443,36 @@ public class TelaCadCartao extends AppCompatActivity {
                     icTipoCartao.setImageResource(R.drawable.ic_credit_card);
                 }
 
+                //cor do cartao
+                String corHex = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
+
+// Pega o fundo original (que é seu drawable arredondado)
+                Drawable fundoOriginal = item.getBackground();
+                if (fundoOriginal instanceof GradientDrawable) {
+                    GradientDrawable fundo = (GradientDrawable) fundoOriginal.mutate();
+                    try {
+                        // Aplica a cor no shape mantendo as bordas arredondadas
+                        fundo.setColor(Color.parseColor(corHex));
+                    } catch (IllegalArgumentException e) {
+                        fundo.setColor(Color.parseColor("#2F2F2F")); // cor padrão
+                    }
+                } else {
+                    // fallback caso o fundo não seja um GradientDrawable
+                    try {
+                        item.setBackgroundColor(Color.parseColor(corHex));
+                    } catch (IllegalArgumentException e) {
+                        item.setBackgroundColor(Color.parseColor("#2F2F2F"));
+                    }
+                }
+
+                btnAdicionarDespesa.setOnClickListener(v -> {
+                    // Cria e abre o fragmento de adicionar despesa, passando idUsuario e idCartao
+                    MenuCadDespesaCartaoFragment despesaFragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
+                    getSupportFragmentManager().beginTransaction()
+                            .replace(R.id.fragmentContainerDespesa, despesaFragment)
+                            .commit();
+                });
+
                 listaCartoes.addView(item);
             }
 
@@ -466,5 +480,4 @@ public class TelaCadCartao extends AppCompatActivity {
         }
         cursor.close();
     }
-
 }

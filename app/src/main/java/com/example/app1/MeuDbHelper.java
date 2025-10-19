@@ -44,7 +44,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS categorias (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da categoria
-                        "id_usuario INTEGER NOT NULL, " +                             // Dono da categoria
+                        "id_usuario INTEGER, " +                             // Dono da categoria
                         "nome TEXT NOT NULL, " +                                      // Nome (ex: Transporte)
                         "cor TEXT, " +                                                // Cor de identificação visual
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de criação
@@ -169,6 +169,25 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id), " +
                         "FOREIGN KEY (id_fatura) REFERENCES faturas(id)" +
                         ")"
+        );
+
+        //populando a tabela categorias
+        db.execSQL(
+                "INSERT INTO categorias (id_usuario, nome, cor) VALUES" +
+                "(NULL, 'Alimentação', '#E15759')," +
+                "(NULL, 'Cuidados pessoais', '#FF9DA7')," +
+                "(NULL, 'Educação', '#76B7B2')," +
+                "(NULL, 'Impostos e taxas', '#BCBD22')," +
+                "(NULL, 'Investimentos', '#17BECF')," +
+                "(NULL, 'Lazer', '#EDC948')," +
+                "(NULL, 'Moradia', '#4E79A7')," +
+                "(NULL, 'Outros', '#7F7F7F')," +
+                "(NULL, 'Presentes/Doações', '#A0CBE8')," +
+                "(NULL, 'Saúde', '#59A14F')," +
+                "(NULL, 'Seguros', '#9C755F')," +
+                "(NULL, 'Serviços e assinaturas', '#8C564B')," +
+                "(NULL, 'Transporte', '#F28E2B')," +
+                "(NULL, 'Vestuário', '#B07AA1');"
         );
     }
 

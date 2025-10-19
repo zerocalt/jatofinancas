@@ -59,7 +59,7 @@
             android:layout_height="wrap_content"
             android:text="Fatura Parcial: "
             android:textColor="#FFFFFF"
-            android:textSize="15sp"
+            android:textSize="13sp"
             />
 
         <TextView
@@ -84,7 +84,7 @@
             android:layout_height="wrap_content"
             android:text="Venc: 10"
             android:textColor="#CED1D6"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/txtDiaFechamento"
@@ -92,7 +92,7 @@
             android:layout_height="wrap_content"
             android:text="  |  Fech: 02"
             android:textColor="#CED1D6"
-            android:textSize="14sp" />
+            android:textSize="13sp" />
 
     </LinearLayout>
 
@@ -134,4 +134,34 @@
             android:textSize="16sp"
             android:layout_marginStart="10dp" />
     </LinearLayout>
+
+    <!-- Botões finais -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:layout_marginTop="14dp"
+        android:layout_marginBottom="4dp">
+
+        <Button
+            android:id="@+id/btnFatura"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Fatura"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false"
+            android:layout_marginEnd="10dp"
+            android:paddingHorizontal="14dp"/>
+
+        <Button
+            android:id="@+id/btnAdicionarDespesa"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:text="Adicionar Despesa"
+            android:textColor="#FFFFFF"
+            android:textAllCaps="false"
+            android:paddingHorizontal="14dp"/>
+    </LinearLayout>
+
 </LinearLayout>
