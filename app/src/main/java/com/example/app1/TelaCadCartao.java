@@ -63,6 +63,7 @@ public class TelaCadCartao extends AppCompatActivity {
 
     private TextInputLayout tilNomeCartao;
     private TextInputLayout tilNomeConta;
+    private TextInputEditText inputCor;
 
     private MenuCadContaFragment menuCadContaFragment;
     private int idUsuarioLogado = -1;
@@ -78,6 +79,7 @@ public class TelaCadCartao extends AppCompatActivity {
         fabAddCartao = findViewById(R.id.addcartao);
         overlay = findViewById(R.id.overlay);
         slidingMenu = findViewById(R.id.slidingMenu);
+        inputCor = findViewById(R.id.inputCor);
 
         tilNomeCartao = findViewById(R.id.textInputNomeCartao);
         tilNomeConta = findViewById(R.id.menuConta);
@@ -143,6 +145,24 @@ public class TelaCadCartao extends AppCompatActivity {
                     }).start();
         });
 
+        //abre o menu de cor
+        inputCor.setOnClickListener(v -> {
+            new ColorPickerDialog.Builder(this)
+                    .setTitle("Escolha uma cor")
+                    .setPositiveButton("Confirmar", new ColorEnvelopeListener() {
+                        @Override
+                        public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
+                            String hex = "#" + envelope.getHexCode();
+                            inputCor.setText(hex);
+                            inputCor.setTextColor(envelope.getColor());
+                        }
+                    })
+                    .setNegativeButton("Cancelar", (dialogInterface, i) -> dialogInterface.dismiss())
+                    .attachAlphaSlideBar(true)
+                    .attachBrightnessSlideBar(true)
+                    .show();
+        });
+
         // Colocar máscara monetária
         TextInputEditText inputLimite = findViewById(R.id.inputLimite);
         inputLimite.addTextChangedListener(new MascaraMonetaria(inputLimite));
@@ -158,7 +178,7 @@ public class TelaCadCartao extends AppCompatActivity {
         carregarListaContas(null);
 
         //Fragment AddConta
-        int idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
+        idUsuarioLogado = sharedPreferences.getInt(KEY_USER_ID, -1);
         menuCadContaFragment = MenuCadContaFragment.newInstance(idUsuarioLogado);
         getSupportFragmentManager().beginTransaction()
                 .replace(R.id.fragmentContainerConta, menuCadContaFragment)
@@ -446,7 +466,8 @@ public class TelaCadCartao extends AppCompatActivity {
                 //cor do cartao
                 String corHex = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
 
-// Pega o fundo original (que é seu drawable arredondado)
+
+                // Pega o fundo original (que é seu drawable arredondado)
                 Drawable fundoOriginal = item.getBackground();
                 if (fundoOriginal instanceof GradientDrawable) {
                     GradientDrawable fundo = (GradientDrawable) fundoOriginal.mutate();

@@ -23,6 +23,7 @@ public class CategoriasDropdownAdapter extends ArrayAdapter<Categoria> {
     public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         return getCustomView(position, convertView, parent);
     }
+
     @Override
     public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
         return getCustomView(position, convertView, parent);
@@ -44,13 +45,13 @@ public class CategoriasDropdownAdapter extends ArrayAdapter<Categoria> {
                 if (!p.isEmpty())
                     iniciais += Character.toUpperCase(p.charAt(0));
         }
-        tvCircle.setText(iniciais.length() > 2 ? iniciais.substring(0,2) : iniciais);
+        tvCircle.setText(iniciais.length() > 2 ? iniciais.substring(0, 2) : iniciais);
 
         // Cor:
         GradientDrawable bg = (GradientDrawable) tvCircle.getBackground();
         try {
             bg.setColor(android.graphics.Color.parseColor(categoria.cor));
-        } catch(Exception e) {
+        } catch (Exception e) {
             bg.setColor(0xFF888888); // cinza padrão
         }
 

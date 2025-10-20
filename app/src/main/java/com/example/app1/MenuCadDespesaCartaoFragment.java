@@ -1,30 +1,33 @@
 package com.example.app1;
 
-import android.content.Context;
 import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
+import android.content.Context;
 import android.database.Cursor;
-import android.graphics.drawable.GradientDrawable;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
-import android.widget.TextView;
+import android.widget.ArrayAdapter;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.example.app1.utils.DateUtils;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.example.app1.utils.MascaraMonetaria;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class MenuCadDespesaCartaoFragment extends Fragment {
 
@@ -38,6 +41,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     private android.widget.Button btnSalvarDespesaCartao;
     private OnBackPressedCallback backCallback;
+    private MaterialAutoCompleteTextView autoCompleteParcelas;
+    private TextInputEditText inputObservacao;
 
     public static MenuCadDespesaCartaoFragment newInstance(int idUsuario, int idCartao) {
         MenuCadDespesaCartaoFragment fragment = new MenuCadDespesaCartaoFragment();
@@ -90,11 +95,14 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
         autoCompleteCategoria = root.findViewById(R.id.autoCompleteTipoConta);
         autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
+        inputObservacao = root.findViewById(R.id.inputObservacao);
+
 
         inputNomeDespesaCartao.addTextChangedListener(new SimpleTextWatcher(() -> tilNomeDespesaCartao.setError(null)));
         inputDataDespesaCartao.setOnClickListener(v -> openDatePicker());
         inputDataDespesaCartao.setFocusable(false);
         inputDataDespesaCartao.setClickable(true);
+        autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
 
         // Carrega e aplica o adapter customizado nas categorias
         List<Categoria> categorias = carregarCategoriasComoCategoria(requireContext(), idUsuarioLogado);
@@ -103,7 +111,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
         autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
             Categoria c = (Categoria) parent.getItemAtPosition(position);
-            autoCompleteCategoria.setText(c.nome, false); // forçar só o nome, caso necessário
+            autoCompleteCategoria.setText(c.nome, false);
             tilCategoriaDespesa.setError(null);
         });
 
@@ -131,6 +139,28 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         String dataAtual = sdf.format(new java.util.Date());
         inputDataDespesaCartao.setText(dataAtual);
 
+        //calcular as parcelas pelo valor
+        MaterialAutoCompleteTextView autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
+        TextInputEditText inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
+
+// Crie o adapter vazio inicialmente
+        ArrayAdapter<String> parcelasAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
+        autoCompleteParcelas.setAdapter(parcelasAdapter);
+
+// Listener para atualizar as opções sempre que o valor mudar
+        inputValorDespesa.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                atualizarOpcoesParcelas(s.toString(), parcelasAdapter, autoCompleteParcelas);
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
         return root;
     }
 
@@ -140,6 +170,35 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         abrirMenu();
     }
 
+    // Função auxiliar para atualizar opções do adapter
+    private void atualizarOpcoesParcelas(String valorStr, ArrayAdapter<String> adapter, MaterialAutoCompleteTextView autoComplete) {
+        valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,\\.]", "").trim();
+        if (valorStr.isEmpty()) {
+            adapter.clear();
+            autoComplete.setText("");
+            return;
+        }
+        double valor;
+        try {
+            valor = Double.parseDouble(valorStr.replace(",", "."));
+        } catch (Exception e) {
+            adapter.clear();
+            autoComplete.setText("");
+            return;
+        }
+        ArrayList<String> parcelas = new ArrayList<>();
+        for (int i = 1; i <= 24; i++) {
+            double resultadoParcela = valor / i;
+            String parcelaStr = i + "x - R$ " + String.format(Locale.getDefault(), "%.2f", resultadoParcela);
+            parcelas.add(parcelaStr);
+        }
+        adapter.clear();
+        adapter.addAll(parcelas);
+        adapter.notifyDataSetChanged();
+        // opcional: setar 1x como padrão
+        autoComplete.setText(parcelas.get(0), false);
+    }
+
     public void abrirMenu() {
         overlayDespesaCartao.setVisibility(View.VISIBLE);
         slidingMenuDespesaCartao.setVisibility(View.VISIBLE);
@@ -147,38 +206,71 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             slidingMenuDespesaCartao.setTranslationY(slidingMenuDespesaCartao.getHeight());
             slidingMenuDespesaCartao.animate().translationY(0).setDuration(300).start();
 
-            // Solicita foco no campo de valor da despesa e exibe teclado
+            // Solicita foco e mostra teclado
             inputValorDespesa.requestFocus();
             InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) {
-                imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+            if (imm != null) imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+
+            // Esconde o FAB se existir na Activity
+            View fab = requireActivity().findViewById(R.id.addcartao);
+            if (fab != null && fab.getVisibility() == View.VISIBLE) {
+                if (fab instanceof FloatingActionButton)
+                    ((FloatingActionButton) fab).hide();
+                else
+                    fab.setVisibility(View.GONE);
             }
         });
         backCallback.setEnabled(true);
     }
 
     public void fecharMenu() {
-        slidingMenuDespesaCartao.animate().translationY(slidingMenuDespesaCartao.getHeight()).setDuration(300)
+        slidingMenuDespesaCartao.animate()
+                .translationY(slidingMenuDespesaCartao.getHeight())
+                .setDuration(300)
                 .withEndAction(() -> {
                     slidingMenuDespesaCartao.setVisibility(View.GONE);
                     overlayDespesaCartao.setVisibility(View.GONE);
                     backCallback.setEnabled(false);
+
+                    // Reexibe o FAB se existir
+                    View fab = requireActivity().findViewById(R.id.addcartao);
+                    if (fab != null && fab.getVisibility() != View.VISIBLE) {
+                        if (fab instanceof FloatingActionButton)
+                            ((FloatingActionButton) fab).show();
+                        else
+                            fab.setVisibility(View.VISIBLE);
+                    }
                 }).start();
     }
 
     private void salvarDespesa() {
         String nome = inputNomeDespesaCartao.getText().toString().trim();
-        String categoria = autoCompleteCategoria.getText().toString().trim();
+        String categoriaTexto = autoCompleteCategoria.getText().toString().trim();
+        String observacao = inputObservacao.getText().toString().trim();
         String data = inputDataDespesaCartao.getText().toString().trim();
+        String dataISO = null;
+        try {
+            dataISO = DateUtils.converterDataParaISO(data);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         String valorStr = inputValorDespesa.getText().toString().trim();
         valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
+        String parcelaSelecionada = autoCompleteParcelas.getText().toString();
+        int quantidadeParcelas = 1; // default
+        if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
+            // pega o número antes do 'x'
+            try {
+                quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim());
+            } catch (Exception e) { }
+        }
 
         if (nome.isEmpty()) {
             tilNomeDespesaCartao.setError("Informe o nome da despesa");
             return;
         }
 
-        if (categoria.isEmpty()) {
+        if (categoriaTexto.isEmpty()) {
             tilCategoriaDespesa.setError("Informe a categoria");
             return;
         }
@@ -198,16 +290,39 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             return;
         }
 
+        if (idUsuarioLogado == -1) {
+            Snackbar.make(requireView(), "Usuário inválido", Snackbar.LENGTH_LONG).show();
+            return;
+        }
+
+        // Busca o objeto Categoria certo a partir do texto para pegar o id
+        Categoria categoriaSelecionada = null;
+        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+        for (int i = 0; i < adapter.getCount(); i++) {
+            Categoria c = adapter.getItem(i);
+            if (c != null && c.nome.equals(categoriaTexto)) {
+                categoriaSelecionada = c;
+                break;
+            }
+        }
+
+        if (categoriaSelecionada == null) {
+            tilCategoriaDespesa.setError("Informe uma categoria válida");
+            return;
+        }
+
         SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase();
         ContentValues valores = new ContentValues();
-        valores.put("nome_despesa", nome);
-        valores.put("categoria", categoria);
-        valores.put("data_despesa", data);
+        valores.put("descricao", nome);
+        valores.put("id_categoria", categoriaSelecionada.id);
+        valores.put("data_compra", dataISO);
         valores.put("valor", valor);
+        valores.put("parcelas", quantidadeParcelas);
+        valores.put("observacao", observacao);
         valores.put("id_usuario", idUsuarioLogado);
         valores.put("id_cartao", idCartao);
 
-        long res = db.insert("despesas_cartao", null, valores);
+        long res = db.insert("transacoes_cartao", null, valores);
         db.close();
 
         if (res != -1) {
@@ -219,20 +334,20 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         }
     }
 
-    // Carrega lista de categorias (nome + cor), globais e do usuário, sem duplicados e ordenadas
     private List<Categoria> carregarCategoriasComoCategoria(Context ctx, int idUsuario) {
         List<Categoria> lista = new ArrayList<>();
-        String sql = "SELECT nome, cor FROM categorias WHERE id_usuario IS NULL OR id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
+        String sql = "SELECT id, nome, cor FROM categorias WHERE id_usuario IS NULL OR id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
         try (SQLiteDatabase db = new MeuDbHelper(ctx).getReadableDatabase();
              Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
             if (cursor != null && cursor.moveToFirst()) {
-                ArrayList<String> nomesUnicos = new ArrayList<>();
+                ArrayList<Integer> idsUnicos = new ArrayList<>();
                 do {
+                    int id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
                     String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
                     String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
-                    if (!nomesUnicos.contains(nome)) {
-                        nomesUnicos.add(nome);
-                        lista.add(new Categoria(nome, cor != null ? cor : "#888888"));
+                    if (!idsUnicos.contains(id)) {
+                        idsUnicos.add(id);
+                        lista.add(new Categoria(id, nome, cor != null ? cor : "#888888"));
                     }
                 } while (cursor.moveToNext());
             }
@@ -271,64 +386,5 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             if (callback != null) callback.run();
         }
         @Override public void afterTextChanged(android.text.Editable s) {}
-    }
-
-    // Classe modelo Categoria
-    public static class Categoria {
-        public String nome;
-        public String cor;
-
-        public Categoria(String nome, String cor) {
-            this.nome = nome;
-            this.cor = cor;
-        }
-    }
-
-    // Adapter customizado
-    public class CategoriasDropdownAdapter extends android.widget.ArrayAdapter<Categoria> {
-        public CategoriasDropdownAdapter(@NonNull Context context, @NonNull List<Categoria> objects) {
-            super(context, 0, objects);
-        }
-
-        @NonNull
-        @Override
-        public View getView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-            return getCustomView(position, convertView, parent);
-        }
-        @Override
-        public View getDropDownView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-            return getCustomView(position, convertView, parent);
-        }
-
-        private View getCustomView(int position, @Nullable View convertView, @NonNull ViewGroup parent) {
-            if (convertView == null)
-                convertView = LayoutInflater.from(getContext()).inflate(R.layout.item_categoria_dropdown, parent, false);
-
-            Categoria categoria = getItem(position);
-            TextView tvCircle = convertView.findViewById(R.id.tvCircle);
-            TextView tvNome = convertView.findViewById(R.id.tvNomeCategoria);
-
-            // Iniciais da categoria:
-            String iniciais = "";
-            if (categoria.nome != null && !categoria.nome.isEmpty()) {
-                String[] partes = categoria.nome.trim().split("\\s+");
-                for (String p : partes)
-                    if (!p.isEmpty())
-                        iniciais += Character.toUpperCase(p.charAt(0));
-            }
-            tvCircle.setText(iniciais.length() > 2 ? iniciais.substring(0,2) : iniciais);
-
-            // Cor:
-            GradientDrawable bg = (GradientDrawable) tvCircle.getBackground();
-            try {
-                bg.setColor(android.graphics.Color.parseColor(categoria.cor));
-            } catch(Exception e) {
-                bg.setColor(0xFF888888); // cinza padrão
-            }
-
-            tvNome.setText(categoria.nome);
-
-            return convertView;
-        }
     }
 }

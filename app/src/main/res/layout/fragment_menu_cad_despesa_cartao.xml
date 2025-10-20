@@ -16,7 +16,7 @@
         android:layout_height="wrap_content"
         android:background="@drawable/background_menu_flutuante"
         android:orientation="vertical"
-        android:visibility="gone"
+        android:visibility="visible"
         android:layout_gravity="bottom"
         android:padding="10dp"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -153,6 +153,90 @@
                 />
 
         </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Observação -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputObservacao"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_edit"
+            android:hint="Observação"
+            app:boxBackgroundMode="outline"
+            android:layout_marginTop="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            >
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputObservacao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine"
+                android:minLines="1"
+                android:maxLines="6"
+                android:gravity="top|start"
+                android:scrollbars="vertical" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Parcelas -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputParcelas"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:startIconDrawable="@drawable/ic_calculate"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            android:hint="Parcelas">
+
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                android:id="@+id/autoCompleteParcelas"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="none" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Despesa Fixa -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputDespesaFixa"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            android:hint="Despesa fixa">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <com.google.android.material.materialswitch.MaterialSwitch
+                    android:id="@+id/switchDespesaFixa"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:checked="false"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Essa despesa repete todos os meses?"
+                    android:layout_marginStart="12dp"
+                    android:textSize="15sp" />
+            </LinearLayout>
+        </com.google.android.material.textfield.TextInputLayout>
+
 
         <!-- Botão Salvar -->
         <Button
