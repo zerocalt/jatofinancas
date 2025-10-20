@@ -145,11 +145,29 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "data_compra DATETIME NOT NULL, " +                           // Data da compra
                         "parcelas INTEGER DEFAULT 1, " +                              // Número de parcelas
                         "observacao TEXT, " +                                         // Detalhes
+                        "recorrente INTEGER DEFAULT 0, " +                            // Despesa recorrente
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de cadastro
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
                         "FOREIGN KEY (id_cartao) REFERENCES cartoes(id), " +
                         "FOREIGN KEY (id_fatura) REFERENCES faturas(id), " +
                         "FOREIGN KEY (id_categoria) REFERENCES categorias(id)" +
+                        ")"
+        );
+
+        // Tabela: despesas_recorrentes_cartao
+        // Tabela para armazenar histórico de valores das despesas recorrentes no cartão
+        // Permite registrar mudanças de valor ao longo do tempo sem perder histórico
+        // Cada registro indica o valor da despesa a partir de uma data específica
+        // possibilitando calcular corretamente o valor vigente em faturas passadas e futuras.
+        db.execSQL(
+                "CREATE TABLE IF NOT EXISTS despesas_recorrentes_cartao (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                          // ID da despesa recorrente no cartão
+                        "id_transacao_cartao INTEGER NOT NULL, " +                         // FK para transacao recorrente original em transacoes_cartao
+                        "valor REAL NOT NULL, " +                                           // Valor vigente a partir da data_inicial
+                        "data_inicial DATETIME NOT NULL, " +                               // Data de início da vigência desse valor
+                        "data_final DATETIME, " +                                          // Data fim da vigência (opcional para facilitar consultas)
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +        // Data/hora do registro da alteração
+                        "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id)" +
                         ")"
         );
 

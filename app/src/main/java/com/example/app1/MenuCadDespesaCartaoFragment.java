@@ -24,6 +24,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 import com.example.app1.utils.MascaraMonetaria;
 
+import java.text.NumberFormat;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -172,7 +173,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     // Função auxiliar para atualizar opções do adapter
     private void atualizarOpcoesParcelas(String valorStr, ArrayAdapter<String> adapter, MaterialAutoCompleteTextView autoComplete) {
-        valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,\\.]", "").trim();
+        valorStr = valorStr.replaceAll("[^0-9,\\.]", "").trim();
+        valorStr = valorStr.replace(".", "").replace(",", ".");
         if (valorStr.isEmpty()) {
             adapter.clear();
             autoComplete.setText("");
@@ -180,24 +182,26 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         }
         double valor;
         try {
-            valor = Double.parseDouble(valorStr.replace(",", "."));
+            valor = Double.parseDouble(valorStr);
         } catch (Exception e) {
             adapter.clear();
             autoComplete.setText("");
             return;
         }
+
+        NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
         ArrayList<String> parcelas = new ArrayList<>();
         for (int i = 1; i <= 24; i++) {
             double resultadoParcela = valor / i;
-            String parcelaStr = i + "x - R$ " + String.format(Locale.getDefault(), "%.2f", resultadoParcela);
+            String parcelaStr = i + "x - " + formatoBR.format(resultadoParcela);
             parcelas.add(parcelaStr);
         }
         adapter.clear();
         adapter.addAll(parcelas);
         adapter.notifyDataSetChanged();
-        // opcional: setar 1x como padrão
         autoComplete.setText(parcelas.get(0), false);
     }
+
 
     public void abrirMenu() {
         overlayDespesaCartao.setVisibility(View.VISIBLE);
@@ -257,24 +261,27 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         String valorStr = inputValorDespesa.getText().toString().trim();
         valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
         String parcelaSelecionada = autoCompleteParcelas.getText().toString();
-        int quantidadeParcelas = 1; // default
+        int quantidadeParcelas = 1; // padrão
         if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
-            // pega o número antes do 'x'
             try {
                 quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim());
             } catch (Exception e) { }
+        }
+
+        boolean despesaRecorrente = false;
+        com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
+        if (switchDespesaFixa != null) {
+            despesaRecorrente = switchDespesaFixa.isChecked();
         }
 
         if (nome.isEmpty()) {
             tilNomeDespesaCartao.setError("Informe o nome da despesa");
             return;
         }
-
         if (categoriaTexto.isEmpty()) {
             tilCategoriaDespesa.setError("Informe a categoria");
             return;
         }
-
         if (data.isEmpty()) {
             tilDataDespesaCartao.setError("Informe a data da despesa");
             return;
@@ -295,7 +302,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             return;
         }
 
-        // Busca o objeto Categoria certo a partir do texto para pegar o id
         Categoria categoriaSelecionada = null;
         ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
         for (int i = 0; i < adapter.getCount(); i++) {
@@ -312,25 +318,63 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         }
 
         SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase();
-        ContentValues valores = new ContentValues();
-        valores.put("descricao", nome);
-        valores.put("id_categoria", categoriaSelecionada.id);
-        valores.put("data_compra", dataISO);
-        valores.put("valor", valor);
-        valores.put("parcelas", quantidadeParcelas);
-        valores.put("observacao", observacao);
-        valores.put("id_usuario", idUsuarioLogado);
-        valores.put("id_cartao", idCartao);
+        db.beginTransaction();
+        try {
+            ContentValues valores = new ContentValues();
+            valores.put("descricao", nome);
+            valores.put("id_categoria", categoriaSelecionada.id);
+            valores.put("data_compra", dataISO);
+            valores.put("valor", valor);
+            valores.put("parcelas", quantidadeParcelas);
+            valores.put("observacao", observacao);
+            valores.put("id_usuario", idUsuarioLogado);
+            valores.put("id_cartao", idCartao);
+            valores.put("recorrente", despesaRecorrente ? 1 : 0);
 
-        long res = db.insert("transacoes_cartao", null, valores);
-        db.close();
+            long idTransacao = db.insert("transacoes_cartao", null, valores);
 
-        if (res != -1) {
+            // Se despesa recorrente, insere registro inicial na tabela de valores históricos
+            if (idTransacao != -1 && despesaRecorrente) {
+                ContentValues valoresRecorrentes = new ContentValues();
+                valoresRecorrentes.put("id_transacao_cartao", idTransacao);
+                valoresRecorrentes.put("valor", valor);
+                valoresRecorrentes.put("data_inicial", dataISO);
+                valoresRecorrentes.putNull("data_final");
+                db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
+            }
+
+            // Gera parcelas se quantidade > 1
+            if (idTransacao != -1 && quantidadeParcelas > 1) {
+                double valorParcela = valor / quantidadeParcelas;
+                java.text.SimpleDateFormat sdfIso = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault());
+                java.util.Calendar calendar = java.util.Calendar.getInstance();
+                try { calendar.setTime(sdfIso.parse(dataISO)); } catch(Exception e) {}
+
+                for (int i = 1; i <= quantidadeParcelas; i++) {
+                    ContentValues valoresParcela = new ContentValues();
+                    valoresParcela.put("id_transacao_cartao", idTransacao);
+                    valoresParcela.put("numero_parcela", i);
+                    valoresParcela.put("valor", valorParcela);
+
+                    String dataVencimento = sdfIso.format(calendar.getTime());
+                    valoresParcela.put("data_vencimento", dataVencimento);
+                    valoresParcela.put("paga", 0);
+                    valoresParcela.putNull("id_fatura");
+
+                    db.insert("parcelas_cartao", null, valoresParcela);
+                    calendar.add(java.util.Calendar.MONTH, 1);
+                }
+            }
+
+            db.setTransactionSuccessful();
             Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
             fecharMenu();
             limparCampos();
-        } else {
-            Snackbar.make(requireView(), "Erro ao salvar despesa.", Snackbar.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Snackbar.make(requireView(), "Erro ao salvar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
+        } finally {
+            db.endTransaction();
+            db.close();
         }
     }
 
