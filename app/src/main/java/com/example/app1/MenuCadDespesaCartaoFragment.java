@@ -78,7 +78,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,  @Nullable ViewGroup container,
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa_cartao, container, false);
 
@@ -97,15 +97,17 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         autoCompleteCategoria = root.findViewById(R.id.autoCompleteTipoConta);
         autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
         inputObservacao = root.findViewById(R.id.inputObservacao);
+        autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
 
+        // Switch de despesa fixa
+        com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = root.findViewById(R.id.switchDespesaFixa);
 
         inputNomeDespesaCartao.addTextChangedListener(new SimpleTextWatcher(() -> tilNomeDespesaCartao.setError(null)));
         inputDataDespesaCartao.setOnClickListener(v -> openDatePicker());
         inputDataDespesaCartao.setFocusable(false);
         inputDataDespesaCartao.setClickable(true);
-        autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
 
-        // Carrega e aplica o adapter customizado nas categorias
+        // Carrega categorias
         List<Categoria> categorias = carregarCategoriasComoCategoria(requireContext(), idUsuarioLogado);
         CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
         autoCompleteCategoria.setAdapter(adapter);
@@ -116,11 +118,11 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             tilCategoriaDespesa.setError(null);
         });
 
-        // Preenche o nome do cartão selecionado e bloqueia edição
-        if(idCartao != -1){
-            try(SQLiteDatabase dbRead = new MeuDbHelper(requireContext()).getReadableDatabase()){
-                try(Cursor cursor = dbRead.rawQuery("SELECT nome FROM cartoes WHERE id = ?", new String[]{String.valueOf(idCartao)})){
-                    if(cursor.moveToFirst()){
+        // Preenche o nome do cartão e bloqueia edição
+        if (idCartao != -1) {
+            try (SQLiteDatabase dbRead = new MeuDbHelper(requireContext()).getReadableDatabase()) {
+                try (Cursor cursor = dbRead.rawQuery("SELECT nome FROM cartoes WHERE id = ?", new String[]{String.valueOf(idCartao)})) {
+                    if (cursor.moveToFirst()) {
                         autoCompleteCartao.setText(cursor.getString(cursor.getColumnIndexOrThrow("nome")), false);
                     }
                 }
@@ -135,23 +137,19 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         btnSalvarDespesaCartao = root.findViewById(R.id.btnSalvarDespesaCartao);
         btnSalvarDespesaCartao.setOnClickListener(v -> salvarDespesa());
 
-        // Define a data atual formatada em dd/MM/yyyy
+        // Define a data atual formatada
         java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
         String dataAtual = sdf.format(new java.util.Date());
         inputDataDespesaCartao.setText(dataAtual);
 
-        //calcular as parcelas pelo valor
-        MaterialAutoCompleteTextView autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
-        TextInputEditText inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
-
-// Crie o adapter vazio inicialmente
+        // Cria o adapter vazio para parcelas
         ArrayAdapter<String> parcelasAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
         autoCompleteParcelas.setAdapter(parcelasAdapter);
 
-// Listener para atualizar as opções sempre que o valor mudar
+        // Atualiza parcelas conforme o valor digitado
         inputValorDespesa.addTextChangedListener(new android.text.TextWatcher() {
             @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -159,7 +157,28 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             }
 
             @Override
-            public void afterTextChanged(android.text.Editable s) {}
+            public void afterTextChanged(android.text.Editable s) { }
+        });
+
+        // Listener que desativa o switch se usuário escolher mais de 1 parcela
+        autoCompleteParcelas.setOnItemClickListener((parent, view, position, id) -> {
+            String parcelaSelecionada = (String) parent.getItemAtPosition(position);
+
+            int qtd = 1;
+            if (parcelaSelecionada.contains("x")) {
+                try {
+                    qtd = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim());
+                } catch (Exception e) {
+                    qtd = 1;
+                }
+            }
+
+            if (qtd > 1) {
+                switchDespesaFixa.setChecked(false);
+                switchDespesaFixa.setEnabled(false);
+            } else {
+                switchDespesaFixa.setEnabled(true);
+            }
         });
 
         return root;
