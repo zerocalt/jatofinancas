@@ -7,7 +7,7 @@
     android:layout_height="match_parent"
     tools:context=".TelaFaturaCartao">
 
-    <!-- Conteúdo central da tela (ajustado para não sobrepor menu inferior) -->
+    <!-- Menu superior fixo -->
     <LinearLayout
         android:id="@+id/menuSuperior"
         android:layout_width="match_parent"
@@ -63,256 +63,184 @@
 
     </LinearLayout>
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollDespesas"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:padding="16dp"
+        android:fillViewport="true"
+        app:layout_constraintTop_toBottomOf="@id/menuSuperior"
         app:layout_constraintBottom_toTopOf="@id/menu_container"
-        app:layout_constraintTop_toBottomOf="@id/menuSuperior">
-
-        <androidx.constraintlayout.widget.ConstraintLayout
-            android:id="@+id/blocoTitulo"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            android:layout_margin="10dp">
-
-            <ImageView
-                android:id="@+id/icCartao"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:contentDescription="Ícone Cartão"
-                android:src="@drawable/ic_credit_card"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:tint="@color/white"/>
-
-            <TextView
-                android:id="@+id/txtNomeCartao"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:paddingStart="8dp"
-                android:text="Nome do Cartão"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintHorizontal_bias="0.0"
-                app:layout_constraintStart_toEndOf="@id/icCartao"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintVertical_bias="0.0" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
-
-        <!-- Bloco dos Fechamentos (Grid) -->
-        <GridLayout
-            android:id="@+id/gridFechamento"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:columnCount="2"
-            android:rowCount="1">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_columnWeight="1"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="8dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:contentDescription="Ícone calendário"
-                    android:src="@drawable/ic_today" />
-
-                <!-- Use weight para dividir o texto -->
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Dia do Fechamento: "
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/diaFechamento"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="26"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_columnWeight="1"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:padding="8dp">
-
-                <ImageView
-                    android:layout_width="18dp"
-                    android:layout_height="18dp"
-                    android:contentDescription="Ícone calendário"
-                    android:src="@drawable/ic_today" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingStart="8dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Dia do Vencimento: "
-                        android:textSize="12sp" />
-
-                    <TextView
-                        android:id="@+id/diaVencimento"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="5"
-                        android:textSize="12sp"
-                        android:textStyle="bold" />
-                </LinearLayout>
-
-            </LinearLayout>
-
-        </GridLayout>
+        android:overScrollMode="ifContentScrolls">
 
         <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_width="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:padding="8dp">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:contentDescription="Ícone calendário"
-                android:src="@drawable/ic_local_atm" />
-
-            <!-- Use weight para dividir o texto -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/blocoTitulo"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="8dp">
+                android:gravity="center"
+                android:layout_margin="10dp">
+
+                <ImageView
+                    android:id="@+id/icCartao"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:contentDescription="Ícone Cartão"
+                    android:src="@drawable/ic_credit_card"
+                    android:tint="@color/white"/>
 
                 <TextView
+                    android:id="@+id/txtNomeCartao"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Total da Fatura: "
-                    android:textSize="12sp" />
-
-                <TextView
-                    android:id="@+id/valorFatura"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="R$ 3.000,00"
-                    android:textColor="#E45757"
+                    android:paddingStart="8dp"
+                    android:text="Nome do Cartão"
                     android:textSize="18sp"
-                    android:textStyle="bold"/>
+                    android:textStyle="bold"
+                    />
             </LinearLayout>
 
-        </LinearLayout>
+            <GridLayout
+                android:id="@+id/gridFechamento"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:columnCount="2"
+                android:rowCount="1">
 
-        <!-- Linha divisória -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#888888"
-            android:layout_marginTop="16dp"
-            app:layout_constraintTop_toBottomOf="@+id/gridFechamento"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"/>
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_columnWeight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="8dp">
 
-        <!-- Data do dia de lançamento -->
-        <TextView
-            android:id="@+id/txtDataDespesa"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text="quarta 22/10/2025"
-            android:textSize="13sp"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/gridFechamento" />
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="Ícone calendário"
+                        android:src="@drawable/ic_today" />
 
-        <!-- Item de transação/despesa -->
-        <LinearLayout
-            android:id="@+id/blocoDespesa"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="12dp"
-            app:layout_constraintTop_toBottomOf="@+id/txtDataReferencia"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp">
 
-            <ImageView
-                android:id="@+id/circuloCategoria"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:src="@drawable/ic_today"
-                android:contentDescription="Ícone categoria"/>
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Dia do Fechamento: "
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/diaFechamento"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="26"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_columnWeight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:padding="8dp">
+
+                    <ImageView
+                        android:layout_width="18dp"
+                        android:layout_height="18dp"
+                        android:contentDescription="Ícone calendário"
+                        android:src="@drawable/ic_today" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingStart="8dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Dia do Vencimento: "
+                            android:textSize="12sp" />
+
+                        <TextView
+                            android:id="@+id/diaVencimento"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="5"
+                            android:textSize="12sp"
+                            android:textStyle="bold" />
+                    </LinearLayout>
+                </LinearLayout>
+            </GridLayout>
 
             <LinearLayout
-                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_weight="1"
-                android:layout_gravity="center_vertical"
-                android:paddingStart="8dp">
+                android:layout_width="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="8dp">
 
-                <TextView
-                    android:id="@+id/tituloDespesa"
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:contentDescription="Ícone calendário"
+                    android:src="@drawable/ic_local_atm" />
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pizza"
-                    android:textStyle="bold"
-                    android:textSize="14sp" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="8dp">
 
-                <TextView
-                    android:id="@+id/tituloCategoria"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Alimentação"
-                    android:textSize="10sp"/>
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Total da Fatura: "
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/valorFatura"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="R$ 3.000,00"
+                        android:textColor="#E45757"
+                        android:textSize="18sp"
+                        android:textStyle="bold"/>
+                </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/valorDespesa"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="R$ 5,00"
-                android:textColor="#E45757"
-                android:textSize="15sp"
-                android:textStyle="bold"
-                android:layout_gravity="center_vertical"/>
-        </LinearLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#888888"
+                android:layout_marginTop="16dp" />
 
-    </LinearLayout>
+            <!-- Aqui todas as datas e despesas serão adicionadas dinamicamente -->
+            <LinearLayout
+                android:id="@+id/blocoDespesa"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"/>
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
     <FrameLayout
         android:id="@+id/menu_container"
