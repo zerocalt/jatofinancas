@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/layoutDespesaFatura"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="8dp"
+    android:gravity="center_vertical">
+
+    <!-- Círculo com inicial da categoria -->
+    <TextView
+        android:id="@+id/txtIconCategoria"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:text="A"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="#FFF"
+        android:gravity="center"
+        android:background="@drawable/bg_circle"
+        android:layout_marginEnd="8dp"
+        android:contentDescription="Ícone da categoria" />
+
+    <!-- Bloco info despesa -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_weight="1">
+
+        <TextView
+            android:id="@+id/tituloDespesa"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="[translate:Pizza]"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            />
+
+        <TextView
+            android:id="@+id/tituloCategoria"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="[translate:Alimentação]"
+            android:textSize="11sp"
+            />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/valorDespesa"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="R$ 5,00"
+        android:textColor="#E45757"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="end"/>
+</LinearLayout>
