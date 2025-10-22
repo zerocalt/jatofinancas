@@ -1,42 +1,40 @@
 package com.example.app1;
 
-import android.content.Intent;
-import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import android.widget.Toast;
 
+import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKey;
-
-import com.github.dewinjm.monthyearpicker.MonthYearPickerDialog;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.util.Calendar;
 
-public class TelaPrincipal extends AppCompatActivity {
+public class TelaFaturaCartao extends AppCompatActivity {
+
     private TextView txtMes;
     private TextView txtAno;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_tela_principal);
-
-        final View root = findViewById(R.id.main);
-        ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
-            Insets systemBarsInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBarsInsets.left, systemBarsInsets.top, systemBarsInsets.right, systemBarsInsets.bottom);
+        EdgeToEdge.enable(this);
+        setContentView(R.layout.activity_tela_fatura_cartao);
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        //pegar o id do cartão
+        int idCartao = getIntent().getIntExtra("id_cartao", -1);
+        if (idCartao != -1) {
+            // use o idCartao para carregar a fatura correspondente
+        }
 
         txtMes = findViewById(R.id.txtMes);
         txtAno = findViewById(R.id.txtAno);
@@ -52,52 +50,19 @@ public class TelaPrincipal extends AppCompatActivity {
         LinearLayout btnMesAno = findViewById(R.id.btnMesAno);
         btnMesAno.setOnClickListener(v -> showMonthYearPicker());
 
-        Bundle args = new Bundle();
-        args.putInt("botaoInativo", BottomMenuFragment.PRINCIPAL);
+        //carrega o menu inferior
+        // Cria bundle com argumentos, se necessário
+        //Bundle args = new Bundle();
+        //args.putInt("botaoInativo", BottomMenuFragment.FATURA); // ou outro identificador para indicar o menu ativo
         BottomMenuFragment fragment = new BottomMenuFragment();
-        fragment.setArguments(args);
+        //fragment.setArguments(args);
 
+        // Adiciona o fragmento ao container
         getSupportFragmentManager()
                 .beginTransaction()
                 .replace(R.id.menu_container, fragment)
                 .commit();
 
-        Button btnLogout = findViewById(R.id.btnLogout);
-        if (btnLogout != null) {
-            btnLogout.setOnClickListener(v -> {
-                try {
-                    MasterKey masterKey = new MasterKey.Builder(getApplicationContext())
-                            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                            .build();
-
-                    SharedPreferences prefs = EncryptedSharedPreferences.create(
-                            getApplicationContext(),
-                            "secure_login_prefs",
-                            masterKey,
-                            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-                    );
-
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.remove("saved_email");
-                    editor.commit();
-
-                    Toast.makeText(this, "Sessão encerrada", Toast.LENGTH_SHORT).show();
-
-                    Intent intent = new Intent(TelaPrincipal.this, MainActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                    intent.putExtra("from_logout", true);
-                    startActivity(intent);
-                    finish();
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    Toast.makeText(this, "Erro ao limpar sessão", Toast.LENGTH_LONG).show();
-                }
-            });
-        } else {
-            Toast.makeText(this, "Botão de logout não encontrado!", Toast.LENGTH_LONG).show();
-        }
     }
 
     private void showMonthYearPicker() {
@@ -131,4 +96,5 @@ public class TelaPrincipal extends AppCompatActivity {
 
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");
     }
+
 }

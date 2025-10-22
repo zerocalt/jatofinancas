@@ -22,9 +22,9 @@
             android:id="@+id/icTipoCartao"
             android:layout_width="32dp"
             android:layout_height="32dp"
+            android:layout_marginEnd="12dp"
             android:src="@drawable/ic_credit_card"
-            app:tint="@color/white"
-            android:layout_marginEnd="12dp" />
+            app:tint="@color/white" />
 
         <TextView
             android:id="@+id/NomeCartao"
@@ -145,7 +145,7 @@
         android:layout_marginBottom="4dp">
 
         <Button
-            android:id="@+id/btnFatura"
+            android:id="@+id/btnFaturaCartao"
             android:layout_width="wrap_content"
             android:layout_height="40dp"
             android:text="Fatura"

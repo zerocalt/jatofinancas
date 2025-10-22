@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.ViewPropertyAnimator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -22,14 +21,15 @@ public class BottomMenuFragment extends Fragment {
     public static final int CARTOES = 2;
     public static final int OPCOES = 3;
 
-    private int botaoInativo = PRINCIPAL;
+    private int botaoInativo = -1; // Mude para -1 padrão, indicando "todos ativos"
     private boolean menuAberto = false;
 
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
+        // Recebe o argumento, se existir. Se não, mantém botaoInativo = -1
         if (getArguments() != null) {
-            botaoInativo = getArguments().getInt("botaoInativo", PRINCIPAL);
+            botaoInativo = getArguments().getInt("botaoInativo", -1);
         }
     }
 
@@ -38,7 +38,6 @@ public class BottomMenuFragment extends Fragment {
                              Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_bottom_menu, container, false);
 
-        // Menu inferior e botões
         LinearLayout btnPrincipal = v.findViewById(R.id.btnPrincipal);
         ImageView icPrincipal = v.findViewById(R.id.icPrincipal);
         TextView txtPrincipal = v.findViewById(R.id.txtPrincipal);
@@ -60,7 +59,7 @@ public class BottomMenuFragment extends Fragment {
         @ColorInt int corDesativado = ContextCompat.getColor(requireContext(), R.color.botaoDesativado);
         @ColorInt int corNormal = ContextCompat.getColor(requireContext(), R.color.white);
 
-        // Estado do menu inferior
+        // Habilita todos os botões como padrão
         icPrincipal.setColorFilter(corNormal);
         txtPrincipal.setTextColor(corNormal);
         btnPrincipal.setClickable(true);
@@ -74,6 +73,7 @@ public class BottomMenuFragment extends Fragment {
         txtOpcoes.setTextColor(corNormal);
         btnOpcoes.setClickable(true);
 
+        // Só deixa algum botão inativo se o argumento for diferente de -1
         switch (botaoInativo) {
             case PRINCIPAL:
                 icPrincipal.setColorFilter(corDesativado);
@@ -95,23 +95,21 @@ public class BottomMenuFragment extends Fragment {
                 txtOpcoes.setTextColor(corDesativado);
                 btnOpcoes.setClickable(false);
                 break;
+            case -1:
+                // Nenhum botão inativo, todos ativos
+                break;
         }
 
         btnPrincipal.setOnClickListener(vi -> {
-            if (botaoInativo != PRINCIPAL) { /* sua navegação */ }
+            Intent intent = new Intent(getActivity(), TelaPrincipal.class);
+            startActivity(intent);
         });
-        btnTransacoes.setOnClickListener(vi -> {
-            if (botaoInativo != TRANSACOES) { /* navegação */ }
-        });
+        btnTransacoes.setOnClickListener(vi -> { /* navegação transações */ });
         btnCartoes.setOnClickListener(vi -> {
-            if (botaoInativo != CARTOES) { /* navegação */
-                Intent intent = new Intent(getActivity(), TelaCadCartao.class);
-                startActivity(intent);
-            }
+            Intent intent = new Intent(getActivity(), TelaCadCartao.class);
+            startActivity(intent);
         });
-        btnOpcoes.setOnClickListener(vi -> {
-            if (botaoInativo != OPCOES) { /* navegação */ }
-        });
+        btnOpcoes.setOnClickListener(vi -> { /* navegação opções */ });
 
         // ANIMAÇÃO E LÓGICA DO FAB E DO MENU FLUTUANTE
         View overlay = v.findViewById(R.id.overlay);
@@ -140,10 +138,10 @@ public class BottomMenuFragment extends Fragment {
             closeMenu(overlay, quickActions, fabReceita, fabDespesa, fabTransferencia, fabDespesaCartao);
         });
 
-        fabReceita.setOnClickListener(btn -> { /* Ação Receita */ });
-        fabDespesa.setOnClickListener(btn -> { /* Ação Despesa */ });
-        fabTransferencia.setOnClickListener(btn -> { /* Ação Transferência */ });
-        fabDespesaCartao.setOnClickListener(btn -> { /* Ação Despesa Cartão */ });
+        fabReceita.setOnClickListener(btn -> { /* ação receita */ });
+        fabDespesa.setOnClickListener(btn -> { /* ação despesa */ });
+        fabTransferencia.setOnClickListener(btn -> { /* ação transferência */ });
+        fabDespesaCartao.setOnClickListener(btn -> { /* ação despesa cartão */ });
 
         return v;
     }

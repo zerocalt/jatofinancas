@@ -4,6 +4,7 @@ import static androidx.core.content.ContentProviderCompat.requireContext;
 
 import android.app.Activity;
 import android.content.ContentValues;
+import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
@@ -494,6 +495,19 @@ public class TelaCadCartao extends AppCompatActivity {
                             .commit();
                 });
 
+                //botão para abrir a Fatura
+                Button btnFaturaCartao = item.findViewById(R.id.btnFaturaCartao);
+                btnFaturaCartao.setOnClickListener(v -> {
+                    // Cria um intent para abrir a Activity de fatura
+                    Intent intent = new Intent(TelaCadCartao.this, TelaFaturaCartao.class);
+
+                    // Envia o ID do cartão como parâmetro
+                    intent.putExtra("id_cartao", idCartao);
+
+                    // Inicia a nova Activity
+                    startActivity(intent);
+                });
+
                 listaCartoes.addView(item);
             }
 
@@ -501,4 +515,5 @@ public class TelaCadCartao extends AppCompatActivity {
         }
         cursor.close();
     }
+
 }
