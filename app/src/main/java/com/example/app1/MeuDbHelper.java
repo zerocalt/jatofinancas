@@ -1,218 +1,221 @@
 package com.example.app1;
 
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
-import androidx.annotation.Nullable;
+import android.content.ContentValues;
+
+import java.util.Date;
+import java.text.SimpleDateFormat;
 
 public class MeuDbHelper extends SQLiteOpenHelper {
-    private static final String DB_NAME = "bdJatoFinancas.db";
-    private static final int DB_VERSION = 2;
+
+    private static final String DBNAME = "bdJatoFinancas.db"; // Nome do banco de dados
+    private static final int DBVERSION = 1;                    // Versão do banco
 
     public MeuDbHelper(Context context) {
-        super(context, DB_NAME, null, DB_VERSION);
+        super(context, DBNAME, null, DBVERSION);
     }
 
     @Override
     public void onConfigure(SQLiteDatabase db) {
         super.onConfigure(db);
-        db.setForeignKeyConstraintsEnabled(true); // Habilita chaves estrangeiras
+        db.setForeignKeyConstraintsEnabled(true); // Habilita chaves estrangeiras para integridade referencial
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-        // Tabela: usuarios
-        // Armazena os dados de login e dispositivo de cada usuário
+        // Tabela usuarios: informações pessoais e dados do dispositivo
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS usuarios (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID único do usuário
-                        "nome TEXT NOT NULL, " +                                      // Nome completo
-                        "telefone TEXT, " +                                           // Telefone (opcional)
-                        "email TEXT NOT NULL UNIQUE, " +                              // Email (único)
-                        "senha TEXT NOT NULL, " +                                     // Senha (deve estar criptografada)
-                        "data_cad DATETIME DEFAULT CURRENT_TIMESTAMP, " +             // Data de cadastro
-                        "versao_android TEXT, " +                                     // Versão do Android do dispositivo
-                        "modelo_dispositivo TEXT, " +                                 // Modelo do celular
-                        "ultimo_login DATETIME, " +                                   // Último acesso
-                        "status INTEGER DEFAULT 1" +                                  // 1 = ativo, 0 = inativo
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "nome TEXT NOT NULL, " +                          // Nome completo do usuário
+                        "telefone TEXT, " +                               // Telefone do usuário
+                        "email TEXT NOT NULL UNIQUE, " +                  // Email para login (único)
+                        "senha TEXT NOT NULL, " +                          // Senha criptografada
+                        "data_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, "+  // Data de cadastro do usuário
+                        "versao_android TEXT, " +                         // Versão do Android do dispositivo
+                        "modelo_dispositivo TEXT, " +                     // Modelo do dispositivo do usuário
+                        "ultimo_login DATETIME, " +                        // Data e hora do último login no app
+                        "status INTEGER DEFAULT 1" +                       // Status do usuário (1 = ativo, 0 = inativo)
                         ")"
         );
 
-        // Tabela: categorias
-        // Categorias personalizadas por usuário para despesas/receitas
+        // Tabela categorias: categorias padrão e específicas do usuário
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS categorias (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da categoria
-                        "id_usuario INTEGER, " +                             // Dono da categoria
-                        "nome TEXT NOT NULL, " +                                      // Nome (ex: Transporte)
-                        "cor TEXT, " +                                                // Cor de identificação visual
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de criação
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_usuario INTEGER, " +                           // ID do usuário, NULL para categorias globais
+                        "nome TEXT NOT NULL, " +                           // Nome da categoria
+                        "cor TEXT, " +                                    // Cor em hexadecimal para exibir categoria
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, "+ // Data/hora criação da categoria
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_categorias_id_usuario ON categorias(id_usuario)");
 
-        // Tabela: contas
-        // Contas bancárias, carteira, investimentos, etc.
+        // Inserção das categorias padrões (globais)
+        String[] categoriasPadroes = {
+                "Alimentação", "Transporte", "Educação", "Saúde",
+                "Lazer", "Contas", "Salário", "Investimentos"
+        };
+        String[] coresPadroes = {
+                "#f44336", "#2196f3", "#4caf50", "#ffc107",
+                "#9c27b0", "#795548", "#3f51b5", "#009688"
+        };
+
+        for (int i = 0; i < categoriasPadroes.length; i++) {
+            ContentValues cv = new ContentValues();
+            cv.putNull("id_usuario");                        // Categoria pública, sem ligação a usuário
+            cv.put("nome", categoriasPadroes[i]);
+            cv.put("cor", coresPadroes[i]);
+            db.insert("categorias", null, cv);
+        }
+
+        // Tabela contas: contas bancárias, carteiras, etc.
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS contas (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da conta
-                        "id_usuario INTEGER NOT NULL, " +                             // Dono da conta
-                        "nome TEXT NOT NULL, " +                                      // Nome da conta (ex: Banco X)
-                        "saldo REAL DEFAULT 0, " +                                    // Saldo atual
-                        "tipo_conta INTEGER NOT NULL, " +                             // Tipo: 1=Corrente, 2=Poupança, etc.
-                        "cor TEXT, " +                                                // Cor para identificação
-                        "mostrar_na_tela_inicial INTEGER DEFAULT 1, " +               // 1=Sim, 0=Não
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de criação
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, "+
+                        "id_usuario INTEGER NOT NULL, " +                  // ID do usuário dono da conta
+                        "nome TEXT NOT NULL, " +                            // Nome da conta
+                        "saldo REAL DEFAULT 0, " +                          // Saldo atual
+                        "tipo_conta INTEGER NOT NULL, " +                   // Tipo da conta (ex: 1 = Conta Corrente)
+                        "cor TEXT, " +                                      // Cor de exibição da conta
+                        "mostrar_na_tela_inicial INTEGER DEFAULT 1, " +    // Flag para mostrar na tela inicial
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " + // Data de criação
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_contas_id_usuario ON contas(id_usuario)");
 
-        // Tabela: transacoes
-        // Movimentações financeiras (receitas, despesas, transferências)
+        // Tabela transacoes: receitas, despesas, transferências
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS transacoes (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da transação
-                        "id_usuario INTEGER NOT NULL, " +                             // Dono da transação
-                        "id_conta INTEGER NOT NULL, " +                               // Conta de origem/destino
-                        "valor REAL NOT NULL, " +                                     // Valor da movimentação
-                        "tipo INTEGER NOT NULL, " +                                   // 1=Receita, 2=Despesa, 3=Cartão, 4=Transferência
-                        "pago INTEGER DEFAULT 0, " +                                  // 0=não, 1=sim (para despesas)
-                        "recebido INTEGER DEFAULT 0, " +                              // 0=não, 1=sim (para receitas)
-                        "data_movimentacao DATETIME NOT NULL, " +                     // Data da transação
-                        "descricao TEXT, " +                                          // Título breve
-                        "id_categoria INTEGER, " +                                    // Categoria da transação
-                        "observacao TEXT, " +                                         // Detalhes adicionais
-                        "recorrente INTEGER DEFAULT 0, " +                            // 1=lançamento recorrente
-                        "repetir_qtd INTEGER DEFAULT 0, " +                           // Quantas vezes repete
-                        "repetir_periodo TEXT, " +                                    // 'mensal', 'semanal', etc.
-                        "id_conta_destino INTEGER, " +                                // Usado em transferências
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de inclusão
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_usuario INTEGER NOT NULL, " +                   // ID do usuário
+                        "id_conta INTEGER NOT NULL, " +                     // Conta associada
+                        "valor REAL NOT NULL, " +                            // Valor da transação
+                        "tipo INTEGER NOT NULL, " +                          // Tipo da transação (1: Receita, 2: Despesa, 3: Cartão, 4: Transferência)
+                        "pago INTEGER DEFAULT 0, " +                         // Indicador se foi pago (0 = não, 1 = sim)
+                        "recebido INTEGER DEFAULT 0, " +                     // Indicador se foi recebido (0 = não, 1 = sim)
+                        "data_movimentacao DATETIME NOT NULL, " +           // Data da movimentação
+                        "descricao TEXT, " +                                 // Descrição opcional
+                        "id_categoria INTEGER, " +                           // Categoria da transação
+                        "observacao TEXT, " +                                // Observação
+                        "recorrente INTEGER DEFAULT 0, " +                   // Indicador se é recorrente
+                        "repetir_qtd INTEGER DEFAULT 0, " +                  // Quantidade de repetições para recorrência
+                        "repetir_periodo TEXT, " +                            // Período de recorrência (ex: mensal)
+                        "id_conta_destino INTEGER, " +                        // Conta destino para transferências
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " + // Data/hora cadastro
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
                         "FOREIGN KEY (id_conta) REFERENCES contas(id), " +
                         "FOREIGN KEY (id_categoria) REFERENCES categorias(id), " +
                         "FOREIGN KEY (id_conta_destino) REFERENCES contas(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_id_usuario ON transacoes(id_usuario)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_id_conta ON transacoes(id_conta)");
 
-        // Tabela: cartoes
-        // Cartões de crédito cadastrados pelo usuário
+        // Tabela cartoes: cartão de crédito/débito
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS cartoes (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID do cartão
-                        "id_usuario INTEGER NOT NULL, " +                             // Dono do cartão
-                        "id_conta INTEGER NOT NULL, " +                               // Conta associada ao cartão
-                        "nome TEXT NOT NULL, " +                                      // Nome do cartão (ex: Meu Visa)
-                        "limite REAL NOT NULL, " +                                    // Limite total do cartão
-                        "data_vencimento_fatura INTEGER NOT NULL, " +                 // Dia do vencimento (ex: 10)
-                        "data_fechamento_fatura INTEGER NOT NULL, " +                 // Dia do fechamento (ex: 25)
-                        "cor TEXT, " +                                                // Cor visual
-                        "bandeira TEXT, " +                                           // Bandeira: Visa, Mastercard, etc.
-                        "ativo INTEGER DEFAULT 1, " +                                 // 1=ativo, 0=inativo
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de cadastro
-                        "FOREIGN KEY (id_usuario) REFERENCES usuarios(id)," +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_usuario INTEGER NOT NULL, " +                   // ID do usuário dono do cartão
+                        "id_conta INTEGER NOT NULL, " +                     // Conta associada ao cartão
+                        "nome TEXT NOT NULL, " +                             // Nome / apelido do cartão
+                        "limite REAL NOT NULL, " +                           // Limite disponível
+                        "data_vencimento_fatura INTEGER NOT NULL, " +       // Dia do vencimento da fatura
+                        "data_fechamento_fatura INTEGER NOT NULL, " +       // Dia do fechamento da fatura
+                        "cor TEXT, " +                                      // Cor para exibição
+                        "bandeira TEXT, " +                                 // Bandeira do cartão
+                        "ativo INTEGER DEFAULT 1, " +                        // Status ativo/inativo
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +  // Data/hora cadastro
+                        "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
                         "FOREIGN KEY (id_conta) REFERENCES contas(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_cartoes_id_usuario ON cartoes(id_usuario)");
 
-        // Tabela: faturas
-        // Faturas mensais de cada cartão
+        // Tabela faturas: faturas mensais dos cartões
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS faturas (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da fatura
-                        "id_cartao INTEGER NOT NULL, " +                              // Cartão associado
-                        "mes INTEGER NOT NULL, " +                                    // Mês (1 a 12)
-                        "ano INTEGER NOT NULL, " +                                    // Ano (ex: 2025)
-                        "valor_total REAL DEFAULT 0, " +                              // Soma das parcelas
-                        "status INTEGER DEFAULT 0, " +                                // 0=aberta, 1=paga
-                        "data_pagamento DATETIME, " +                                 // Quando foi paga
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de criação
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_cartao INTEGER NOT NULL, " +                     // FK para cartão associado
+                        "mes INTEGER NOT NULL, " +                            // Mês da fatura
+                        "ano INTEGER NOT NULL, " +                            // Ano da fatura
+                        "valor_total REAL DEFAULT 0, " +                      // Valor total da fatura
+                        "status INTEGER DEFAULT 0, " +                         // Status: 0 aberta, 1 paga
+                        "data_pagamento DATETIME, " +                         // Data do pagamento
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +  // Data/hora cadastro
                         "FOREIGN KEY (id_cartao) REFERENCES cartoes(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_faturas_id_cartao ON faturas(id_cartao)");
 
-        // Tabela: transacoes_cartao
-        // Compras feitas no cartão de crédito
+        // Tabela transacoes_cartao: transações relacionadas a cartões
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS transacoes_cartao (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da compra no cartão
-                        "id_usuario INTEGER NOT NULL, " +                             // Dono da transação
-                        "id_cartao INTEGER NOT NULL, " +                              // Cartão usado
-                        "id_fatura INTEGER, " +                                       // Fatura atual (pode mudar com parcelas)
-                        "descricao TEXT NOT NULL, " +                                 // Descrição da compra
-                        "valor REAL NOT NULL, " +                                     // Valor total da compra
-                        "id_categoria INTEGER, " +                                    // Categoria da despesa
-                        "data_compra DATETIME NOT NULL, " +                           // Data da compra
-                        "parcelas INTEGER DEFAULT 1, " +                              // Número de parcelas
-                        "observacao TEXT, " +                                         // Detalhes
-                        "recorrente INTEGER DEFAULT 0, " +                            // Despesa recorrente
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de cadastro
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_usuario INTEGER NOT NULL, " +
+                        "id_cartao INTEGER NOT NULL, " +
+                        "id_fatura INTEGER, " +
+                        "descricao TEXT NOT NULL, " +
+                        "valor REAL NOT NULL, " +
+                        "id_categoria INTEGER, " +
+                        "data_compra DATETIME NOT NULL, " +
+                        "parcelas INTEGER DEFAULT 1, " +
+                        "observacao TEXT, " +
+                        "recorrente INTEGER DEFAULT 0, " +
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
                         "FOREIGN KEY (id_cartao) REFERENCES cartoes(id), " +
                         "FOREIGN KEY (id_fatura) REFERENCES faturas(id), " +
                         "FOREIGN KEY (id_categoria) REFERENCES categorias(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_cartao_id_cartao ON transacoes_cartao(id_cartao)");
 
-        // Tabela: despesas_recorrentes_cartao
-        // Tabela para armazenar histórico de valores das despesas recorrentes no cartão
-        // Permite registrar mudanças de valor ao longo do tempo sem perder histórico
-        // Cada registro indica o valor da despesa a partir de uma data específica
-        // possibilitando calcular corretamente o valor vigente em faturas passadas e futuras.
+        // Tabela despesas_recorrentes_cartao: despesas recorrentes associadas a cartões
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS despesas_recorrentes_cartao (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                          // ID da despesa recorrente no cartão
-                        "id_transacao_cartao INTEGER NOT NULL, " +                         // FK para transacao recorrente original em transacoes_cartao
-                        "valor REAL NOT NULL, " +                                           // Valor vigente a partir da data_inicial
-                        "data_inicial DATETIME NOT NULL, " +                               // Data de início da vigência desse valor
-                        "data_final DATETIME, " +                                          // Data fim da vigência (opcional para facilitar consultas)
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +        // Data/hora do registro da alteração
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_transacao_cartao INTEGER NOT NULL, " +
+                        "valor REAL NOT NULL, " +
+                        "data_inicial DATETIME NOT NULL, " +
+                        "data_final DATETIME, " +
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
                         "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id)" +
                         ")"
         );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_despesas_recorrentes_id_transacao ON despesas_recorrentes_cartao(id_transacao_cartao)");
 
-        // Tabela: parcelas_cartao
-        // Cada parcela de uma compra no cartão
+        // Tabela parcelas_cartao: parcelas das compras feitas no cartão
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS parcelas_cartao (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +                    // ID da parcela
-                        "id_transacao_cartao INTEGER NOT NULL, " +                    // Compra original
-                        "numero_parcela INTEGER NOT NULL, " +                         // Número da parcela (1ª, 2ª...)
-                        "valor REAL NOT NULL, " +                                     // Valor da parcela
-                        "id_fatura INTEGER, " +                                       // Fatura onde será cobrada
-                        "data_vencimento DATETIME NOT NULL, " +                       // Data prevista
-                        "paga INTEGER DEFAULT 0, " +                                  // 0=não, 1=sim
-                        "data_pagamento DATETIME, " +                                 // Data real do pagamento
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +   // Data de criação
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_transacao_cartao INTEGER NOT NULL, " +
+                        "numero_parcela INTEGER NOT NULL, " +
+                        "valor REAL NOT NULL, " +
+                        "id_fatura INTEGER, " +
+                        "data_vencimento DATETIME NOT NULL, " +
+                        "paga INTEGER DEFAULT 0, " +
+                        "data_pagamento DATETIME, " +
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
                         "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id), " +
                         "FOREIGN KEY (id_fatura) REFERENCES faturas(id)" +
                         ")"
         );
-
-        //populando a tabela categorias
-        db.execSQL(
-                "INSERT INTO categorias (id_usuario, nome, cor) VALUES" +
-                "(NULL, 'Alimentação', '#E15759')," +
-                "(NULL, 'Cuidados pessoais', '#FF9DA7')," +
-                "(NULL, 'Educação', '#76B7B2')," +
-                "(NULL, 'Impostos e taxas', '#BCBD22')," +
-                "(NULL, 'Investimentos', '#17BECF')," +
-                "(NULL, 'Lazer', '#EDC948')," +
-                "(NULL, 'Moradia', '#4E79A7')," +
-                "(NULL, 'Outros', '#7F7F7F')," +
-                "(NULL, 'Presentes/Doações', '#A0CBE8')," +
-                "(NULL, 'Saúde', '#59A14F')," +
-                "(NULL, 'Seguros', '#9C755F')," +
-                "(NULL, 'Serviços e assinaturas', '#8C564B')," +
-                "(NULL, 'Transporte', '#F28E2B')," +
-                "(NULL, 'Vestuário', '#B07AA1');"
-        );
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_id_transacao ON parcelas_cartao(id_transacao_cartao)");
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Em produção, faça migrações! Aqui estamos recriando.
+        // Para fins de desenvolvimento, apaga tudo e recria
+        // Em produção, implemente migração apropriada
         db.execSQL("DROP TABLE IF EXISTS parcelas_cartao");
+        db.execSQL("DROP TABLE IF EXISTS despesas_recorrentes_cartao");
         db.execSQL("DROP TABLE IF EXISTS transacoes_cartao");
         db.execSQL("DROP TABLE IF EXISTS faturas");
         db.execSQL("DROP TABLE IF EXISTS cartoes");
@@ -222,4 +225,35 @@ public class MeuDbHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS usuarios");
         onCreate(db);
     }
+
+    @Override
+    public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        onUpgrade(db, oldVersion, newVersion);
+    }
+
+    /**
+     * Cria para o usuário com idUsuario as categorias padrão (copiar da tabela categorias onde id_usuario é NULL)
+     */
+    public void criarCategoriasPadraoParaUsuario(SQLiteDatabase db, int idUsuario) {
+        Cursor cursor = db.rawQuery("SELECT nome, cor FROM categorias WHERE id_usuario IS NULL", null);
+
+        while (cursor.moveToNext()) {
+            String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
+            String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
+
+            ContentValues cv = new ContentValues();
+            cv.put("id_usuario", idUsuario);
+            cv.put("nome", nome);
+
+            java.util.Date agora = new java.util.Date();
+            String dataFormatada = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(agora);
+            cv.put("data_hora_cadastro", dataFormatada);
+
+            cv.put("cor", cor);
+
+            db.insert("categorias", null, cv);
+        }
+        cursor.close();
+    }
+
 }

@@ -166,37 +166,43 @@ public class TelaFaturaCartao extends AppCompatActivity {
             inicio.set(ano, mes, 1);
             fim.set(ano, mes, inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
         }
-        String dataInicio = String.format("%04d-%02d-%02d", inicio.get(Calendar.YEAR), inicio.get(Calendar.MONTH)+1, inicio.get(Calendar.DAY_OF_MONTH));
-        String dataFim = String.format("%04d-%02d-%02d", fim.get(Calendar.YEAR), fim.get(Calendar.MONTH)+1, fim.get(Calendar.DAY_OF_MONTH));
+        String dataInicio = String.format("%04d-%02d-%02d", inicio.get(Calendar.YEAR), inicio.get(Calendar.MONTH) + 1, inicio.get(Calendar.DAY_OF_MONTH));
+        String dataFim = String.format("%04d-%02d-%02d", fim.get(Calendar.YEAR), fim.get(Calendar.MONTH) + 1, fim.get(Calendar.DAY_OF_MONTH));
 
         SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase();
 
-        Cursor cur = db.rawQuery(
-                "SELECT p.data_vencimento AS data, p.valor, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, t.id AS id_transacao_cartao, t.recorrente " +
-                        "FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
-                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
+        // Query integrada para trazer todas as parcelas e informações de transação fusionadas
+        String query = "SELECT p.data_vencimento AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
+                "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas " +
+                "FROM parcelas_cartao p " +
+                "INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
+                "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                "WHERE t.id_cartao = ? AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
 
-                        "UNION ALL " +
+                "UNION ALL " +
 
-                        "SELECT t.data_compra AS data, t.valor, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, t.id AS id_transacao_cartao, t.recorrente " +
-                        "FROM transacoes_cartao t LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? AND t.parcelas = 1 AND t.data_compra >= ? AND t.data_compra <= ? " +
+                "SELECT t.data_compra AS data, t.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
+                "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
+                "FROM transacoes_cartao t LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                "WHERE t.id_cartao = ? AND t.parcelas = 1 AND t.data_compra >= ? AND t.data_compra <= ? " +
 
-                        "UNION ALL " +
+                "UNION ALL " +
 
-                        "SELECT d.data_inicial AS data, d.valor, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, t.id AS id_transacao_cartao, t.recorrente " +
-                        "FROM despesas_recorrentes_cartao d INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
-                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? AND d.data_inicial <= ? AND (d.data_final IS NULL OR d.data_final >= ?) " +
-                        "AND d.data_inicial = (SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ?) " +
+                "SELECT d.data_inicial AS data, d.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
+                "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
+                "FROM despesas_recorrentes_cartao d INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
+                "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                "WHERE t.id_cartao = ? AND d.data_inicial <= ? AND (d.data_final IS NULL OR d.data_final >= ?) " +
+                "AND d.data_inicial = (SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 " +
+                "WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ?) " +
 
-                        "ORDER BY data ASC",
-                new String[]{
-                        String.valueOf(idCartao), dataInicio, dataFim,
-                        String.valueOf(idCartao), dataInicio, dataFim,
-                        String.valueOf(idCartao), dataFim, dataInicio, dataFim}
-        );
+                "ORDER BY data ASC";
+
+        Cursor cur = db.rawQuery(query, new String[]{
+                String.valueOf(idCartao), dataInicio, dataFim,
+                String.valueOf(idCartao), dataInicio, dataFim,
+                String.valueOf(idCartao), dataFim, dataInicio, dataFim
+        });
 
         blocoDespesas.removeAllViews();
         double totalFatura = 0;
@@ -204,26 +210,20 @@ public class TelaFaturaCartao extends AppCompatActivity {
         String ultimoDia = "";
 
         LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-
-        // Para evitar duplicação de despesas recorrentes
         HashSet<Integer> idsRecorrentesExibidos = new HashSet<>();
 
         while (cur.moveToNext()) {
             int idTransacaoCartao = cur.getInt(cur.getColumnIndexOrThrow("id_transacao_cartao"));
             int recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
 
-            // Evita repetir despesas recorrentes
-            if (recorrente == 1) {
-                if (idsRecorrentesExibidos.contains(idTransacaoCartao)) {
-                    continue;
-                } else {
-                    idsRecorrentesExibidos.add(idTransacaoCartao);
-                }
+            if (recorrente == 1 && idsRecorrentesExibidos.contains(idTransacaoCartao)) {
+                continue;
+            } else if (recorrente == 1) {
+                idsRecorrentesExibidos.add(idTransacaoCartao);
             }
 
             String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data"));
             String dataFormatada = formatarDataBR(dataRegistro);
-
             if (!dataFormatada.equals(ultimoDia)) {
                 TextView dataLabel = new TextView(this);
                 dataLabel.setText(dataFormatada);
@@ -235,10 +235,22 @@ public class TelaFaturaCartao extends AppCompatActivity {
                 ultimoDia = dataFormatada;
             }
 
-            double valor = cur.getDouble(cur.getColumnIndexOrThrow("valor"));
+            double valor = cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
             String descricao = cur.getString(cur.getColumnIndexOrThrow("descricao"));
             String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
             String corCategoria = cur.getString(cur.getColumnIndexOrThrow("cor"));
+            Integer numeroParcela = null;
+            if (!cur.isNull(cur.getColumnIndexOrThrow("numero_parcela"))) {
+                numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
+            }
+            int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
+
+            String tipoLabel = "";
+            if (numeroParcela != null) {
+                tipoLabel = " (" + numeroParcela + "/" + totalParcelas + ")";
+            } else if (recorrente == 1) {
+                tipoLabel = " (fixa)";
+            }
 
             totalFatura += valor;
             temDespesas = true;
@@ -249,7 +261,18 @@ public class TelaFaturaCartao extends AppCompatActivity {
             GradientDrawable circle = (GradientDrawable) inicialCat.getBackground();
             if (corCategoria != null) circle.setColor(Color.parseColor(corCategoria));
 
-            ((TextView) item.findViewById(R.id.tituloDespesa)).setText(descricao);
+            TextView txtTitulo = item.findViewById(R.id.tituloDespesa);
+            TextView labelTipo = item.findViewById(R.id.labelTipoDespesa);
+
+            txtTitulo.setText(descricao);
+
+            if (!tipoLabel.isEmpty()) {
+                labelTipo.setText(tipoLabel);
+                labelTipo.setVisibility(View.VISIBLE);
+            } else {
+                labelTipo.setVisibility(View.GONE);
+            }
+
             ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
             ((TextView) item.findViewById(R.id.valorDespesa)).setText(formatarBR(valor));
 
@@ -261,7 +284,7 @@ public class TelaFaturaCartao extends AppCompatActivity {
         valorFatura.setText(formatarBR(totalFatura));
         if (!temDespesas) {
             TextView aviso = new TextView(this);
-            aviso.setText("[translate:Nenhuma despesa encontrada para este período]");
+            aviso.setText("Nenhuma despesa encontrada para este período");
             aviso.setTextColor(Color.GRAY);
             aviso.setTextSize(16f);
             aviso.setPadding(16, 16, 16, 16);
@@ -269,6 +292,7 @@ public class TelaFaturaCartao extends AppCompatActivity {
             valorFatura.setText("R$ 0,00");
         }
     }
+
 
     private String formatarBR(double valor) {
         NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));

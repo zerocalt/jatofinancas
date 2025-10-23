@@ -388,6 +388,9 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             db.setTransactionSuccessful();
             Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
             fecharMenu();
+            if (listener != null) {
+                listener.onDespesaSalva();
+            }
             limparCampos();
         } catch (Exception e) {
             Snackbar.make(requireView(), "Erro ao salvar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
@@ -399,7 +402,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     private List<Categoria> carregarCategoriasComoCategoria(Context ctx, int idUsuario) {
         List<Categoria> lista = new ArrayList<>();
-        String sql = "SELECT id, nome, cor FROM categorias WHERE id_usuario IS NULL OR id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
+        String sql = "SELECT id, nome, cor FROM categorias WHERE id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
         try (SQLiteDatabase db = new MeuDbHelper(ctx).getReadableDatabase();
              Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
             if (cursor != null && cursor.moveToFirst()) {
@@ -449,5 +452,14 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             if (callback != null) callback.run();
         }
         @Override public void afterTextChanged(android.text.Editable s) {}
+    }
+
+    public interface OnDespesaSalvaListener {
+        void onDespesaSalva();
+    }
+    private OnDespesaSalvaListener listener;
+
+    public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
+        this.listener = listener;
     }
 }

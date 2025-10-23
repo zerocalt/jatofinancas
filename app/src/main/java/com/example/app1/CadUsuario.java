@@ -82,7 +82,7 @@ public class CadUsuario {
             valores.put("telefone", telDigitado);
             valores.put("email", emailDigitado);
             valores.put("senha", senhaHashed);
-            valores.put("data_cad", dataAtual);
+            valores.put("data_cadastro", dataAtual);
             valores.put("versao_android", versaoAndroid);
             valores.put("modelo_dispositivo", modeloDispositivo);
             valores.put("ultimo_login", "");  // deixado vazio no cadastro
@@ -91,6 +91,8 @@ public class CadUsuario {
             long idInserido = db.insert("usuarios", null, valores);
 
             if (idInserido != -1) {
+                // Cria categorias padrão para o novo usuário
+                criarCategoriasPadraoParaUsuario(db, (int) idInserido);
                 Toast.makeText(context, "Usuário cadastrado com sucesso!", Toast.LENGTH_SHORT).show();
                 return true;
             } else {
@@ -102,5 +104,27 @@ public class CadUsuario {
             Toast.makeText(context, "Erro ao cadastrar: " + e.getMessage(), Toast.LENGTH_LONG).show();
             return false;
         }
+    }
+
+    private static void criarCategoriasPadraoParaUsuario(SQLiteDatabase db, int idUsuario) {
+        Cursor cursor = db.rawQuery("SELECT nome, cor FROM categorias WHERE id_usuario IS NULL", null);
+
+        while (cursor.moveToNext()) {
+            String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
+            String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
+
+            ContentValues cv = new ContentValues();
+            cv.put("id_usuario", idUsuario);
+            cv.put("nome", nome);
+
+            java.util.Date agora = new java.util.Date();
+            String dataFormatada = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(agora);
+            cv.put("data_hora_cadastro", dataFormatada);
+
+            cv.put("cor", cor);
+
+            db.insert("categorias", null, cv);
+        }
+        cursor.close();
     }
 }
