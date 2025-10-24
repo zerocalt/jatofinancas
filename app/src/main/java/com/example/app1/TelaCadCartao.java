@@ -233,6 +233,13 @@ public class TelaCadCartao extends AppCompatActivity {
         }
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Recalcula/atualiza a lista de cartões/faturas
+        mostrarCartoesDoUsuarioAsync(idUsuarioLogado);
+    }
+
     // Calcula o intervalo da fatura com base no dia do fechamento
     private Date[] calcularIntervaloFatura(int diaFechamento) {
         Calendar hoje = Calendar.getInstance();

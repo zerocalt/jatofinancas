@@ -225,7 +225,8 @@
             app:boxCornerRadiusTopEnd="8dp"
             app:boxCornerRadiusBottomStart="8dp"
             app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Dia do Fechamento da Fatura (ex: 27)">
+            android:hint="Dia do Fechamento da Fatura (ex: 27)"
+            app:helperText="Melhor data de compra = 27, coloque aqui dia 26">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/inputDiaFechamento"
