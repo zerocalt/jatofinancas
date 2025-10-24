@@ -5,6 +5,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
+import android.os.Looper;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -29,6 +31,9 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.TextView;
 
 public class MenuCadDespesaCartaoFragment extends Fragment {
 
@@ -44,6 +49,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     private OnBackPressedCallback backCallback;
     private MaterialAutoCompleteTextView autoCompleteParcelas;
     private TextInputEditText inputObservacao;
+
+    private int idTransacaoEditando = -1;
 
     public static MenuCadDespesaCartaoFragment newInstance(int idUsuario, int idCartao) {
         MenuCadDespesaCartaoFragment fragment = new MenuCadDespesaCartaoFragment();
@@ -112,6 +119,12 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
         autoCompleteCategoria.setAdapter(adapter);
 
+        // Carrega cartões
+        List<String> cartoes = carregarCartoesUsuario(requireContext(), idUsuarioLogado);
+        ArrayAdapter<String> adapterCartao = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_dropdown_item_1line, cartoes);
+        autoCompleteCartao.setAdapter(adapterCartao);
+
         autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
             Categoria c = (Categoria) parent.getItemAtPosition(position);
             autoCompleteCategoria.setText(c.nome, false);
@@ -128,7 +141,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
                 }
             }
         }
-        autoCompleteCartao.setEnabled(false);
 
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
@@ -188,20 +200,32 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         abrirMenu();
+
+        // Se alguém pediu para abrir a edição, faz aqui
+        if (idTransacaoEditando != -1) {
+            abrirMenuEditarDespesa(idTransacaoEditando);
+            idTransacaoEditando = -1; // reset
+        }
+    }
+
+    // Novo método para setar a transação a editar
+    public void editarTransacao(int idTransacao) {
+        idTransacaoEditando = idTransacao;
     }
 
     // Função auxiliar para atualizar opções do adapter
     private void atualizarOpcoesParcelas(String valorStr, ArrayAdapter<String> adapter, MaterialAutoCompleteTextView autoComplete) {
         valorStr = valorStr.replaceAll("[^0-9,\\.]", "").trim();
-        valorStr = valorStr.replace(".", "").replace(",", ".");
         if (valorStr.isEmpty()) {
             adapter.clear();
             autoComplete.setText("");
             return;
         }
+
         double valor;
         try {
-            valor = Double.parseDouble(valorStr);
+            valorStr = valorStr.replace(".", "");
+            valor = Double.parseDouble(valorStr.replace(",", "."));
         } catch (Exception e) {
             adapter.clear();
             autoComplete.setText("");
@@ -277,8 +301,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        String valorStr = inputValorDespesa.getText().toString().trim();
-        valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
+
         String parcelaSelecionada = autoCompleteParcelas.getText().toString();
         int quantidadeParcelas = 1; // padrão
         if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
@@ -293,6 +316,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             despesaRecorrente = switchDespesaFixa.isChecked();
         }
 
+        // Validações
         if (nome.isEmpty()) {
             tilNomeDespesaCartao.setError("Informe o nome da despesa");
             return;
@@ -306,10 +330,17 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             return;
         }
 
+        String valorStr = inputValorDespesa.getText().toString().trim();
+        // remove "R$" e espaços
+        valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
+        // substitui pontos (milhares) e converte vírgula em ponto
+        valorStr = valorStr.replace(".", "").replace(",", ".");
+        //valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
+
         double valor = 0;
         try {
             if (!valorStr.isEmpty()) {
-                valor = Double.parseDouble(valorStr.replace(",", "."));
+                valor = Double.parseDouble(valorStr);
             }
         } catch (NumberFormatException e) {
             Snackbar.make(requireView(), "Valor inválido", Snackbar.LENGTH_LONG).show();
@@ -321,6 +352,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             return;
         }
 
+        // Busca categoria selecionada
         Categoria categoriaSelecionada = null;
         ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
         for (int i = 0; i < adapter.getCount(); i++) {
@@ -330,7 +362,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
                 break;
             }
         }
-
         if (categoriaSelecionada == null) {
             tilCategoriaDespesa.setError("Informe uma categoria válida");
             return;
@@ -350,19 +381,50 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             valores.put("id_cartao", idCartao);
             valores.put("recorrente", despesaRecorrente ? 1 : 0);
 
-            long idTransacao = db.insert("transacoes_cartao", null, valores);
+            long idTransacao;
+            if (idTransacaoEditando > 0) {
+                // Atualiza transação existente
+                idTransacao = idTransacaoEditando;
+                db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacaoEditando)});
 
-            // Se despesa recorrente, insere registro inicial na tabela de valores históricos
-            if (idTransacao != -1 && despesaRecorrente) {
-                ContentValues valoresRecorrentes = new ContentValues();
-                valoresRecorrentes.put("id_transacao_cartao", idTransacao);
-                valoresRecorrentes.put("valor", valor);
-                valoresRecorrentes.put("data_inicial", dataISO);
-                valoresRecorrentes.putNull("data_final");
-                db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
+                // Atualiza ou insere despesas recorrentes
+                if (despesaRecorrente) {
+                    ContentValues valoresRecorrentes = new ContentValues();
+                    valoresRecorrentes.put("valor", valor);
+                    valoresRecorrentes.put("data_inicial", dataISO);
+
+                    Cursor cursorRecorrente = db.rawQuery(
+                            "SELECT id FROM despesas_recorrentes_cartao WHERE id_transacao_cartao = ?",
+                            new String[]{String.valueOf(idTransacaoEditando)});
+                    if (cursorRecorrente.moveToFirst()) {
+                        int idRecorrente = cursorRecorrente.getInt(cursorRecorrente.getColumnIndexOrThrow("id"));
+                        db.update("despesas_recorrentes_cartao", valoresRecorrentes, "id = ?", new String[]{String.valueOf(idRecorrente)});
+                    } else {
+                        valoresRecorrentes.put("id_transacao_cartao", idTransacao);
+                        valoresRecorrentes.putNull("data_final");
+                        db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
+                    }
+                    cursorRecorrente.close();
+                }
+
+                // Atualiza parcelas existentes ou cria novas
+                db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoEditando)});
+            } else {
+                // Insere nova transação
+                idTransacao = db.insert("transacoes_cartao", null, valores);
+
+                // Insere recorrentes se necessário
+                if (idTransacao != -1 && despesaRecorrente) {
+                    ContentValues valoresRecorrentes = new ContentValues();
+                    valoresRecorrentes.put("id_transacao_cartao", idTransacao);
+                    valoresRecorrentes.put("valor", valor);
+                    valoresRecorrentes.put("data_inicial", dataISO);
+                    valoresRecorrentes.putNull("data_final");
+                    db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
+                }
             }
 
-            // Gera parcelas se quantidade > 1
+            // Gera parcelas
             if (idTransacao != -1 && quantidadeParcelas > 1) {
                 double valorParcela = valor / quantidadeParcelas;
                 java.text.SimpleDateFormat sdfIso = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault());
@@ -374,12 +436,10 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
                     valoresParcela.put("id_transacao_cartao", idTransacao);
                     valoresParcela.put("numero_parcela", i);
                     valoresParcela.put("valor", valorParcela);
-
-                    String dataVencimento = sdfIso.format(calendar.getTime());
-                    valoresParcela.put("data_vencimento", dataVencimento);
                     valoresParcela.put("paga", 0);
                     valoresParcela.putNull("id_fatura");
-
+                    String dataVencimento = sdfIso.format(calendar.getTime());
+                    valoresParcela.put("data_vencimento", dataVencimento);
                     db.insert("parcelas_cartao", null, valoresParcela);
                     calendar.add(java.util.Calendar.MONTH, 1);
                 }
@@ -388,10 +448,9 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             db.setTransactionSuccessful();
             Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
             fecharMenu();
-            if (listener != null) {
-                listener.onDespesaSalva();
-            }
+            if (listener != null) listener.onDespesaSalva();
             limparCampos();
+            idTransacaoEditando = -1; // reseta para próxima inclusão
         } catch (Exception e) {
             Snackbar.make(requireView(), "Erro ao salvar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
         } finally {
@@ -399,6 +458,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             db.close();
         }
     }
+
 
     private List<Categoria> carregarCategoriasComoCategoria(Context ctx, int idUsuario) {
         List<Categoria> lista = new ArrayList<>();
@@ -431,6 +491,16 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     private void openDatePicker() {
         final java.util.Calendar calendar = java.util.Calendar.getInstance();
 
+        String dataAtual = inputDataDespesaCartao.getText().toString().trim();
+        if (!dataAtual.isEmpty()) {
+            try {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                calendar.setTime(sdf.parse(dataAtual));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
         int year = calendar.get(java.util.Calendar.YEAR);
         int month = calendar.get(java.util.Calendar.MONTH);
         int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
@@ -462,4 +532,199 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
         this.listener = listener;
     }
+
+    // substitua o abrirMenuEditarDespesa existente por este
+    public void abrirMenuEditarDespesa(int idTransacao) {
+        idTransacaoEditando = idTransacao;
+        TextView tituloDespesa = requireView().findViewById(R.id.tituloDespesa);
+        tituloDespesa.setText("Editar Despesa do Cartão");
+        btnSalvarDespesaCartao.setText("Editar Despesa");
+        btnSalvarDespesaCartao.setOnClickListener(v -> atualizarDespesa(idTransacao));
+
+        SQLiteDatabase db = new MeuDbHelper(requireContext()).getReadableDatabase();
+
+        // Busca dados da transação
+        Cursor cursor = db.rawQuery(
+                "SELECT t.descricao, t.valor, t.parcelas, t.data_compra, t.id_categoria, t.observacao, t.recorrente " +
+                        "FROM transacoes_cartao t WHERE t.id = ?",
+                new String[]{String.valueOf(idTransacao)}
+        );
+
+        if (cursor.moveToFirst()) {
+            String descricao = cursor.getString(cursor.getColumnIndexOrThrow("descricao"));
+            double valor = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
+            int parcelas = cursor.getInt(cursor.getColumnIndexOrThrow("parcelas"));
+            String dataCompra = cursor.getString(cursor.getColumnIndexOrThrow("data_compra"));
+            int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
+            String observacao = cursor.getString(cursor.getColumnIndexOrThrow("observacao"));
+            int recorrenteInt = cursor.getInt(cursor.getColumnIndexOrThrow("recorrente"));
+            boolean recorrente = recorrenteInt == 1;
+
+            // Preenche campos básicos
+            inputNomeDespesaCartao.setText(descricao);
+            inputValorDespesa.setText(String.format(Locale.getDefault(), "%.2f", valor));
+            inputObservacao.setText(observacao);
+
+            try {
+                inputDataDespesaCartao.setText(DateUtils.converterDataParaPtBR(dataCompra));
+            } catch (Exception e) {
+                e.printStackTrace();
+                inputDataDespesaCartao.setText("");
+            }
+
+            // 🔹 Carrega categorias antes de selecionar
+            List<Categoria> categorias = carregarCategoriasComoCategoria(requireContext(), idUsuarioLogado);
+            CategoriasDropdownAdapter adapterCategoria = new CategoriasDropdownAdapter(requireContext(), categorias);
+            autoCompleteCategoria.setAdapter(adapterCategoria);
+
+            // Seleciona categoria correta
+            for (Categoria c : categorias) {
+                if (c.id == idCategoria) {
+                    autoCompleteCategoria.setText(c.nome, false);
+                    break;
+                }
+            }
+
+            // Preenche parcelas
+            ArrayAdapter<String> adapterParcelas = (ArrayAdapter<String>) autoCompleteParcelas.getAdapter();
+            NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
+            atualizarOpcoesParcelas(String.valueOf(formatoBR.format(valor)), adapterParcelas, autoCompleteParcelas);
+            autoCompleteParcelas.setText(parcelas + "x - " + formatoBR.format(valor / parcelas), false);
+
+            // Preenche switch de recorrente
+            com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
+            switchDespesaFixa.setChecked(recorrente);
+        }
+
+        cursor.close();
+        db.close();
+
+        abrirMenu(); // Abre o menu deslizando
+    }
+
+
+    private void atualizarDespesa(int idTransacaoCartao) {
+        String nome = inputNomeDespesaCartao.getText().toString().trim();
+        String categoriaTexto = autoCompleteCategoria.getText().toString().trim();
+        String observacao = inputObservacao.getText().toString().trim();
+        String data = inputDataDespesaCartao.getText().toString().trim();
+        String dataISO = null;
+        try { dataISO = DateUtils.converterDataParaISO(data); } catch (Exception ignored) {}
+
+        String valorStr = inputValorDespesa.getText().toString().trim().replace("R$", "").replaceAll("[^0-9,]", "").trim();
+        double valor = 0;
+        try { if (!valorStr.isEmpty()) valor = Double.parseDouble(valorStr.replace(",", ".")); }
+        catch (Exception ignored) {}
+
+        String parcelaSelecionada = autoCompleteParcelas.getText().toString();
+        int quantidadeParcelas = 1;
+        if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
+            try { quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim()); }
+            catch (Exception ignored) {}
+        }
+
+        boolean despesaRecorrente = false;
+        com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
+        if (switchDespesaFixa != null) despesaRecorrente = switchDespesaFixa.isChecked();
+
+        if (nome.isEmpty()) { tilNomeDespesaCartao.setError("Informe o nome da despesa"); return; }
+        if (categoriaTexto.isEmpty()) { tilCategoriaDespesa.setError("Informe a categoria"); return; }
+        if (data.isEmpty()) { tilDataDespesaCartao.setError("Informe a data da despesa"); return; }
+
+        Categoria categoriaSelecionada = null;
+        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+        for (int i = 0; i < adapter.getCount(); i++) {
+            Categoria c = adapter.getItem(i);
+            if (c != null && c.nome.equals(categoriaTexto)) {
+                categoriaSelecionada = c;
+                break;
+            }
+        }
+        if (categoriaSelecionada == null) { tilCategoriaDespesa.setError("Informe uma categoria válida"); return; }
+
+        // Abre apenas UM DB
+        SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase();
+        db.beginTransaction();
+        try {
+            // FECHA recorrência antiga
+            ContentValues fecharRecorrente = new ContentValues();
+            java.text.SimpleDateFormat sdfIso = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            String dataFinal = sdfIso.format(new java.util.Date()); // ou calcula o dia do fechamento
+            fecharRecorrente.put("data_final", dataFinal);
+            db.update("despesas_recorrentes_cartao", fecharRecorrente,
+                    "id_transacao_cartao = ? AND data_final IS NULL",
+                    new String[]{String.valueOf(idTransacaoCartao)});
+
+            // ATUALIZA transação
+            ContentValues valores = new ContentValues();
+            valores.put("descricao", nome);
+            valores.put("id_categoria", categoriaSelecionada.id);
+            valores.put("data_compra", dataISO);
+            valores.put("valor", valor);
+            valores.put("parcelas", quantidadeParcelas);
+            valores.put("observacao", observacao);
+            valores.put("recorrente", despesaRecorrente ? 1 : 0);
+            valores.put("id_cartao", idCartao);
+            db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacaoCartao)});
+
+            // CRIA nova recorrência
+            if (despesaRecorrente) {
+                ContentValues novaRecorrente = new ContentValues();
+                novaRecorrente.put("id_transacao_cartao", idTransacaoCartao);
+                novaRecorrente.put("valor", valor);
+                novaRecorrente.put("data_inicial", sdfIso.format(new java.util.Date()));
+                novaRecorrente.putNull("data_final");
+                db.insert("despesas_recorrentes_cartao", null, novaRecorrente);
+            }
+
+            // ATUALIZA parcelas apenas se for mais de 1x
+            db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoCartao)});
+            if (quantidadeParcelas > 1) {
+                double valorParcela = valor / quantidadeParcelas;
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                try { cal.setTime(sdfIso.parse(dataISO)); } catch (Exception ignored) {}
+
+                for (int i = 1; i <= quantidadeParcelas; i++) {
+                    ContentValues valoresParcela = new ContentValues();
+                    valoresParcela.put("id_transacao_cartao", idTransacaoCartao);
+                    valoresParcela.put("numero_parcela", i);
+                    valoresParcela.put("valor", valorParcela);
+                    valoresParcela.put("paga", 0);
+                    valoresParcela.putNull("id_fatura");
+                    valoresParcela.put("data_vencimento", sdfIso.format(cal.getTime()));
+                    db.insert("parcelas_cartao", null, valoresParcela);
+                    cal.add(java.util.Calendar.MONTH, 1);
+                }
+            }
+
+            db.setTransactionSuccessful();
+            Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
+            fecharMenu();
+            if (listener != null) listener.onDespesaSalva();
+            limparCampos();
+
+        } catch (Exception e) {
+            Snackbar.make(requireView(), "Erro ao atualizar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
+        } finally {
+            db.endTransaction();
+            db.close();
+        }
+    }
+
+    private List<String> carregarCartoesUsuario(Context ctx, int idUsuario) {
+        List<String> lista = new ArrayList<>();
+        String sql = "SELECT id, nome FROM cartoes WHERE id_usuario = ? AND ativo = 1 ORDER BY nome COLLATE NOCASE ASC";
+        try (SQLiteDatabase db = new MeuDbHelper(ctx).getReadableDatabase();
+             Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
+            if (cursor != null && cursor.moveToFirst()) {
+                do {
+                    String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
+                    lista.add(nome);
+                } while (cursor.moveToNext());
+            }
+        }
+        return lista;
+    }
+
+
 }

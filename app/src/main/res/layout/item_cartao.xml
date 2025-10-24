@@ -47,6 +47,7 @@
 
     <!-- Limite, vencimento, fechamento -->
     <LinearLayout
+        android:id="@+id/linhaFaturaParcial"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -99,6 +100,7 @@
 
     <!-- Barra de uso do limite -->
     <LinearLayout
+        android:id="@+id/linhaBarraLimite"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
@@ -137,6 +139,7 @@
 
     <!-- Botões finais -->
     <LinearLayout
+        android:id="@+id/linhaBotoes"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"

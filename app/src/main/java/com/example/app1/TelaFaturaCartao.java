@@ -7,11 +7,16 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Log;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,7 +24,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.app1.utils.MenuHelper;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
+import com.google.android.material.materialswitch.MaterialSwitch;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
 
 import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
@@ -37,6 +46,7 @@ public class TelaFaturaCartao extends AppCompatActivity {
     private int dataFechamento = 0;
     private int dataVencimento = 0;
     private String bandeiraCartao = "outros";
+    private int idUsuarioLogado = -1; // adicione e inicialize corretamente
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,6 +60,7 @@ public class TelaFaturaCartao extends AppCompatActivity {
         });
 
         idCartao = getIntent().getIntExtra("id_cartao", -1);
+        idUsuarioLogado = getIntent().getIntExtra("id_usuario", -1);
 
         txtMes = findViewById(R.id.txtMes);
         txtAno = findViewById(R.id.txtAno);
@@ -172,31 +183,37 @@ public class TelaFaturaCartao extends AppCompatActivity {
         SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase();
 
         // Query integrada para trazer todas as parcelas e informações de transação fusionadas
-        String query = "SELECT p.data_vencimento AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
-                "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas " +
-                "FROM parcelas_cartao p " +
-                "INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
-                "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                "WHERE t.id_cartao = ? AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
+        String query =
+                "SELECT p.data_vencimento AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
+                        "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas " +
+                        "FROM parcelas_cartao p " +
+                        "INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
+                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                        "WHERE t.id_cartao = ? AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
 
-                "UNION ALL " +
+                        "UNION ALL " +
 
-                "SELECT t.data_compra AS data, t.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
-                "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
-                "FROM transacoes_cartao t LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                "WHERE t.id_cartao = ? AND t.parcelas = 1 AND t.data_compra >= ? AND t.data_compra <= ? " +
+                        // Despesas únicas (não recorrentes)
+                        "SELECT t.data_compra AS data, t.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
+                        "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
+                        "FROM transacoes_cartao t LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                        "WHERE t.id_cartao = ? AND t.parcelas = 1 AND (t.recorrente IS NULL OR t.recorrente = 0) AND t.data_compra >= ? AND t.data_compra <= ? " +
 
-                "UNION ALL " +
+                        "UNION ALL " +
 
-                "SELECT d.data_inicial AS data, d.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
-                "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
-                "FROM despesas_recorrentes_cartao d INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
-                "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                "WHERE t.id_cartao = ? AND d.data_inicial <= ? AND (d.data_final IS NULL OR d.data_final >= ?) " +
-                "AND d.data_inicial = (SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 " +
-                "WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ?) " +
+                        "SELECT d.data_inicial AS data, d.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
+                        "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
+                        "FROM despesas_recorrentes_cartao d INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
+                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                        "WHERE t.id_cartao = ? " +
+                        "  AND d.data_inicial <= ? " +                       /* data_inicial <= dataFim */
+                        "  AND (d.data_final IS NULL OR d.data_final >= ?) " +/* data_final >= dataInicio OR NULL */
+                        "  AND d.data_inicial = ( " +
+                        "      SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 " +
+                        "      WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ? " + /* <= dataFim */
+                        "  ) " +
 
-                "ORDER BY data ASC";
+                        "ORDER BY data ASC";
 
         Cursor cur = db.rawQuery(query, new String[]{
                 String.valueOf(idCartao), dataInicio, dataFim,
@@ -215,12 +232,23 @@ public class TelaFaturaCartao extends AppCompatActivity {
         while (cur.moveToNext()) {
             int idTransacaoCartao = cur.getInt(cur.getColumnIndexOrThrow("id_transacao_cartao"));
             int recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
+            Integer numeroParcela = null;
+            if (!cur.isNull(cur.getColumnIndexOrThrow("numero_parcela"))) {
+                numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
+            }
+            int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
 
             if (recorrente == 1 && idsRecorrentesExibidos.contains(idTransacaoCartao)) {
                 continue;
             } else if (recorrente == 1) {
                 idsRecorrentesExibidos.add(idTransacaoCartao);
             }
+
+            // 🔹 Crie variáveis finais para uso dentro do lambda
+            final int finalIdTransacaoCartao = idTransacaoCartao;
+            final int finalRecorrente = recorrente;
+            final Integer finalNumeroParcela = numeroParcela;
+            final int finalTotalParcelas = totalParcelas;
 
             String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data"));
             String dataFormatada = formatarDataBR(dataRegistro);
@@ -239,11 +267,6 @@ public class TelaFaturaCartao extends AppCompatActivity {
             String descricao = cur.getString(cur.getColumnIndexOrThrow("descricao"));
             String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
             String corCategoria = cur.getString(cur.getColumnIndexOrThrow("cor"));
-            Integer numeroParcela = null;
-            if (!cur.isNull(cur.getColumnIndexOrThrow("numero_parcela"))) {
-                numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
-            }
-            int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
 
             String tipoLabel = "";
             if (numeroParcela != null) {
@@ -275,6 +298,15 @@ public class TelaFaturaCartao extends AppCompatActivity {
 
             ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
             ((TextView) item.findViewById(R.id.valorDespesa)).setText(formatarBR(valor));
+
+            // Adicionar clique no item para abrir o menu
+            item.setOnClickListener(v -> mostrarMenuDespesa(
+                    item,
+                    finalIdTransacaoCartao,
+                    finalRecorrente,
+                    finalNumeroParcela,
+                    finalTotalParcelas
+            ));
 
             blocoDespesas.addView(item);
         }
@@ -309,4 +341,98 @@ public class TelaFaturaCartao extends AppCompatActivity {
             return dataISO;
         }
     }
+
+    private void mostrarMenuDespesa(View itemDespesa, int idTransacaoCartao, int recorrente, Integer numeroParcela, int totalParcelas) {
+        final int finalIdTransacaoCartao = idTransacaoCartao;
+        final int finalRecorrente = recorrente;
+        final Integer finalNumeroParcela = numeroParcela;
+        final int finalTotalParcelas = totalParcelas;
+
+        MenuHelper.MenuItemData[] menuItens = new MenuHelper.MenuItemData[] {
+                new MenuHelper.MenuItemData("Editar", R.drawable.ic_edit, new MenuHelper.MenuItemClickListener() {
+                    @Override
+                    public void onClick() {
+                        // Cria o fragment com usuário e cartão
+                        MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
+
+                        // Registra o listener para atualizar a fatura
+                        fragment.setOnDespesaSalvaListener(new MenuCadDespesaCartaoFragment.OnDespesaSalvaListener() {
+                            @Override
+                            public void onDespesaSalva() {
+                                new Handler(Looper.getMainLooper()).post(() -> carregarFatura()); // método que você usa para atualizar a fatura na tela
+                            }
+                        });
+
+                        // Adiciona o fragment ao container
+                        getSupportFragmentManager()
+                                .beginTransaction()
+                                .replace(R.id.containerFragment, fragment)
+                                .addToBackStack(null)
+                                .commit();
+
+                        // Seta a transação que queremos editar
+                        fragment.editarTransacao(finalIdTransacaoCartao);
+                    }
+                }),
+                new MenuHelper.MenuItemData("Excluir", R.drawable.ic_delete, new MenuHelper.MenuItemClickListener() {
+                    @Override
+                    public void onClick() {
+                        new android.app.AlertDialog.Builder(TelaFaturaCartao.this)
+                                .setTitle("Excluir despesa")
+                                .setMessage("Tem certeza que deseja excluir esta despesa?\n\n" +
+                                        "- Despesa 1x: será removida definitivamente.\n" +
+                                        "- Despesa parcelada: toda a transação e suas parcelas serão removidas.\n" +
+                                        "- Despesa recorrente: a recorrência será encerrada a partir deste mês (apenas meses atuais e seguintes serão removidos).")
+                                .setPositiveButton("Sim", (dialog, which) -> {
+                                    SQLiteDatabase db = new MeuDbHelper(TelaFaturaCartao.this).getWritableDatabase();
+                                    try {
+                                        if (finalRecorrente == 1) {
+                                            String dataFinal = calcularDataFinalDespesaRecorrente();
+                                            db.execSQL("UPDATE despesas_recorrentes_cartao SET data_final = ? WHERE id_transacao_cartao = ?",
+                                                    new Object[]{dataFinal, finalIdTransacaoCartao});
+                                        } else if (finalNumeroParcela != null && finalTotalParcelas > 1) {
+                                            db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(finalIdTransacaoCartao)});
+                                            db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(finalIdTransacaoCartao)});
+                                        } else {
+                                            db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(finalIdTransacaoCartao)});
+                                        }
+
+                                        carregarFatura();
+                                        Toast.makeText(TelaFaturaCartao.this, "Despesa excluída com sucesso", Toast.LENGTH_SHORT).show();
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                        Toast.makeText(TelaFaturaCartao.this, "Erro ao excluir despesa", Toast.LENGTH_SHORT).show();
+                                    } finally {
+                                        db.close();
+                                    }
+                                })
+                                .setNegativeButton("Cancelar", null)
+                                .show();
+                    }
+                })
+        };
+
+        MenuHelper.showMenu(this, itemDespesa, menuItens);
+    }
+
+    private String calcularDataFinalDespesaRecorrente() {
+        Calendar agora = Calendar.getInstance();
+        Calendar dataFinal = Calendar.getInstance();
+
+        if (dataFechamento > 0) {
+            // Data do fechamento do mês anterior
+            dataFinal.set(agora.get(Calendar.YEAR), agora.get(Calendar.MONTH), dataFechamento);
+            dataFinal.add(Calendar.MONTH, -1);
+        } else {
+            // Último dia do mês anterior
+            dataFinal.set(agora.get(Calendar.YEAR), agora.get(Calendar.MONTH), 1);
+            dataFinal.add(Calendar.DAY_OF_MONTH, -1);
+        }
+
+        return String.format("%04d-%02d-%02d",
+                dataFinal.get(Calendar.YEAR),
+                dataFinal.get(Calendar.MONTH) + 1,
+                dataFinal.get(Calendar.DAY_OF_MONTH));
+    }
+
 }
