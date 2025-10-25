@@ -17,10 +17,13 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import com.example.app1.utils.MenuBottomUtils;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialog;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 import java.util.Calendar;
+import java.util.zip.Inflater;
 
 public class TelaPrincipal extends AppCompatActivity {
     private TextView txtMes;
@@ -98,6 +101,7 @@ public class TelaPrincipal extends AppCompatActivity {
         } else {
             Toast.makeText(this, "Botão de logout não encontrado!", Toast.LENGTH_LONG).show();
         }
+
     }
 
     private void showMonthYearPicker() {

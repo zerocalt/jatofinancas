@@ -2,18 +2,25 @@ package com.example.app1;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import com.example.app1.utils.MenuBottomUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
+import androidx.security.crypto.EncryptedSharedPreferences;
+import androidx.security.crypto.MasterKey;
 
 public class BottomMenuFragment extends Fragment {
     public static final int PRINCIPAL = 0;
@@ -138,10 +145,16 @@ public class BottomMenuFragment extends Fragment {
             closeMenu(overlay, quickActions, fabReceita, fabDespesa, fabTransferencia, fabDespesaCartao);
         });
 
+        int idUsuario = getIdUsuarioLogado();
+
         fabReceita.setOnClickListener(btn -> { /* ação receita */ });
         fabDespesa.setOnClickListener(btn -> { /* ação despesa */ });
         fabTransferencia.setOnClickListener(btn -> { /* ação transferência */ });
-        fabDespesaCartao.setOnClickListener(btn -> { /* ação despesa cartão */ });
+        fabDespesaCartao.setOnClickListener(btn -> {
+            if (getActivity() != null && idUsuario != -1) {
+                MenuBottomUtils.abrirMenuCadDespesaCartao((AppCompatActivity) getActivity(), idUsuario, -1);
+            }
+        });
 
         return v;
     }
@@ -175,4 +188,27 @@ public class BottomMenuFragment extends Fragment {
             menuAberto = false;
         }, 250);
     }
+
+    //pegar o id_usuario
+    private int getIdUsuarioLogado() {
+        try {
+            MasterKey masterKey = new MasterKey.Builder(requireContext())
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+
+            SharedPreferences prefs = EncryptedSharedPreferences.create(
+                    requireContext(),
+                    "secure_login_prefs", // mesmo nome do MainActivity
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+
+            return prefs.getInt("saved_user_id", -1); // mesma chave que salvamos
+        } catch (Exception e) {
+            e.printStackTrace();
+            return -1;
+        }
+    }
+
 }
