@@ -97,7 +97,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id_usuario INTEGER NOT NULL, " +                   // ID do usuário
                         "id_conta INTEGER NOT NULL, " +                     // Conta associada
                         "valor REAL NOT NULL, " +                            // Valor da transação
-                        "tipo INTEGER NOT NULL, " +                          // Tipo da transação (1: Receita, 2: Despesa, 3: Cartão, 4: Transferência)
+                        "tipo INTEGER NOT NULL, " +                          // Tipo da transação (1: Receita, 2: Despesa, 3: Transferência)
                         "pago INTEGER DEFAULT 0, " +                         // Indicador se foi pago (0 = não, 1 = sim)
                         "recebido INTEGER DEFAULT 0, " +                     // Indicador se foi recebido (0 = não, 1 = sim)
                         "data_movimentacao DATETIME NOT NULL, " +           // Data da movimentação
@@ -105,8 +105,10 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id_categoria INTEGER, " +                           // Categoria da transação
                         "observacao TEXT, " +                                // Observação
                         "recorrente INTEGER DEFAULT 0, " +                   // Indicador se é recorrente
-                        "repetir_qtd INTEGER DEFAULT 0, " +                  // Quantidade de repetições para recorrência
-                        "repetir_periodo TEXT, " +                            // Período de recorrência (ex: mensal)
+                        "repetir_qtd INTEGER DEFAULT 0, " +                  // Quantidade de repetições
+                        "repetir_periodo INTEGER DEFAULT 0, " +              // Período de recorrência (ex: 0 - normal, 1 - semanal, 2 - mensal, 3 - bimestral, 4 - trimestral, 5 - semestral, 6 - anual)
+                        "id_mestre INTEGER, " +                               // para informar de qual transação é recorrente
+                        "recorrente_ativo INTEGER DEFAULT 0, " +             // Indicador se a recorrência está ativa (0 = não, 1 = sim)
                         "id_conta_destino INTEGER, " +                        // Conta destino para transferências
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " + // Data/hora cadastro
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
@@ -117,6 +119,25 @@ public class MeuDbHelper extends SQLiteOpenHelper {
         );
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_id_usuario ON transacoes(id_usuario)");
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_id_conta ON transacoes(id_conta)");
+
+        // Tabela transacoes_parcelas
+        db.execSQL(
+                "CREATE TABLE IF NOT EXISTS parcelas_transacoes (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                        "id_transacao INTEGER NOT NULL, " +
+                        "numero_parcela INTEGER NOT NULL, " +
+                        "valor REAL NOT NULL, " +
+                        "data_vencimento DATETIME NOT NULL, " +
+                        "pago INTEGER DEFAULT 0, " +
+                        "data_pagamento DATETIME, " +
+                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
+                        "FOREIGN KEY (id_transacao) REFERENCES transacoes(id)" +
+                        ")"
+        );
+        // Índices
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_id_transacao ON parcelas_transacoes(id_transacao)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_data_vencimento ON parcelas_transacoes(data_vencimento)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_pago ON parcelas_transacoes(pago)");
 
         // Tabela cartoes: cartão de crédito/débito
         db.execSQL(
@@ -145,6 +166,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id_cartao INTEGER NOT NULL, " +                     // FK para cartão associado
                         "mes INTEGER NOT NULL, " +                            // Mês da fatura
                         "ano INTEGER NOT NULL, " +                            // Ano da fatura
+                        "data_vencimento DATETIME NOT NULL, " +              // Data de vencimento (pegar pela data do cartão)
                         "valor_total REAL DEFAULT 0, " +                      // Valor total da fatura
                         "status INTEGER DEFAULT 0, " +                         // Status: 0 aberta, 1 paga
                         "data_pagamento DATETIME, " +                         // Data do pagamento
