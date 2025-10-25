@@ -148,11 +148,37 @@ public class BottomMenuFragment extends Fragment {
         int idUsuario = getIdUsuarioLogado();
 
         fabReceita.setOnClickListener(btn -> { /* ação receita */ });
-        fabDespesa.setOnClickListener(btn -> { /* ação despesa */ });
+
+        // abrir menu Despesa
+        fabDespesa.setOnClickListener(btn -> {
+            if (getActivity() != null && idUsuario != -1) {
+                // Fecha o menu atual antes de abrir outro
+                closeMenu(v.findViewById(R.id.overlay),
+                        v.findViewById(R.id.quickActions),
+                        fabReceita, fabDespesa, fabTransferencia, fabDespesaCartao);
+
+                // Abre o menu de despesas
+                // Usa um pequeno atraso para dar tempo da animação terminar
+                v.postDelayed(() -> {
+                    MenuBottomUtils.abrirMenuCadDespesa((AppCompatActivity) getActivity(), idUsuario);
+                }, 200);
+            }
+        });
         fabTransferencia.setOnClickListener(btn -> { /* ação transferência */ });
+
+        // abrir menu Despesa Cartão
         fabDespesaCartao.setOnClickListener(btn -> {
             if (getActivity() != null && idUsuario != -1) {
-                MenuBottomUtils.abrirMenuCadDespesaCartao((AppCompatActivity) getActivity(), idUsuario, -1);
+                // Fecha o menu atual antes de abrir outro
+                closeMenu(v.findViewById(R.id.overlay),
+                        v.findViewById(R.id.quickActions),
+                        fabReceita, fabDespesa, fabTransferencia, fabDespesaCartao);
+
+                // Abre o menu de despesas
+                // Usa um pequeno atraso para dar tempo da animação terminar
+                v.postDelayed(() -> {
+                    MenuBottomUtils.abrirMenuCadDespesaCartao((AppCompatActivity) getActivity(), idUsuario, -1);
+                }, 200);
             }
         });
 

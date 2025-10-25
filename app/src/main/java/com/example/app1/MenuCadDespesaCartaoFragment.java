@@ -35,6 +35,7 @@ import java.util.Locale;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.TextView;
+import com.example.app1.data.CategoriaDAO;
 
 public class MenuCadDespesaCartaoFragment extends Fragment {
 
@@ -116,7 +117,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         inputDataDespesaCartao.setClickable(true);
 
         // Carrega categorias
-        List<Categoria> categorias = carregarCategoriasComoCategoria(requireContext(), idUsuarioLogado);
+        List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
         CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
         autoCompleteCategoria.setAdapter(adapter);
 
@@ -460,28 +461,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         }
     }
 
-
-    private List<Categoria> carregarCategoriasComoCategoria(Context ctx, int idUsuario) {
-        List<Categoria> lista = new ArrayList<>();
-        String sql = "SELECT id, nome, cor FROM categorias WHERE id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
-        try (SQLiteDatabase db = new MeuDbHelper(ctx).getReadableDatabase();
-             Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
-            if (cursor != null && cursor.moveToFirst()) {
-                ArrayList<Integer> idsUnicos = new ArrayList<>();
-                do {
-                    int id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
-                    String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
-                    String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
-                    if (!idsUnicos.contains(id)) {
-                        idsUnicos.add(id);
-                        lista.add(new Categoria(id, nome, cor != null ? cor : "#888888"));
-                    }
-                } while (cursor.moveToNext());
-            }
-        }
-        return lista;
-    }
-
     private void limparCampos() {
         inputNomeDespesaCartao.setText("");
         inputDataDespesaCartao.setText("");
@@ -574,7 +553,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             }
 
             // 🔹 Carrega categorias antes de selecionar
-            List<Categoria> categorias = carregarCategoriasComoCategoria(requireContext(), idUsuarioLogado);
+            List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
             CategoriasDropdownAdapter adapterCategoria = new CategoriasDropdownAdapter(requireContext(), categorias);
             autoCompleteCategoria.setAdapter(adapterCategoria);
 
@@ -726,6 +705,5 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         }
         return lista;
     }
-
 
 }

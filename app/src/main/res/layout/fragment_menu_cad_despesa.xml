@@ -3,7 +3,7 @@
 
     <!-- Fundo escurecido quando o menu está aberto -->
     <View
-        android:id="@+id/overlayDespesaCartao"
+        android:id="@+id/overlayDespesa"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#99000000"
@@ -11,7 +11,7 @@
 
     <!-- Menu que desliza para cima, fixado ao rodapé -->
     <LinearLayout
-        android:id="@+id/slidingMenuDespesaCartao"
+        android:id="@+id/slidingMenuDespesa"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@drawable/background_menu_flutuante"
@@ -104,7 +104,8 @@
                     android:id="@+id/switchDespesaPago"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:checked="false"
+                    android:checked="true"
+                    app:thumbTint="@color/white"
                     />
 
                 <TextView
@@ -138,11 +139,10 @@
                 android:hint="* Categoria da Despesa">
 
                 <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                    android:id="@+id/autoCompleteTipoDespesa"
+                    android:id="@+id/autoCompleteCategoria"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="none"
-                    />
+                    android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -302,6 +302,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:checked="false"
+                    app:thumbTint="@color/white"
                     />
 
                 <TextView
