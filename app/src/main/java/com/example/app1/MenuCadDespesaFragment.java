@@ -14,8 +14,10 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.ArrayAdapter;
 
 import com.example.app1.data.CategoriaDAO;
+import com.example.app1.data.ContaDAO;
 import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -24,6 +26,7 @@ import com.google.android.material.textfield.TextInputLayout;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 public class MenuCadDespesaFragment extends Fragment {
 
@@ -31,10 +34,12 @@ public class MenuCadDespesaFragment extends Fragment {
     private int idUsuario;
     private View slidingMenuDespesa;
     private View overlayDespesa;
-    private TextInputEditText inputValorDespesa;
+    private TextInputEditText inputValorDespesa, inputDataDespesa;
     private OnBackPressedCallback backCallback;
     private MaterialAutoCompleteTextView autoCompleteCategoria;
-    private TextInputLayout tilValorDespesa;
+    private TextInputLayout tilValorDespesa, tilDataDespesa;
+
+    private MenuCadContaFragment menuCadContaFragment;
 
     public static MenuCadDespesaFragment newInstance(int idUsuario) {
         MenuCadDespesaFragment fragment = new MenuCadDespesaFragment();
@@ -78,8 +83,10 @@ public class MenuCadDespesaFragment extends Fragment {
         overlayDespesa = root.findViewById(R.id.overlayDespesa);
 
         tilValorDespesa = root.findViewById(R.id.textInputValorDespesa);
+        tilDataDespesa = root.findViewById(R.id.textInputDataDespesa);
 
         inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
+        inputDataDespesa = root.findViewById(R.id.inputDataDespesa);
 
         // fecha o menu Despesa clicando fora dele
         overlayDespesa.setOnClickListener(v -> fecharMenu());
@@ -87,10 +94,53 @@ public class MenuCadDespesaFragment extends Fragment {
         // coloca mascara no inPutValor
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
+        // campo data
+        inputDataDespesa.setOnClickListener(v -> openDatePicker());
+        inputDataDespesa.setFocusable(false);
+        inputDataDespesa.setClickable(true);
+        // Define a data atual formatada
+        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
+        String dataAtual = sdf.format(new java.util.Date());
+        inputDataDespesa.setText(dataAtual);
+
         // Carrega categorias
         List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
         CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
         autoCompleteCategoria.setAdapter(adapter);
+
+        // Carrega contas
+        // Preenche menu suspenso de conta para seleção, trazendo contas do banco
+        List<String> contas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
+        MaterialAutoCompleteTextView autoCompleteConta = root.findViewById(R.id.autoCompleteConta);
+        ArrayAdapter<String> adapterConta = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(adapterConta);
+
+        // Botão para abrir menu cadastro conta
+        View btnAddConta = root.findViewById(R.id.btnAddConta);
+        btnAddConta.setOnClickListener(v -> abrirMenuConta());
+        menuCadContaFragment = MenuCadContaFragment.newInstance(idUsuario);
+        menuCadContaFragment.setOnContaSalvaListener(nomeConta -> {
+            // Recarrega lista de contas do banco
+            List<String> contasAtualizadas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
+
+            // Atualiza o adapter
+            ArrayAdapter<String> novoAdapter = new ArrayAdapter<>(requireContext(),
+                    android.R.layout.simple_dropdown_item_1line,
+                    contasAtualizadas);
+            autoCompleteConta.setAdapter(novoAdapter);
+
+            // Define a nova conta como selecionada
+            autoCompleteConta.setText(nomeConta, false);
+
+            // Fecha o menu de conta
+            fecharMenuConta();
+        });
+        // Adiciona o fragment dentro do container (só se ainda não tiver sido adicionado)
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainerConta, menuCadContaFragment)
+                .commitNow(); // commitNow garante que ele já está disponível
+        // Configura o listener de retorno
+
 
         return root;
     }
@@ -135,6 +185,46 @@ public class MenuCadDespesaFragment extends Fragment {
 
         });
         backCallback.setEnabled(true);
+    }
+
+    // Abre o menu para cadastro de contas.
+    private void abrirMenuConta() {
+        View container = requireView().findViewById(R.id.fragmentContainerConta);
+        container.setVisibility(View.VISIBLE);
+        menuCadContaFragment.abrirMenu();
+    }
+
+    // Fecha o menu de cadastro de contas.
+    private void fecharMenuConta() {
+        menuCadContaFragment.fecharMenu();
+        View container = requireView().findViewById(R.id.fragmentContainerConta);
+        container.setVisibility(View.GONE);
+    }
+
+    private void openDatePicker() {
+        final java.util.Calendar calendar = java.util.Calendar.getInstance();
+
+        String dataAtual = inputDataDespesa.getText().toString().trim();
+        if (!dataAtual.isEmpty()) {
+            try {
+                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+                calendar.setTime(sdf.parse(dataAtual));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        int year = calendar.get(java.util.Calendar.YEAR);
+        int month = calendar.get(java.util.Calendar.MONTH);
+        int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
+
+        android.app.DatePickerDialog datePickerDialog = new android.app.DatePickerDialog(requireContext(),
+                (view, selectedYear, selectedMonth, selectedDayOfMonth) -> {
+                    String dataSelecionada = String.format("%02d/%02d/%04d", selectedDayOfMonth, selectedMonth + 1, selectedYear);
+                    inputDataDespesa.setText(dataSelecionada);
+                }, year, month, day);
+
+        datePickerDialog.show();
     }
 
 }
