@@ -82,26 +82,45 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <!-- Categoria da Despesa -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputCategoriaDespesa"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_category"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Categoria da Despesa">
+            android:orientation="horizontal">
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/autoCompleteTipoConta"
-                android:layout_width="match_parent"
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:id="@+id/textInputCategoriaDespesa"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_weight="1"
+                app:boxBackgroundMode="outline"
+                app:startIconDrawable="@drawable/ic_category"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                android:hint="* Categoria da Despesa">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompleteCategoria"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnAddCategoria"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="5dp"
+                android:contentDescription="Adicionar Categoria"
+                android:src="@drawable/ic_add"
+                app:backgroundTint="#2F4F99"
+                app:tint="@android:color/white"/>
+
+        </LinearLayout>
 
         <!-- Categoria da Despesa -->
         <com.google.android.material.textfield.TextInputLayout
@@ -250,4 +269,14 @@
             android:textColor="#FFF"/>
 
     </LinearLayout>
+
+    <!-- abre o menu cadCategoria -->
+    <FrameLayout
+        android:id="@+id/fragmentContainerCategoria"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone"/>
 </FrameLayout>

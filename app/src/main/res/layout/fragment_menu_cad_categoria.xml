@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/rootMenuConta" android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <!-- Fundo escurecido quando o menu está aberto -->
+    <View
+        android:id="@+id/overlayCategoria"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#99000000"
+        android:visibility="gone" />
+
+    <!-- Menu que desliza para cima, fixado ao rodapé -->
+    <LinearLayout
+        android:id="@+id/slidingMenuCategoria"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/background_menu_flutuante"
+        android:orientation="vertical"
+        android:visibility="visible"
+        android:layout_gravity="bottom"
+        android:padding="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Adicionar Categoria"
+            android:textColor="#FFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:padding="16dp" />
+
+        <!-- Nome da Conta -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputNomeCategoria"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:startIconDrawable="@drawable/ic_category"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="clear_text"
+            android:hint="* Nome da Categoria">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputNomeCategoria"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Cor (hexadecimal) -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputCorCategoria"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:startIconDrawable="@drawable/ic_color_lens"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            android:hint="Cor (hexadecimal, ex: #FF0000)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputCorCategoria"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:focusable="false"
+                android:clickable="true" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Botão Salvar -->
+        <Button
+            android:id="@+id/btnSalvarCategoria"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Salvar Categoria"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="#2F4F99"
+            android:textColor="#FFF"/>
+
+    </LinearLayout>
+</FrameLayout>

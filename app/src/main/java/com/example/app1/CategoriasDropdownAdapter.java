@@ -39,8 +39,8 @@ public class CategoriasDropdownAdapter extends ArrayAdapter<Categoria> {
 
         // Iniciais da categoria:
         String iniciais = "";
-        if (categoria.nome != null && !categoria.nome.isEmpty()) {
-            String[] partes = categoria.nome.trim().split("\\s+");
+        if (categoria.getNome() != null && !categoria.getNome().isEmpty()) {
+            String[] partes = categoria.getNome().trim().split("\\s+");
             for (String p : partes)
                 if (!p.isEmpty())
                     iniciais += Character.toUpperCase(p.charAt(0));
@@ -50,12 +50,12 @@ public class CategoriasDropdownAdapter extends ArrayAdapter<Categoria> {
         // Cor:
         GradientDrawable bg = (GradientDrawable) tvCircle.getBackground();
         try {
-            bg.setColor(android.graphics.Color.parseColor(categoria.cor));
+            bg.setColor(android.graphics.Color.parseColor(categoria.getCor()));
         } catch (Exception e) {
             bg.setColor(0xFF888888); // cinza padrão
         }
 
-        tvNome.setText(categoria.nome);
+        tvNome.setText(categoria.getNome());
 
         return convertView;
     }

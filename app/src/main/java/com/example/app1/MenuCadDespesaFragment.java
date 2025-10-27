@@ -18,6 +18,7 @@ import android.widget.ArrayAdapter;
 
 import com.example.app1.data.CategoriaDAO;
 import com.example.app1.data.ContaDAO;
+import com.example.app1.utils.DateUtils;
 import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -95,7 +96,7 @@ public class MenuCadDespesaFragment extends Fragment {
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
         // campo data
-        inputDataDespesa.setOnClickListener(v -> openDatePicker());
+        inputDataDespesa.setOnClickListener(v -> DateUtils.openDatePicker(requireContext(), inputDataDespesa));
         inputDataDespesa.setFocusable(false);
         inputDataDespesa.setClickable(true);
         // Define a data atual formatada
@@ -141,6 +142,25 @@ public class MenuCadDespesaFragment extends Fragment {
                 .commitNow(); // commitNow garante que ele já está disponível
         // Configura o listener de retorno
 
+        // Botão para abrir menu cadastro categoria
+        View btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
+        MenuCadCategoriaFragment menuCadCategoriaFragment = MenuCadCategoriaFragment.newInstance(idUsuario);
+
+        // Listener para atualizar lista após salvar
+        menuCadCategoriaFragment.setOnCategoriaSalvaListener(nomeCategoria -> {
+            // Recarrega categorias
+            List<Categoria> categoriasAtualizadas = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
+            CategoriasDropdownAdapter novoAdapter = new CategoriasDropdownAdapter(requireContext(), categoriasAtualizadas);
+            autoCompleteCategoria.setAdapter(novoAdapter);
+            autoCompleteCategoria.setText(nomeCategoria, false);
+            fecharMenuCategoria();
+        });
+        // Adiciona o fragment
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainerCategoria, menuCadCategoriaFragment)
+                .commitNow();
+        // Abre o menu de categoria
+        btnAddCategoria.setOnClickListener(v -> abrirMenuCategoria());
 
         return root;
     }
@@ -201,30 +221,20 @@ public class MenuCadDespesaFragment extends Fragment {
         container.setVisibility(View.GONE);
     }
 
-    private void openDatePicker() {
-        final java.util.Calendar calendar = java.util.Calendar.getInstance();
+    private void abrirMenuCategoria() {
+        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
+        container.setVisibility(View.VISIBLE);
+        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
+                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
+        if (frag != null) frag.abrirMenu();
+    }
 
-        String dataAtual = inputDataDespesa.getText().toString().trim();
-        if (!dataAtual.isEmpty()) {
-            try {
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-                calendar.setTime(sdf.parse(dataAtual));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        int year = calendar.get(java.util.Calendar.YEAR);
-        int month = calendar.get(java.util.Calendar.MONTH);
-        int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
-
-        android.app.DatePickerDialog datePickerDialog = new android.app.DatePickerDialog(requireContext(),
-                (view, selectedYear, selectedMonth, selectedDayOfMonth) -> {
-                    String dataSelecionada = String.format("%02d/%02d/%04d", selectedDayOfMonth, selectedMonth + 1, selectedYear);
-                    inputDataDespesa.setText(dataSelecionada);
-                }, year, month, day);
-
-        datePickerDialog.show();
+    private void fecharMenuCategoria() {
+        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
+                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
+        if (frag != null) frag.fecharMenu();
+        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
+        container.setVisibility(View.GONE);
     }
 
 }

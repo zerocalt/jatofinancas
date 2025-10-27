@@ -103,7 +103,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         inputDataDespesaCartao = root.findViewById(R.id.inputDataDespesaCartao);
         inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
 
-        autoCompleteCategoria = root.findViewById(R.id.autoCompleteTipoConta);
+        autoCompleteCategoria = root.findViewById(R.id.autoCompleteCategoria);
         autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
         inputObservacao = root.findViewById(R.id.inputObservacao);
         autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
@@ -112,7 +112,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = root.findViewById(R.id.switchDespesaFixa);
 
         inputNomeDespesaCartao.addTextChangedListener(new SimpleTextWatcher(() -> tilNomeDespesaCartao.setError(null)));
-        inputDataDespesaCartao.setOnClickListener(v -> openDatePicker());
+        inputDataDespesaCartao.setOnClickListener(v -> DateUtils.openDatePicker(requireContext(), inputDataDespesaCartao));
         inputDataDespesaCartao.setFocusable(false);
         inputDataDespesaCartao.setClickable(true);
 
@@ -129,7 +129,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
         autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
             Categoria c = (Categoria) parent.getItemAtPosition(position);
-            autoCompleteCategoria.setText(c.nome, false);
+            autoCompleteCategoria.setText(c.getNome(), false);
             tilCategoriaDespesa.setError(null);
         });
 
@@ -194,6 +194,26 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
                 switchDespesaFixa.setEnabled(true);
             }
         });
+
+        // Botão para abrir menu cadastro categoria
+        View btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
+        MenuCadCategoriaFragment menuCadCategoriaFragment = MenuCadCategoriaFragment.newInstance(idUsuarioLogado);
+
+        // Listener para atualizar lista após salvar
+        menuCadCategoriaFragment.setOnCategoriaSalvaListener(nomeCategoria -> {
+            // Recarrega categorias
+            List<Categoria> categoriasAtualizadas = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
+            CategoriasDropdownAdapter novoAdapter = new CategoriasDropdownAdapter(requireContext(), categoriasAtualizadas);
+            autoCompleteCategoria.setAdapter(novoAdapter);
+            autoCompleteCategoria.setText(nomeCategoria, false);
+            fecharMenuCategoria();
+        });
+        // Adiciona o fragment
+        getChildFragmentManager().beginTransaction()
+                .replace(R.id.fragmentContainerCategoria, menuCadCategoriaFragment)
+                .commitNow();
+        // Abre o menu de categoria
+        btnAddCategoria.setOnClickListener(v -> abrirMenuCategoria());
 
         return root;
     }
@@ -359,7 +379,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
         for (int i = 0; i < adapter.getCount(); i++) {
             Categoria c = adapter.getItem(i);
-            if (c != null && c.nome.equals(categoriaTexto)) {
+            if (c != null && c.getNome().equals(categoriaTexto)) {
                 categoriaSelecionada = c;
                 break;
             }
@@ -374,7 +394,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         try {
             ContentValues valores = new ContentValues();
             valores.put("descricao", nome);
-            valores.put("id_categoria", categoriaSelecionada.id);
+            valores.put("id_categoria", categoriaSelecionada.getId());
             valores.put("data_compra", dataISO);
             valores.put("valor", valor);
             valores.put("parcelas", quantidadeParcelas);
@@ -468,32 +488,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         autoCompleteCategoria.setText("");
     }
 
-    private void openDatePicker() {
-        final java.util.Calendar calendar = java.util.Calendar.getInstance();
-
-        String dataAtual = inputDataDespesaCartao.getText().toString().trim();
-        if (!dataAtual.isEmpty()) {
-            try {
-                java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
-                calendar.setTime(sdf.parse(dataAtual));
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        }
-
-        int year = calendar.get(java.util.Calendar.YEAR);
-        int month = calendar.get(java.util.Calendar.MONTH);
-        int day = calendar.get(java.util.Calendar.DAY_OF_MONTH);
-
-        android.app.DatePickerDialog datePickerDialog = new android.app.DatePickerDialog(requireContext(),
-                (view, selectedYear, selectedMonth, selectedDayOfMonth) -> {
-                    String dataSelecionada = String.format("%02d/%02d/%04d", selectedDayOfMonth, selectedMonth + 1, selectedYear);
-                    inputDataDespesaCartao.setText(dataSelecionada);
-                }, year, month, day);
-
-        datePickerDialog.show();
-    }
-
     private static class SimpleTextWatcher implements android.text.TextWatcher {
         private final Runnable callback;
         public SimpleTextWatcher(Runnable callback) { this.callback = callback; }
@@ -559,8 +553,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
             // Seleciona categoria correta
             for (Categoria c : categorias) {
-                if (c.id == idCategoria) {
-                    autoCompleteCategoria.setText(c.nome, false);
+                if (c.getId() == idCategoria) {
+                    autoCompleteCategoria.setText(c.getNome(), false);
                     break;
                 }
             }
@@ -615,7 +609,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
         for (int i = 0; i < adapter.getCount(); i++) {
             Categoria c = adapter.getItem(i);
-            if (c != null && c.nome.equals(categoriaTexto)) {
+            if (c != null && c.getNome().equals(categoriaTexto)) {
                 categoriaSelecionada = c;
                 break;
             }
@@ -638,7 +632,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             // ATUALIZA transação
             ContentValues valores = new ContentValues();
             valores.put("descricao", nome);
-            valores.put("id_categoria", categoriaSelecionada.id);
+            valores.put("id_categoria", categoriaSelecionada.getId());
             valores.put("data_compra", dataISO);
             valores.put("valor", valor);
             valores.put("parcelas", quantidadeParcelas);
@@ -704,6 +698,22 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             }
         }
         return lista;
+    }
+
+    private void abrirMenuCategoria() {
+        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
+        container.setVisibility(View.VISIBLE);
+        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
+                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
+        if (frag != null) frag.abrirMenu();
+    }
+
+    private void fecharMenuCategoria() {
+        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
+                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
+        if (frag != null) frag.fecharMenu();
+        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
+        container.setVisibility(View.GONE);
     }
 
 }
