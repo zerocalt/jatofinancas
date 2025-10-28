@@ -54,7 +54,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="numberDecimal"
-                android:maxLength="16"/>
+                android:maxLength="16" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -213,8 +213,7 @@
                     android:id="@+id/autoCompleteConta"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="none"
-                    />
+                    android:inputType="none" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -226,7 +225,7 @@
                 android:contentDescription="Adicionar Conta"
                 android:src="@drawable/ic_add"
                 app:backgroundTint="#2F4F99"
-                app:tint="@android:color/white"/>
+                app:tint="@android:color/white" />
 
         </LinearLayout>
 
@@ -256,64 +255,146 @@
                 android:scrollbars="vertical" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <!-- Parcelas -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputParcelas"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+        <TextView
+            android:id="@+id/menuRepete"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="DESPESA REPETE?"
             android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_calculate"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Parcelas">
+            android:textAlignment="center"
+            android:textColor="#5A77B1"
+            android:textStyle="bold"
+            android:paddingTop="10dp"
+            />
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/autoCompleteParcelas"
+        <LinearLayout
+            android:id="@+id/container_repeticao"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <!-- Despesa Fixa -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputDespesaFixa"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="8dp"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                android:hint="Despesa fixa">
 
-        <!-- Despesa Fixa -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputDespesaFixa"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Despesa fixa">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
+                    <com.google.android.material.materialswitch.MaterialSwitch
+                        android:id="@+id/switchDespesaFixa"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="false"
+                        app:thumbTint="@color/white"
+                        />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Essa despesa repete todos os meses?"
+                        android:layout_marginStart="12dp"
+                        android:textSize="15sp" />
+                </LinearLayout>
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Quantidade -->
             <LinearLayout
+                android:id="@+id/container_quantidade"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <com.google.android.material.materialswitch.MaterialSwitch
-                    android:id="@+id/switchDespesaFixa"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:checked="false"
-                    app:thumbTint="@color/white"
-                    />
+                android:gravity="center_vertical"
+                android:layout_marginTop="8dp"
+                >
 
                 <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Quantidade:"
+                    android:textSize="18sp"
+                    />
+
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Essa despesa repete todos os meses?"
-                    android:layout_marginStart="12dp"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </com.google.android.material.textfield.TextInputLayout>
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
+                    <ImageButton
+                        android:id="@+id/btn_decrement"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:background="@drawable/button_azul_redondo"
+                        android:contentDescription="Diminuir"
+                        android:padding="10dp"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_expand_more" />
+
+                    <EditText
+                        android:id="@+id/inputQuantRep"
+                        android:layout_width="40dp"
+                        android:layout_height="wrap_content"
+                        android:text=""
+                        android:gravity="center"
+                        android:inputType="number"
+                        android:maxLength="3"
+                        android:cursorVisible="true"
+                        android:focusableInTouchMode="true"
+                        android:paddingStart="4dp"
+                        android:paddingEnd="4dp"
+                        />
+
+                    <ImageButton
+                        android:id="@+id/btn_increment"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:padding="10dp"
+                        android:background="@drawable/button_azul_redondo"
+                        android:scaleType="centerInside"
+                        android:src="@drawable/ic_expand_less"
+                        android:contentDescription="Aumentar"
+                        />
+                </LinearLayout>
+
+            </LinearLayout>
+
+            <!-- Período -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputPeriodo"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:startIconDrawable="@drawable/ic_today"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                android:hint="Período">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompletePeriodo"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+        </LinearLayout>
 
         <!-- Botão Salvar -->
         <Button
