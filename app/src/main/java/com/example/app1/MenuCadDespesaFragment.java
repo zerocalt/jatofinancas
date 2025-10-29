@@ -363,15 +363,46 @@ public class MenuCadDespesaFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
+
+        TextView titulo = view.findViewById(R.id.tituloDespesa);
+        TextInputLayout textInputValor = view.findViewById(R.id.textInputValorDespesa);
+        TextInputLayout textInputNome = view.findViewById(R.id.textInputNomeDespesa);
+        Button btnSalvar = view.findViewById(R.id.btnSalvarDespesa);
+        TextView labelRepete = view.findViewById(R.id.menuRepete);
+        TextView textoTipo = view.findViewById(R.id.textoTipo);
+        TextInputLayout textInputCategoriaDespesa = view.findViewById(R.id.textInputCategoriaDespesa);
+        TextInputLayout textInputDataDespesa = view.findViewById(R.id.textInputDataDespesa);
+        TextView textoFixa = view.findViewById(R.id.textoFixa);
+
+
+
+
+        if (tipoMovimento.equals("receita")) {
+            titulo.setText("Adicionar Receita");
+            textInputValor.setHint("* Valor da Receita (ex: 1234,56)");
+            textInputNome.setHint("* Descrição da Receita");
+            labelRepete.setText("RECEITA REPETE?");
+            btnSalvar.setText("Salvar Receita");
+            textoTipo.setText("Recebido");
+            textInputCategoriaDespesa.setHint("* Categoria da Receita");
+            textInputDataDespesa.setHint("Data da Receita");
+            textoFixa.setText("Essa Receita repete todos os meses?");
+        } else {
+            titulo.setText("Adicionar Despesa");
+            textInputValor.setHint("* Valor da Despesa (ex: 1234,56)");
+            textInputNome.setHint("* Descrição da Despesa");
+            labelRepete.setText("DESPESA REPETE?");
+            btnSalvar.setText("Salvar Despesa");
+            textoTipo.setText("Pago");
+            textInputCategoriaDespesa.setHint("* Categoria da Despesa");
+            textInputDataDespesa.setHint("Data da Despesa");
+            textoFixa.setText("Essa Despesa repete todos os meses?");
+        }
+
         abrirMenu();
 
-        /*
-        // Se alguém pediu para abrir a edição, faz aqui
-        if (idTransacaoEditando != -1) {
-            abrirMenuEditarDespesa(idTransacaoEditando);
-            idTransacaoEditando = -1; // reset
-        }
-        */
     }
 
     public void fecharMenu() {
@@ -462,11 +493,11 @@ public class MenuCadDespesaFragment extends Fragment {
         textInputDataDespesa.setError(null);
         menuConta.setError(null);
         if (valor.isEmpty()) {
-            textInputValorDespesa.setError("Informe o valor da despesa");
+            textInputValorDespesa.setError("Informe o valor da despesa/receita");
             valido = false;
         }
         if (nome.isEmpty()) {
-            textInputNomeDespesa.setError("Informe o nome da despesa");
+            textInputNomeDespesa.setError("Informe o nome da despesa/receita");
             valido = false;
         }
         if (categoria.isEmpty()) {
@@ -516,21 +547,22 @@ public class MenuCadDespesaFragment extends Fragment {
     }
 
     private void salvarDespesa() {
+        String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
         // Pegando os valores do formulário
         String valorDespesa = inputValorDespesa.getText().toString().trim();
         String nomeDespesa = inputNomeDespesa.getText().toString().trim();
         String categoria = autoCompleteCategoria.getText().toString().trim();
         String dataInput = inputDataDespesa.getText().toString().trim(); // dd/MM/yyyy
         int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
-        int tipo = 2; // 2 = Despesa
+        int tipo = tipoMovimento.equals("receita") ? 1 : 2; // 1 = Receita, 2 = Despesa
         int periodo = valorPeriodoSelecionado == -1 ? 0 : valorPeriodoSelecionado;
         int despesaFixa = switchDespesaFixa.isChecked() ? 1 : 0;
         int quantidade = getNumberFromEditText();
         String observacao = ((TextInputEditText) requireView().findViewById(R.id.inputObservacao)).getText().toString().trim();
 
-        // Estado do switchDespesaPago
+        // Estado do switchDespesaPago ou Recebido
         MaterialSwitch switchDespesaPago = requireView().findViewById(R.id.switchDespesaPago);
-        int despesaPago = switchDespesaPago.isChecked() ? 1 : 0;
+        int statusMarcado = switchDespesaPago.isChecked() ? 1 : 0;
 
         // pega a categoria selecionada
         Categoria categoriaSelecionada = null;
@@ -567,6 +599,16 @@ public class MenuCadDespesaFragment extends Fragment {
             return;
         }
 
+        // Define os campos "pago" e "recebido" de acordo com o tipo
+        int pago = 0;
+        int recebido = 0;
+
+        if (tipo == 1) { // receita
+            recebido = statusMarcado;
+        } else { // despesa
+            pago = statusMarcado;
+        }
+
         // Inserir no banco
         boolean sucesso;
         if (despesaFixa == 1 || quantidade > 1) {
@@ -576,8 +618,8 @@ public class MenuCadDespesaFragment extends Fragment {
                     idConta,
                     valor,
                     tipo,
-                    despesaPago,
-                    0, // recebido (só para receitas)
+                    pago,
+                    recebido,
                     dataParaBanco,
                     nomeDespesa,
                     idCategoriaSelecionada,
@@ -593,8 +635,8 @@ public class MenuCadDespesaFragment extends Fragment {
                     idConta,
                     valor,
                     tipo,
-                    despesaPago,
-                    0,
+                    pago,
+                    recebido,
                     dataParaBanco,
                     nomeDespesa,
                     idCategoriaSelecionada,
@@ -603,13 +645,14 @@ public class MenuCadDespesaFragment extends Fragment {
         }
 
         if (sucesso) {
-            Toast.makeText(requireContext(), "Despesa salva com sucesso!", Toast.LENGTH_SHORT).show();
+            String msg = tipo == 1 ? "Receita salva com sucesso!" : "Despesa salva com sucesso!";
+            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
             // Fecha o menu
             getParentFragmentManager().beginTransaction()
                     .remove(this)
                     .commit();
         } else {
-            Toast.makeText(requireContext(), "Erro ao salvar despesa!", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), "Erro ao salvar!", Toast.LENGTH_SHORT).show();
         }
     }
 
