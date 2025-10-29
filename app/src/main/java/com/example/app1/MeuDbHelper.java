@@ -185,6 +185,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id_fatura INTEGER, " +
                         "descricao TEXT NOT NULL, " +
                         "valor REAL NOT NULL, " +
+                        "paga INTEGER DEFAULT 0, " + // 0 = não paga, 1 = paga
                         "id_categoria INTEGER, " +
                         "data_compra DATETIME NOT NULL, " +
                         "parcelas INTEGER DEFAULT 1, " +
@@ -205,13 +206,17 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "id_transacao_cartao INTEGER NOT NULL, " +
                         "valor REAL NOT NULL, " +
+                        "paga INTEGER DEFAULT 1, " + // 0 = não paga, 1 = paga
                         "data_inicial DATETIME NOT NULL, " +
                         "data_final DATETIME, " +
+                        "id_mestre INTEGER, " +                               // para informar de qual transação é recorrente
+                        "recorrente_ativo INTEGER DEFAULT 0, " +             // Indicador se a recorrência está ativa (0 = não, 1 = sim)
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
                         "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id)" +
                         ")"
         );
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_despesas_recorrentes_id_transacao ON despesas_recorrentes_cartao(id_transacao_cartao)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_drc_id_mestre ON despesas_recorrentes_cartao(id_mestre)");
 
         // Tabela parcelas_cartao: parcelas das compras feitas no cartão
         db.execSQL(

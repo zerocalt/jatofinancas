@@ -18,6 +18,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.example.app1.data.CartaoDAO;
+import com.example.app1.data.ContaDAO;
 import com.example.app1.utils.DateUtils;
 import com.example.app1.utils.MenuBottomUtils;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -66,10 +68,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        if (getArguments() != null) {
-            idUsuarioLogado = getArguments().getInt("id_usuario", -1);
-            idCartao = getArguments().getInt("id_cartao", -1);
-        }
 
         backCallback = new OnBackPressedCallback(false) {
             @Override
@@ -90,6 +88,11 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa_cartao, container, false);
+
+        if (getArguments() != null) {
+            idUsuarioLogado = getArguments().getInt("id_usuario", -1);
+            idCartao = getArguments().getInt("id_cartao", -1);
+        }
 
         overlayDespesaCartao = root.findViewById(R.id.overlayDespesaCartao);
         slidingMenuDespesaCartao = root.findViewById(R.id.slidingMenuDespesaCartao);
@@ -122,10 +125,22 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         autoCompleteCategoria.setAdapter(adapter);
 
         // Carrega cartões
-        List<String> cartoes = carregarCartoesUsuario(requireContext(), idUsuarioLogado);
-        ArrayAdapter<String> adapterCartao = new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_dropdown_item_1line, cartoes);
+        List<Cartao> cartao = CartaoDAO.buscarCartoesAtivosPorUsuario(requireContext(), idUsuarioLogado);
+        MaterialAutoCompleteTextView autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
+        ArrayAdapter<Cartao> adapterCartao = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, cartao);
         autoCompleteCartao.setAdapter(adapterCartao);
+        // Se houver pelo menos um cartão, já seleciona o primeiro
+        if (!cartao.isEmpty()) {
+            Cartao primeiroCartao = cartao.get(0);
+            autoCompleteCartao.setText(primeiroCartao.getNome(), false);
+            idCartao = primeiroCartao.getId();  // guarda o ID para salvar depois
+        }
+        // Quando o usuário escolhe uma conta
+        autoCompleteCartao.setOnItemClickListener((parent, view, position, id) -> {
+            Cartao selecionado = (Cartao) parent.getItemAtPosition(position);
+            idCartao = selecionado.getId(); // atualiza o ID que será salvo
+            //Log.d("ContaSelecionada", "ID: " + contaSelecionada[0].getId() + " Nome: " + contaSelecionada[0].getNome());
+        });
 
         autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
             Categoria c = (Categoria) parent.getItemAtPosition(position);
