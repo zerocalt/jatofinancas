@@ -23,7 +23,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.FragmentManager;
 
+import com.example.app1.interfaces.BottomMenuListener;
 import com.example.app1.utils.MenuHelper;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 import com.google.android.material.materialswitch.MaterialSwitch;
@@ -37,7 +39,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.Locale;
 
-public class TelaFaturaCartao extends AppCompatActivity {
+public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuListener {
 
     private TextView txtMes, txtAno, txtNomeCartao, diaFechamento, diaVencimento, valorFatura;
     private ImageView icCartao;
@@ -182,36 +184,33 @@ public class TelaFaturaCartao extends AppCompatActivity {
 
         SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase();
 
-        // Query integrada para trazer todas as parcelas e informações de transação fusionadas
         String query =
-                "SELECT p.data_vencimento AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
+                "SELECT t.data_compra AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
                         "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas " +
                         "FROM parcelas_cartao p " +
                         "INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
                         "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
+                        "WHERE t.id_cartao = ? AND t.parcelas > 1 AND p.data_vencimento >= ? AND p.data_vencimento <= ? " +
 
                         "UNION ALL " +
 
-                        // Despesas únicas (não recorrentes)
                         "SELECT t.data_compra AS data, t.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
                         "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
-                        "FROM transacoes_cartao t LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? AND t.parcelas = 1 AND (t.recorrente IS NULL OR t.recorrente = 0) AND t.data_compra >= ? AND t.data_compra <= ? " +
+                        "FROM transacoes_cartao t " +
+                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
+                        "WHERE t.id_cartao = ? AND (t.parcelas = 1 OR t.parcelas IS NULL) AND (t.recorrente IS NULL OR t.recorrente = 0) " +
+                        "AND t.data_compra >= ? AND t.data_compra <= ? " +
 
                         "UNION ALL " +
 
                         "SELECT d.data_inicial AS data, d.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, cat.cor, " +
                         "t.id AS id_transacao_cartao, t.recorrente, NULL AS numero_parcela, t.parcelas " +
-                        "FROM despesas_recorrentes_cartao d INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
+                        "FROM despesas_recorrentes_cartao d " +
+                        "INNER JOIN transacoes_cartao t ON t.id = d.id_transacao_cartao " +
                         "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? " +
-                        "  AND d.data_inicial <= ? " +                       /* data_inicial <= dataFim */
-                        "  AND (d.data_final IS NULL OR d.data_final >= ?) " +/* data_final >= dataInicio OR NULL */
-                        "  AND d.data_inicial = ( " +
-                        "      SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 " +
-                        "      WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ? " + /* <= dataFim */
-                        "  ) " +
+                        "WHERE t.id_cartao = ? AND d.data_inicial <= ? AND (d.data_final IS NULL OR d.data_final >= ?) " +
+                        "AND d.data_inicial = (SELECT MAX(d2.data_inicial) FROM despesas_recorrentes_cartao d2 " +
+                        "WHERE d2.id_transacao_cartao = d.id_transacao_cartao AND d2.data_inicial <= ?) " +
 
                         "ORDER BY data ASC";
 
@@ -244,7 +243,6 @@ public class TelaFaturaCartao extends AppCompatActivity {
                 idsRecorrentesExibidos.add(idTransacaoCartao);
             }
 
-            // 🔹 Crie variáveis finais para uso dentro do lambda
             final int finalIdTransacaoCartao = idTransacaoCartao;
             final int finalRecorrente = recorrente;
             final Integer finalNumeroParcela = numeroParcela;
@@ -299,7 +297,6 @@ public class TelaFaturaCartao extends AppCompatActivity {
             ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
             ((TextView) item.findViewById(R.id.valorDespesa)).setText(formatarBR(valor));
 
-            // Adicionar clique no item para abrir o menu
             item.setOnClickListener(v -> mostrarMenuDespesa(
                     item,
                     finalIdTransacaoCartao,
@@ -310,6 +307,7 @@ public class TelaFaturaCartao extends AppCompatActivity {
 
             blocoDespesas.addView(item);
         }
+
         cur.close();
         db.close();
 
@@ -433,6 +431,27 @@ public class TelaFaturaCartao extends AppCompatActivity {
                 dataFinal.get(Calendar.YEAR),
                 dataFinal.get(Calendar.MONTH) + 1,
                 dataFinal.get(Calendar.DAY_OF_MONTH));
+    }
+
+    @Override
+    public void onFabDespesaCartaoClick(int idUsuario) {
+
+        // Crie o Fragment de Cadastro
+        MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuario, idCartao);
+
+        // 1. REGISTRA O LISTENER DE ATUALIZAÇÃO NO FRAGMENT DE CADASTRO
+        fragment.setOnDespesaSalvaListener(() -> {
+            // A lógica que será chamada quando o Fragment de Cadastro for fechado
+            new Handler(Looper.getMainLooper()).post(() -> carregarFatura());
+        });
+
+        // 2. Adiciona o Fragment de Cadastro no container correto (deve ser o ID que o MenuBottomUtils usaria)
+        // OBS: Verifique o ID R.id.fragment_abrirmenubottom no seu layout!
+        getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragment_abrirmenubottom, fragment)
+                .addToBackStack(null)
+                .commit();
     }
 
 }

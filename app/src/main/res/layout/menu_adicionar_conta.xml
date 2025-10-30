@@ -16,9 +16,11 @@
         android:layout_height="wrap_content"
         android:background="@drawable/background_menu_flutuante"
         android:orientation="vertical"
-        android:visibility="gone"
+        android:visibility="visible"
         android:layout_gravity="bottom"
         android:padding="10dp"
+        android:clickable="true"
+        android:focusable="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">

@@ -30,8 +30,7 @@ public class MenuBottomUtils {
 
         activity.getSupportFragmentManager()
                 .beginTransaction()
-                //.setCustomAnimations(R.anim.slide_in_up, R.anim.slide_out_down)
-                .add(R.id.fragment_abrirmenubottom, fragment, "MenuCadDespesaFragment")
+                .replace(R.id.fragment_abrirmenubottom, fragment, "MenuCadDespesaFragment")
                 .addToBackStack(null)
                 .commit();
     }

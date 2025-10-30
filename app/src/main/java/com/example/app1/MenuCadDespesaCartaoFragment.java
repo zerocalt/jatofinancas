@@ -56,6 +56,12 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     private int idTransacaoEditando = -1;
 
+    private OnDespesaSalvaListener despesaSalvaListener;
+
+    public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
+        this.despesaSalvaListener = listener;
+    }
+
     public static MenuCadDespesaCartaoFragment newInstance(int idUsuario, int idCartao) {
         MenuCadDespesaCartaoFragment fragment = new MenuCadDespesaCartaoFragment();
         Bundle args = new Bundle();
@@ -483,11 +489,20 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             }
 
             db.setTransactionSuccessful();
-            Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
+
+            // 1. Notifica a Activity Pai (TelaFaturaCartao) que os dados foram salvos com sucesso
+            if (despesaSalvaListener != null) {
+                despesaSalvaListener.onDespesaSalva();
+            }
+
             fecharMenu();
+
+            Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
+
             if (listener != null) listener.onDespesaSalva();
             limparCampos();
             idTransacaoEditando = -1; // reseta para próxima inclusão
+
         } catch (Exception e) {
             Snackbar.make(requireView(), "Erro ao salvar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
         } finally {
@@ -517,10 +532,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         void onDespesaSalva();
     }
     private OnDespesaSalvaListener listener;
-
-    public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
-        this.listener = listener;
-    }
 
     // substitua o abrirMenuEditarDespesa existente por este
     public void abrirMenuEditarDespesa(int idTransacao) {

@@ -1,4 +1,5 @@
 package com.example.app1;
+import com.example.app1.interfaces.BottomMenuListener;
 
 import android.content.Context;
 import android.content.Intent;
@@ -30,10 +31,21 @@ public class BottomMenuFragment extends Fragment {
 
     private int botaoInativo = -1; // Mude para -1 padrão, indicando "todos ativos"
     private boolean menuAberto = false;
+    private BottomMenuListener fabListener;
 
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
+
+        // Tenta obter o listener da Activity
+        if (context instanceof BottomMenuListener) {
+            fabListener = (BottomMenuListener) context;
+        } else {
+            // Se a Activity Pai NÃO implementa a interface, o listener permanece null.
+            fabListener = null;
+            // Não lance exceção, apenas defina como null para que o menu funcione no modo padrão.
+        }
+
         // Recebe o argumento, se existir. Se não, mantém botaoInativo = -1
         if (getArguments() != null) {
             botaoInativo = getArguments().getInt("botaoInativo", -1);
@@ -188,10 +200,19 @@ public class BottomMenuFragment extends Fragment {
                         fabReceita, fabDespesa, fabTransferencia, fabDespesaCartao);
 
                 // Abre o menu de despesas
-                // Usa um pequeno atraso para dar tempo da animação terminar
-                v.postDelayed(() -> {
-                    MenuBottomUtils.abrirMenuCadDespesaCartao((AppCompatActivity) getActivity(), idUsuario, -1);
-                }, 200);
+                // Se a Activity PAI implementa o Listener (ex: TelaFaturaCartao)
+                if (fabListener != null) {
+                    // Usa a nova lógica (Activity PAI abre o fragmento e adiciona o Listener de atualização)
+                    v.postDelayed(() -> {
+                        fabListener.onFabDespesaCartaoClick(idUsuario);
+                    }, 200);
+                } else {
+                    // Se a Activity PAI NÃO implementa o Listener (ex: TelaPrincipal)
+                    // Usa a lógica ANTIGA, que abre o Fragmento DIRETAMENTE.
+                    v.postDelayed(() -> {
+                        MenuBottomUtils.abrirMenuCadDespesaCartao((AppCompatActivity) getActivity(), idUsuario, -1);
+                    }, 200);
+                }
             }
         });
 
