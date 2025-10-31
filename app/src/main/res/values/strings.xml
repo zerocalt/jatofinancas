@@ -1,8 +1,32 @@
 <resources>
     <string name="app_name">Jato Finanças</string>
-    <string name="Ola">Olá Mundão</string>
+    <string name="ola_mundao">Olá Mundão</string>
     <!-- TODO: Remove or change this placeholder text -->
     <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="editar_receita">Editar Receita</string>
+    <string name="editar_despesa">Editar Despesa</string>
+    <string name="adicionar_receita">Adicionar Receita</string>
+    <string name="adicionar_despesa">Adicionar Despesa</string>
+    <string name="valor_da_receita">* Valor da Receita (ex: 1234,56)</string>
+    <string name="valor_da_despesa">* Valor da Despesa (ex: 1234,56)</string>
+    <string name="descricao_da_receita">* Descrição da Receita</string>
+    <string name="descricao_da_despesa">* Descrição da Despesa</string>
+    <string name="salvar_alteracoes">Salvar Alterações</string>
+    <string name="salvar_receita">Salvar Receita</string>
+    <string name="salvar_despesa">Salvar Despesa</string>
+    <string name="recebido">Recebido</string>
+    <string name="pago">Pago</string>
+    <string name="receita_repete">RECEITA REPETE?</string>
+    <string name="despesa_repete">DESPESA REPETE?</string>
+    <string name="essa_receita_repete_todos_os_meses">Essa Receita repete todos os meses?</string>
+    <string name="essa_despesa_repete_todos_os_meses">Essa Despesa repete todos os meses?</string>
+    <string name="categoria_da_receita">* Categoria da Receita</string>
+    <string name="categoria_da_despesa">* Categoria da Despesa</string>
+    <string name="data_da_receita">Data da Receita</string>
+    <string name="data_da_despesa">Data da Despesa</string>
+    <string name="periodo_mensal">Mensal</string>
+    <string name="selecione_um_periodo">Selecione um período</string>
+    <string name="quantidade_minima_parcelas">A quantidade de parcelas deve ser no mínimo %d</string>
     <string-array name="bandeiraCartao">
         <item>Visa</item>
         <item>Mastercard</item>

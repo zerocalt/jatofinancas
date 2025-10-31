@@ -14,10 +14,6 @@ import java.util.Date;
 
 public class TransacoesDAO {
 
-    /**
-     * Salva uma despesa ou receita única.
-     * Atualiza saldo da conta caso esteja marcada como paga ou recebida.
-     */
     public static boolean salvarTransacaoUnica(Context context, int idUsuario, int idConta, double valor,
                                                int tipo, int pago, int recebido, String dataMovimentacao,
                                                String descricao, int idCategoria, String observacao) {
@@ -38,7 +34,6 @@ public class TransacoesDAO {
 
             long resultado = db.insert("transacoes", null, cv);
 
-            // 🟩 Atualiza saldo se for pago (despesa) ou recebido (receita)
             if ((tipo == 2 && pago == 1) || (tipo == 1 && recebido == 1)) {
                 atualizarSaldoConta(db, idConta, valor, tipo);
             }
@@ -50,11 +45,6 @@ public class TransacoesDAO {
         }
     }
 
-    /**
-     * Salva uma transação recorrente (fixa ou parcelada).
-     * A primeira parcela é marcada como paga/recebida se o usuário tiver selecionado.
-     * Atualiza saldo da conta apenas na primeira parcela confirmada.
-     */
     public static boolean salvarTransacaoRecorrente(
             Context context,
             int idUsuario,
@@ -72,91 +62,232 @@ public class TransacoesDAO {
             int recorrenteAtivo
     ) {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        db.beginTransaction();
-        try {
-            // 🟩 Transação mestre
-            ContentValues mestreCv = new ContentValues();
-            mestreCv.put("id_usuario", idUsuario);
-            mestreCv.put("id_conta", idConta);
-            mestreCv.put("valor", valor);
-            mestreCv.put("tipo", tipo);
-            mestreCv.put("pago", 0);
-            mestreCv.put("recebido", recebido);
-            mestreCv.put("data_movimentacao", dataMovimentacao);
-            mestreCv.put("descricao", descricao);
-            mestreCv.put("id_categoria", idCategoria);
-            mestreCv.put("observacao", observacao);
-            mestreCv.put("recorrente", 1);
-            mestreCv.put("repetir_qtd", repetirQtd);
-            mestreCv.put("repetir_periodo", repetirPeriodo);
-            mestreCv.put("recorrente_ativo", recorrenteAtivo);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                ContentValues mestreCv = new ContentValues();
+                mestreCv.put("id_usuario", idUsuario);
+                mestreCv.put("id_conta", idConta);
+                mestreCv.put("valor", valor);
+                mestreCv.put("tipo", tipo);
+                mestreCv.put("pago", 0);
+                mestreCv.put("recebido", 0);
+                mestreCv.put("data_movimentacao", dataMovimentacao);
+                mestreCv.put("descricao", descricao);
+                mestreCv.put("id_categoria", idCategoria);
+                mestreCv.put("observacao", observacao);
+                mestreCv.put("recorrente", 1);
+                mestreCv.put("repetir_qtd", repetirQtd);
+                mestreCv.put("repetir_periodo", repetirPeriodo);
+                mestreCv.put("recorrente_ativo", recorrenteAtivo);
 
-            long idMestre = db.insert("transacoes", null, mestreCv);
-            if (idMestre == -1) return false;
+                long idMestre = db.insert("transacoes", null, mestreCv);
+                if (idMestre == -1) return false;
 
-            // 🟩 Parcela(s)
-            for (int i = 0; i < repetirQtd; i++) {
-                ContentValues parcelaCv = new ContentValues();
-                parcelaCv.put("id_usuario", idUsuario);
-                parcelaCv.put("id_conta", idConta);
-                parcelaCv.put("valor", valor);
-                parcelaCv.put("tipo", tipo);
-                parcelaCv.put("pago", (i == 0) ? pago : 0);
-                parcelaCv.put("recebido", (i == 0) ? recebido : 0);
+                for (int i = 0; i < repetirQtd; i++) {
+                    ContentValues parcelaCv = new ContentValues();
+                    parcelaCv.put("id_usuario", idUsuario);
+                    parcelaCv.put("id_conta", idConta);
+                    parcelaCv.put("valor", valor);
+                    parcelaCv.put("tipo", tipo);
+                    parcelaCv.put("pago", (i == 0) ? pago : 0);
+                    parcelaCv.put("recebido", (i == 0) ? recebido : 0);
 
-                String dataParcela = calcularDataRecorrente(dataMovimentacao, repetirPeriodo, i);
-                parcelaCv.put("data_movimentacao", dataParcela);
+                    String dataParcela = calcularDataRecorrente(dataMovimentacao, repetirPeriodo, i);
+                    parcelaCv.put("data_movimentacao", dataParcela);
 
-                parcelaCv.put("descricao", descricao);
-                parcelaCv.put("id_categoria", idCategoria);
-                parcelaCv.put("observacao", observacao);
-                parcelaCv.put("id_mestre", idMestre);
+                    parcelaCv.put("descricao", descricao);
+                    parcelaCv.put("id_categoria", idCategoria);
+                    parcelaCv.put("observacao", observacao);
+                    parcelaCv.put("id_mestre", idMestre);
 
-                long idParcela = db.insert("transacoes", null, parcelaCv);
-                if (idParcela == -1) return false;
+                    long idParcela = db.insert("transacoes", null, parcelaCv);
+                    if (idParcela == -1) return false;
 
-                // 🟩 Atualiza saldo somente na 1ª parcela confirmada
-                if (i == 0 && ((tipo == 2 && pago == 1) || (tipo == 1 && recebido == 1))) {
-                    atualizarSaldoConta(db, idConta, valor, tipo);
+                    if (i == 0 && ((tipo == 2 && pago == 1) || (tipo == 1 && recebido == 1))) {
+                        atualizarSaldoConta(db, idConta, valor, tipo);
+                    }
                 }
-            }
 
-            db.setTransactionSuccessful();
-            return true;
+                db.setTransactionSuccessful();
+                return true;
+            } finally {
+                db.endTransaction();
+            }
         } catch (Exception e) {
             Log.e("TransacoesDAO", "Erro ao salvar transação recorrente", e);
             return false;
-        } finally {
-            db.endTransaction();
-            db.close();
+        }
+    }
+    
+    public static boolean salvarTransacaoFixa(Context context, int idUsuario, int idConta, double valor, int tipo, int pago, int recebido, String dataMovimentacao, String descricao, int idCategoria, String observacao, int repetirPeriodo) {
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                ContentValues mestreCv = new ContentValues();
+                mestreCv.put("id_usuario", idUsuario);
+                mestreCv.put("id_conta", idConta);
+                mestreCv.put("valor", valor);
+                mestreCv.put("tipo", tipo);
+                mestreCv.put("pago", 0);
+                mestreCv.put("recebido", 0);
+                mestreCv.put("data_movimentacao", dataMovimentacao);
+                mestreCv.put("descricao", descricao);
+                mestreCv.put("id_categoria", idCategoria);
+                mestreCv.put("observacao", observacao);
+                mestreCv.put("recorrente", 1);
+                mestreCv.put("repetir_qtd", 0);
+                mestreCv.put("repetir_periodo", repetirPeriodo);
+                mestreCv.put("recorrente_ativo", 1);
+
+                long idMestre = db.insert("transacoes", null, mestreCv);
+                if (idMestre == -1) return false;
+
+                if ((tipo == 2 && pago == 1) || (tipo == 1 && recebido == 1)) {
+                    ContentValues parcelaCv = new ContentValues();
+                    parcelaCv.put("id_usuario", idUsuario);
+                    parcelaCv.put("id_conta", idConta);
+                    parcelaCv.put("valor", valor);
+                    parcelaCv.put("tipo", tipo);
+                    parcelaCv.put("pago", pago);
+                    parcelaCv.put("recebido", recebido);
+                    parcelaCv.put("data_movimentacao", dataMovimentacao);
+                    parcelaCv.put("descricao", descricao);
+                    parcelaCv.put("id_categoria", idCategoria);
+                    parcelaCv.put("observacao", observacao);
+                    parcelaCv.put("id_mestre", idMestre);
+
+                    long idParcela = db.insert("transacoes", null, parcelaCv);
+                    if (idParcela == -1) return false;
+
+                    atualizarSaldoConta(db, idConta, valor, tipo);
+                }
+
+                db.setTransactionSuccessful();
+                return true;
+            } finally {
+                db.endTransaction();
+            }
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "Erro ao salvar transação fixa", e);
+            return false;
         }
     }
 
-    /**
-     * Atualiza saldo da conta:
-     * - Subtrai valor se for despesa (tipo=2)
-     * - Soma valor se for receita (tipo=1)
-     */
-    private static void atualizarSaldoConta(SQLiteDatabase db, int idConta, double valor, int tipo) {
-        Cursor cursor = db.rawQuery("SELECT saldo FROM contas WHERE id = ?", new String[]{String.valueOf(idConta)});
-        if (cursor.moveToFirst()) {
-            double saldoAtual = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
-            double novoSaldo = (tipo == 1) ? (saldoAtual + valor) : (saldoAtual - valor);
-
-            ContentValues cv = new ContentValues();
-            cv.put("saldo", novoSaldo);
-            db.update("contas", cv, "id = ?", new String[]{String.valueOf(idConta)});
+    public static boolean excluirTransacao(Context context, int idTransacao, String tipo) {
+        if ("transacao_cartao".equals(tipo)) {
+            return excluirTransacaoCartao(context, idTransacao);
+        } else {
+            return excluirTransacaoConta(context, idTransacao);
         }
-        cursor.close();
+    }
+
+    private static boolean excluirTransacaoConta(Context context, int idTransacao) {
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                int idConta = -1;
+                double valor = 0;
+                int tipo = 0;
+                int pago = 0;
+                int recebido = 0;
+                int idMestre = -1;
+                String dataMovimentacao = "";
+
+                try (Cursor cursor = db.rawQuery("SELECT * FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+                    if (cursor.moveToFirst()) {
+                        idConta = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
+                        valor = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
+                        tipo = cursor.getInt(cursor.getColumnIndexOrThrow("tipo"));
+                        pago = cursor.getInt(cursor.getColumnIndexOrThrow("pago"));
+                        recebido = cursor.getInt(cursor.getColumnIndexOrThrow("recebido"));
+                        idMestre = cursor.getInt(cursor.getColumnIndexOrThrow("id_mestre"));
+                        dataMovimentacao = cursor.getString(cursor.getColumnIndexOrThrow("data_movimentacao"));
+                    } else {
+                        return false; 
+                    }
+                }
+
+                if ((tipo == 2 && pago == 1) || (tipo == 1 && recebido == 1)) {
+                    reverterSaldoConta(db, idConta, valor, tipo);
+                }
+
+                int deletedRows;
+                if (idMestre > 0) { 
+                    deletedRows = db.delete("transacoes", "id_mestre = ? AND data_movimentacao >= ? AND pago = 0 AND recebido = 0", new String[]{String.valueOf(idMestre), dataMovimentacao});
+                    ContentValues cvMestre = new ContentValues();
+                    cvMestre.put("recorrente_ativo", 0);
+                    db.update("transacoes", cvMestre, "id = ?", new String[]{String.valueOf(idMestre)});
+
+                } else { 
+                    deletedRows = db.delete("transacoes", "id = ?", new String[]{String.valueOf(idTransacao)});
+                    db.delete("transacoes", "id_mestre = ?", new String[]{String.valueOf(idTransacao)});
+                }
+
+                db.setTransactionSuccessful();
+                return deletedRows > 0;
+            } finally {
+                db.endTransaction();
+            }
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "Erro ao excluir transação da conta", e);
+            return false;
+        }
+    }
+
+    private static boolean excluirTransacaoCartao(Context context, int idTransacaoCartao) {
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoCartao)});
+                int deletedRows = db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(idTransacaoCartao)});
+                db.delete("despesas_recorrentes_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoCartao)});
+
+                db.setTransactionSuccessful();
+                return deletedRows > 0;
+            } finally {
+                db.endTransaction();
+            }
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "Erro ao excluir transação do cartão", e);
+            return false;
+        }
+    }
+
+    private static void reverterSaldoConta(SQLiteDatabase db, int idConta, double valor, int tipo) {
+        try (Cursor cursor = db.rawQuery("SELECT saldo FROM contas WHERE id = ?", new String[]{String.valueOf(idConta)})) {
+            if (cursor.moveToFirst()) {
+                double saldoAtual = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
+                double novoSaldo = (tipo == 1) ? (saldoAtual - valor) : (saldoAtual + valor);
+
+                ContentValues cv = new ContentValues();
+                cv.put("saldo", novoSaldo);
+                db.update("contas", cv, "id = ?", new String[]{String.valueOf(idConta)});
+            }
+        }
+    }
+
+    private static void atualizarSaldoConta(SQLiteDatabase db, int idConta, double valor, int tipo) {
+        try (Cursor cursor = db.rawQuery("SELECT saldo FROM contas WHERE id = ?", new String[]{String.valueOf(idConta)})) {
+            if (cursor.moveToFirst()) {
+                double saldoAtual = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
+                double novoSaldo = (tipo == 1) ? (saldoAtual + valor) : (saldoAtual - valor);
+
+                ContentValues cv = new ContentValues();
+                cv.put("saldo", novoSaldo);
+                db.update("contas", cv, "id = ?", new String[]{String.valueOf(idConta)});
+            }
+        }
     }
 
     private static String calcularDataRecorrente(String dataInicial, int periodo, int indiceParcela) {
         Calendar cal = Calendar.getInstance();
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            Date data = sdf.parse(dataInicial);
-            cal.setTime(data);
+            cal.setTime(sdf.parse(dataInicial));
         } catch (Exception e) {
             e.printStackTrace();
         }

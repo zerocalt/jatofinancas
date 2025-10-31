@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
@@ -19,6 +20,7 @@ import androidx.fragment.app.Fragment;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import com.example.app1.utils.MenuHelper;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
 public class BottomMenuFragment extends Fragment {
@@ -62,7 +64,66 @@ public class BottomMenuFragment extends Fragment {
         btnPrincipal.setOnClickListener(vi -> navigateTo(TelaPrincipal.class));
         btnTransacoes.setOnClickListener(vi -> navigateTo(TelaTransacoes.class));
         btnCartoes.setOnClickListener(vi -> navigateTo(TelaCadCartao.class));
-        btnOpcoes.setOnClickListener(vi -> { /* Ação para Opções */ });
+        btnOpcoes.setOnClickListener(this::mostrarMenuOpcoes);
+    }
+
+    private void mostrarMenuOpcoes(View view) {
+        MenuHelper.MenuItemData[] menuItems = new MenuHelper.MenuItemData[]{
+                new MenuHelper.MenuItemData("Categorias", R.drawable.ic_category, () -> {
+                    // Ação para Categorias
+                }),
+                new MenuHelper.MenuItemData("Contas", R.drawable.ic_account_balance, () -> {
+                    // Ação para Contas
+                }),
+                new MenuHelper.MenuItemData("Gráficos", R.drawable.ic_credit_card, () -> {
+                    // Ação para Gráficos
+                }),
+                new MenuHelper.MenuItemData("Relatórios", R.drawable.ic_credit_card, () -> {
+                    // Ação para Relatórios
+                }),
+                new MenuHelper.MenuItemData("Sobre", R.drawable.ic_credit_card, () -> {
+                    // Ação para Sobre
+                }),
+                new MenuHelper.MenuItemData("Encerrar Sessão", R.drawable.ic_credit_card, this::fazerLogout)
+        };
+
+        MenuHelper.showMenu(getContext(), view, menuItems);
+    }
+
+    private void fazerLogout() {
+        if (getContext() == null) return;
+
+        try {
+            MasterKey masterKey = new MasterKey.Builder(getContext().getApplicationContext())
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build();
+
+            SharedPreferences prefs = EncryptedSharedPreferences.create(
+                    getContext().getApplicationContext(),
+                    "secure_login_prefs",
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            );
+
+            SharedPreferences.Editor editor = prefs.edit();
+            editor.remove("saved_email");
+            editor.commit();
+
+            Toast.makeText(getContext(), "Sessão encerrada", Toast.LENGTH_SHORT).show();
+
+            Intent intent = new Intent(getActivity(), MainActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            intent.putExtra("from_logout", true);
+            startActivity(intent);
+            if (getActivity() != null) {
+                getActivity().finish();
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Erro ao limpar sessão", Toast.LENGTH_LONG).show();
+        }
     }
 
     private void deactivateButton(View v, int buttonId) {

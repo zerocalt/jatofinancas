@@ -13,7 +13,7 @@ import java.text.SimpleDateFormat;
 public class MeuDbHelper extends SQLiteOpenHelper {
 
     private static final String DBNAME = "bdJatoFinancas.db"; // Nome do banco de dados
-    private static final int DBVERSION = 1;                    // Versão do banco
+    private static final int DBVERSION = 2; // Versão do banco incrementada
 
     public MeuDbHelper(Context context) {
         super(context, DBNAME, null, DBVERSION);
@@ -101,6 +101,7 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "pago INTEGER DEFAULT 0, " +                         // Indicador se foi pago (0 = não, 1 = sim)
                         "recebido INTEGER DEFAULT 0, " +                     // Indicador se foi recebido (0 = não, 1 = sim)
                         "data_movimentacao DATETIME NOT NULL, " +           // Data da movimentação
+                        "data_pagamento DATETIME, " +                       // NOVA COLUNA
                         "descricao TEXT, " +                                 // Descrição opcional
                         "id_categoria INTEGER, " +                           // Categoria da transação
                         "observacao TEXT, " +                                // Observação
@@ -239,18 +240,9 @@ public class MeuDbHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        // Para fins de desenvolvimento, apaga tudo e recria
-        // Em produção, implemente migração apropriada
-        db.execSQL("DROP TABLE IF EXISTS parcelas_cartao");
-        db.execSQL("DROP TABLE IF EXISTS despesas_recorrentes_cartao");
-        db.execSQL("DROP TABLE IF EXISTS transacoes_cartao");
-        db.execSQL("DROP TABLE IF EXISTS faturas");
-        db.execSQL("DROP TABLE IF EXISTS cartoes");
-        db.execSQL("DROP TABLE IF EXISTS transacoes");
-        db.execSQL("DROP TABLE IF EXISTS contas");
-        db.execSQL("DROP TABLE IF EXISTS categorias");
-        db.execSQL("DROP TABLE IF EXISTS usuarios");
-        onCreate(db);
+        if (oldVersion < 2) {
+            db.execSQL("ALTER TABLE transacoes ADD COLUMN data_pagamento DATETIME");
+        }
     }
 
     @Override

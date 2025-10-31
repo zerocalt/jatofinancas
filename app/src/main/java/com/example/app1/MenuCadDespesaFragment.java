@@ -1,29 +1,28 @@
 package com.example.app1;
 
-import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
-
-import androidx.activity.OnBackPressedCallback;
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-import androidx.fragment.app.Fragment;
-
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import androidx.activity.OnBackPressedCallback;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 
 import com.example.app1.data.CategoriaDAO;
 import com.example.app1.data.ContaDAO;
@@ -36,35 +35,35 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
 public class MenuCadDespesaFragment extends Fragment {
 
-    private int idUsuario;
-    private View slidingMenuDespesa;
+    private static final int MAX_VALUE = 99;
+    private static final int MIN_VALUE = 2;
+
     private View overlayDespesa;
-    private TextInputEditText inputValorDespesa, inputDataDespesa, inputNomeDespesa, inputObservacao;
-    private OnBackPressedCallback backCallback;
-    private MaterialAutoCompleteTextView autoCompleteCategoria, autoCompleteConta, autoCompletePeriodo;
-    private TextInputLayout textInputValorDespesa, textInputDataDespesa, menuConta, textInputCategoriaDespesa, textInputNomeDespesa, textInputPeriodo;
-
-    private final int MAX_VALUE = 500;
-    private final int MIN_VALUE = 2;
-
+    private View slidingMenuDespesa;
+    private TextInputEditText inputValorDespesa, inputNomeDespesa, inputDataDespesa, inputObservacao;
     private EditText inputQuantRep;
+    private Button btnSalvarDespesa;
     private ImageButton btnIncrement, btnDecrement;
     private TextView menuRepete;
     private LinearLayout containerRepeticao, containerQuantidade;
     private MaterialSwitch switchDespesaFixa;
-    private Button btnSalvarDespesa;
-    final Conta[] contaSelecionada = new Conta[1];
+    private MaterialAutoCompleteTextView autoCompleteCategoria, autoCompleteConta, autoCompletePeriodo;
+    private TextInputLayout textInputValorDespesa, textInputNomeDespesa, textInputCategoriaDespesa, textInputDataDespesa, textInputPeriodo;
+
+    private OnBackPressedCallback backCallback;
+    private int idUsuario = -1;
+    private int idTransacaoEditando = -1;
+    private final Conta[] contaSelecionada = {null};
     private int valorPeriodoSelecionado = -1;
 
-    private int idTransacaoEditando = -1;
     private OnTransacaoSalvaListener onTransacaoSalvaListener;
+    private CompoundButton.OnCheckedChangeListener switchFixaListener;
 
     public interface OnTransacaoSalvaListener {
         void onTransacaoSalva();
@@ -87,7 +86,7 @@ public class MenuCadDespesaFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            idUsuario = getArguments().getInt("id_usuario");
+            idUsuario = getArguments().getInt("id_usuario", -1);
         }
 
         backCallback = new OnBackPressedCallback(false) {
@@ -104,7 +103,8 @@ public class MenuCadDespesaFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa, container, false);
         setupViews(root);
-        setupListeners(root);
+        setupListeners();
+        carregarDadosIniciais();
         return root;
     }
 
@@ -113,165 +113,221 @@ public class MenuCadDespesaFragment extends Fragment {
         super.onViewCreated(view, savedInstanceState);
         String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
         configuraInterfacePorTipo(tipoMovimento);
-
         abrirMenu();
-
         if (idTransacaoEditando != -1) {
-            carregarDadosParaEdicao(idTransacaoEditando, tipoMovimento);
+            carregarDadosParaEdicao(idTransacaoEditando);
         }
     }
 
     public void editarTransacao(int idTransacao) {
         this.idTransacaoEditando = idTransacao;
         if (getView() != null) {
-            String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
-            carregarDadosParaEdicao(idTransacao, tipoMovimento);
+            carregarDadosParaEdicao(idTransacao);
         }
     }
 
-    private void carregarDadosParaEdicao(int idTransacao, String tipoMovimento) {
-        String titulo = tipoMovimento.equals("receita") ? "Editar Receita" : "Editar Despesa";
-        configuraInterfacePorTipo(titulo);
-        menuRepete.setVisibility(View.GONE);
-        containerRepeticao.setVisibility(View.GONE);
+    private void carregarDadosParaEdicao(int idTransacao) {
+        String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
+        configuraInterfacePorTipo(tipoMovimento.equals("receita") ? getString(R.string.editar_receita) : getString(R.string.editar_despesa));
 
-        SQLiteDatabase db = new MeuDbHelper(requireContext()).getReadableDatabase();
-        try (Cursor cursor = db.rawQuery("SELECT * FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
-            if (cursor.moveToFirst()) {
-                inputNomeDespesa.setText(cursor.getString(cursor.getColumnIndexOrThrow("descricao")));
-                inputValorDespesa.setText(String.format(Locale.GERMAN, "%.2f", cursor.getDouble(cursor.getColumnIndexOrThrow("valor"))));
-                inputObservacao.setText(cursor.getString(cursor.getColumnIndexOrThrow("observacao")));
+        try (MeuDbHelper dbHelper = new MeuDbHelper(requireContext());
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-                try {
-                    String dataDoBanco = cursor.getString(cursor.getColumnIndexOrThrow("data_movimentacao"));
-                    inputDataDespesa.setText(DateUtils.converterDataParaPtBR(dataDoBanco));
-                } catch (Exception e) {
-                    inputDataDespesa.setText("");
-                }
+            int idParaCarregar = idTransacao;
+            int statusOriginal = -1;
 
-                MaterialSwitch switchStatus = getView().findViewById(R.id.switchDespesaPago);
-                int status = "receita".equals(tipoMovimento) ? cursor.getInt(cursor.getColumnIndexOrThrow("recebido")) : cursor.getInt(cursor.getColumnIndexOrThrow("pago"));
-                switchStatus.setChecked(status == 1);
-
-                int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
-                ArrayAdapter<Categoria> adapterCategoria = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
-                for (int i = 0; i < adapterCategoria.getCount(); i++) {
-                    if (adapterCategoria.getItem(i).getId() == idCategoria) {
-                        autoCompleteCategoria.setText(adapterCategoria.getItem(i).getNome(), false);
-                        break;
+            try (Cursor cursorInfo = db.rawQuery("SELECT id_mestre, pago, recebido FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+                if (cursorInfo.moveToFirst()) {
+                    int idMestre = cursorInfo.getInt(cursorInfo.getColumnIndexOrThrow("id_mestre"));
+                    if (idMestre > 0) {
+                        idParaCarregar = idMestre;
                     }
+                    statusOriginal = "receita".equals(tipoMovimento)
+                            ? cursorInfo.getInt(cursorInfo.getColumnIndexOrThrow("recebido"))
+                            : cursorInfo.getInt(cursorInfo.getColumnIndexOrThrow("pago"));
                 }
+            }
 
-                int idConta = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
-                ArrayAdapter<Conta> adapterConta = (ArrayAdapter<Conta>) autoCompleteConta.getAdapter();
-                for (int i = 0; i < adapterConta.getCount(); i++) {
-                    if (adapterConta.getItem(i).getId() == idConta) {
-                        autoCompleteConta.setText(adapterConta.getItem(i).getNome(), false);
-                        contaSelecionada[0] = adapterConta.getItem(i);
-                        break;
+            try (Cursor cursor = db.rawQuery("SELECT * FROM transacoes WHERE id = ?", new String[]{String.valueOf(idParaCarregar)})) {
+                if (cursor.moveToFirst()) {
+                    this.idTransacaoEditando = idParaCarregar;
+
+                    inputNomeDespesa.setText(cursor.getString(cursor.getColumnIndexOrThrow("descricao")));
+                    inputValorDespesa.setText(String.format(Locale.GERMAN, "%.2f", cursor.getDouble(cursor.getColumnIndexOrThrow("valor"))));
+                    inputObservacao.setText(cursor.getString(cursor.getColumnIndexOrThrow("observacao")));
+
+                    try {
+                        String dataDoBanco = cursor.getString(cursor.getColumnIndexOrThrow("data_movimentacao"));
+                        inputDataDespesa.setText(DateUtils.converterDataParaPtBR(dataDoBanco));
+                    } catch (Exception e) {
+                        inputDataDespesa.setText("");
                     }
+
+                    View view = getView();
+                    if (view != null && statusOriginal != -1) {
+                        MaterialSwitch switchStatus = view.findViewById(R.id.switchDespesaPago);
+                        switchStatus.setChecked(statusOriginal == 1);
+                    }
+
+                    int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
+                    CategoriasDropdownAdapter adapterCategoria = (CategoriasDropdownAdapter) autoCompleteCategoria.getAdapter();
+                    if (adapterCategoria != null) {
+                        for (int i = 0; i < adapterCategoria.getCount(); i++) {
+                            Categoria item = adapterCategoria.getItem(i);
+                            if (item != null && item.getId() == idCategoria) {
+                                autoCompleteCategoria.setText(item.getNome(), false);
+                                break;
+                            }
+                        }
+                    }
+
+                    int idConta = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
+                    ArrayAdapter<Conta> adapterConta = (ArrayAdapter<Conta>) autoCompleteConta.getAdapter();
+                    if (adapterConta != null) {
+                        for (int i = 0; i < adapterConta.getCount(); i++) {
+                            Conta item = adapterConta.getItem(i);
+                            if (item != null && item.getId() == idConta) {
+                                autoCompleteConta.setText(item.getNome(), false);
+                                contaSelecionada[0] = item;
+                                break;
+                            }
+                        }
+                    }
+
+                    menuRepete.setVisibility(View.VISIBLE);
+                    boolean isRecorrente = cursor.getInt(cursor.getColumnIndexOrThrow("recorrente")) == 1;
+
+                    switchDespesaFixa.setOnCheckedChangeListener(null);
+
+                    if (isRecorrente) {
+                        containerRepeticao.setVisibility(View.VISIBLE);
+                        containerQuantidade.setVisibility(View.VISIBLE);
+
+                        int repetirQtd = cursor.getInt(cursor.getColumnIndexOrThrow("repetir_qtd"));
+                        boolean isFixa = (repetirQtd == 0);
+
+                        inputQuantRep.setText(String.valueOf(repetirQtd));
+                        switchDespesaFixa.setChecked(isFixa);
+
+                        inputQuantRep.setEnabled(!isFixa);
+                        btnIncrement.setEnabled(!isFixa);
+                        btnDecrement.setEnabled(!isFixa);
+                        autoCompletePeriodo.setEnabled(!isFixa);
+
+                        int repetirPeriodo = cursor.getInt(cursor.getColumnIndexOrThrow("repetir_periodo"));
+                        if (autoCompletePeriodo.getAdapter() != null && repetirPeriodo > 0) {
+                            autoCompletePeriodo.setText(autoCompletePeriodo.getAdapter().getItem(repetirPeriodo - 1).toString(), false);
+                            valorPeriodoSelecionado = repetirPeriodo;
+                        }
+                    } else {
+                        limparCamposRecorrencia();
+                    }
+                    
+                    switchDespesaFixa.setOnCheckedChangeListener(switchFixaListener);
                 }
             }
         }
     }
 
     private void configuraInterfacePorTipo(String tipo) {
-        if(getView() == null) return;
-        TextView titulo = getView().findViewById(R.id.tituloDespesa);
-        TextView textoTipo = getView().findViewById(R.id.textoTipo);
-        TextView textoFixa = getView().findViewById(R.id.textoFixa);
+        View view = getView();
+        if (view == null) return;
 
-        if (tipo.toLowerCase().contains("receita")) {
-            titulo.setText(tipo.startsWith("Editar") ? "Editar Receita" : "Adicionar Receita");
-            textInputValorDespesa.setHint("* Valor da Receita (ex: 1234,56)");
-            textInputNomeDespesa.setHint("* Descrição da Receita");
-            btnSalvarDespesa.setText(tipo.startsWith("Editar") ? "Salvar Alterações" : "Salvar Receita");
-            textoTipo.setText("Recebido");
-            menuRepete.setText("RECEITA REPETE?");
-            textoFixa.setText("Essa Receita repete todos os meses?");
-            textInputCategoriaDespesa.setHint("* Categoria da Receita");
-            textInputDataDespesa.setHint("Data da Receita");
-        } else {
-            titulo.setText(tipo.startsWith("Editar") ? "Editar Despesa" : "Adicionar Despesa");
-            textInputValorDespesa.setHint("* Valor da Despesa (ex: 1234,56)");
-            textInputNomeDespesa.setHint("* Descrição da Despesa");
-            btnSalvarDespesa.setText(tipo.startsWith("Editar") ? "Salvar Alterações" : "Salvar Despesa");
-            textoTipo.setText("Pago");
-            menuRepete.setText("DESPESA REPETE?");
-            textoFixa.setText("Essa Despesa repete todos os meses?");
-            textInputCategoriaDespesa.setHint("* Categoria da Despesa");
-            textInputDataDespesa.setHint("Data da Despesa");
-        }
+        TextView titulo = view.findViewById(R.id.tituloDespesa);
+        TextView textoTipo = view.findViewById(R.id.textoTipo);
+        TextView textoFixa = view.findViewById(R.id.textoFixa);
+
+        boolean isReceita = tipo.toLowerCase().contains("receita");
+
+        titulo.setText(tipo.startsWith("Editar") ? (isReceita ? R.string.editar_receita : R.string.editar_despesa) : (isReceita ? R.string.adicionar_receita : R.string.adicionar_despesa));
+        textInputValorDespesa.setHint(isReceita ? getString(R.string.valor_da_receita) : getString(R.string.valor_da_despesa));
+        textInputNomeDespesa.setHint(isReceita ? getString(R.string.descricao_da_receita) : getString(R.string.descricao_da_despesa));
+        btnSalvarDespesa.setText(tipo.startsWith("Editar") ? R.string.salvar_alteracoes : (isReceita ? R.string.salvar_receita : R.string.salvar_despesa));
+        textoTipo.setText(isReceita ? R.string.recebido : R.string.pago);
+        menuRepete.setText(isReceita ? R.string.receita_repete : R.string.despesa_repete);
+        textoFixa.setText(isReceita ? getString(R.string.essa_receita_repete_todos_os_meses) : getString(R.string.essa_despesa_repete_todos_os_meses));
+        textInputCategoriaDespesa.setHint(isReceita ? getString(R.string.categoria_da_receita) : getString(R.string.categoria_da_despesa));
+        textInputDataDespesa.setHint(isReceita ? getString(R.string.data_da_receita) : getString(R.string.data_da_despesa));
     }
 
     private void salvarDespesa() {
-        String tipoMovimento = getArguments().getString("tipoMovimento", "despesa");
         if (!validarCampos()) return;
 
-        boolean sucesso = false;
-
+        String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
         if (idTransacaoEditando > 0) {
-            // LÓGICA DE EDIÇÃO
-            ContentValues values = new ContentValues();
-            try {
-                String valorLimpo = inputValorDespesa.getText().toString().replaceAll("[^0-9,]", "").replace(",", ".");
-                double valor = Double.parseDouble(valorLimpo);
-                values.put("valor", valor);
-                values.put("data_movimentacao", DateUtils.converterDataParaISO(inputDataDespesa.getText().toString()));
-            } catch (Exception e) {
-                Toast.makeText(getContext(), "Valor ou data inválidos.", Toast.LENGTH_SHORT).show();
-                return;
+            TransacoesDAO.excluirTransacao(getContext(), idTransacaoEditando, "transacao");
+        }
+
+        String valorDespesa = inputValorDespesa.getText() != null ? inputValorDespesa.getText().toString().trim() : "";
+        String nomeDespesa = inputNomeDespesa.getText() != null ? inputNomeDespesa.getText().toString().trim() : "";
+        String categoria = autoCompleteCategoria.getText() != null ? autoCompleteCategoria.getText().toString().trim() : "";
+        String dataInput = inputDataDespesa.getText() != null ? inputDataDespesa.getText().toString().trim() : "";
+        int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
+        int tipo = tipoMovimento.equals("receita") ? 1 : 2;
+        int periodo = valorPeriodoSelecionado;
+        boolean despesaFixa = switchDespesaFixa.isChecked();
+        int quantidade = getNumberFromEditText();
+        String observacao = inputObservacao.getText() != null ? inputObservacao.getText().toString().trim() : "";
+
+        View view = getView();
+        int statusMarcado = 0;
+        if (view != null) {
+            MaterialSwitch switchDespesaPago = view.findViewById(R.id.switchDespesaPago);
+            if (switchDespesaPago != null) {
+                statusMarcado = switchDespesaPago.isChecked() ? 1 : 0;
             }
-            values.put("descricao", inputNomeDespesa.getText().toString());
-            values.put("observacao", inputObservacao.getText().toString());
+        }
 
-            try (SQLiteDatabase db = new MeuDbHelper(getContext()).getWritableDatabase()) {
-                int rows = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(idTransacaoEditando)});
-                sucesso = rows > 0;
-            }
-        } else {
-            // LÓGICA DE CRIAÇÃO (ORIGINAL RESTAURADA)
-            String valorDespesa = inputValorDespesa.getText().toString().trim();
-            String nomeDespesa = inputNomeDespesa.getText().toString().trim();
-            String categoria = autoCompleteCategoria.getText().toString().trim();
-            String dataInput = inputDataDespesa.getText().toString().trim();
-            int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
-            int tipo = tipoMovimento.equals("receita") ? 1 : 2;
-            int periodo = valorPeriodoSelecionado;
-            int despesaFixa = switchDespesaFixa.isChecked() ? 1 : 0;
-            int quantidade = getNumberFromEditText();
-            String observacao = inputObservacao.getText().toString().trim();
-            int statusMarcado = ((MaterialSwitch) getView().findViewById(R.id.switchDespesaPago)).isChecked() ? 1 : 0;
+        int pago = (tipo == 2) ? statusMarcado : 0;
+        int recebido = (tipo == 1) ? statusMarcado : 0;
 
-            int pago = (tipo == 2) ? statusMarcado : 0;
-            int recebido = (tipo == 1) ? statusMarcado : 0;
-
-            Categoria categoriaSelecionada = null;
-            ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+        int idCategoriaSelecionada = -1;
+        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+        if (adapter != null) {
             for (int i = 0; i < adapter.getCount(); i++) {
-                if (adapter.getItem(i) != null && adapter.getItem(i).getNome().equals(categoria)) {
-                    categoriaSelecionada = adapter.getItem(i);
+                Categoria item = adapter.getItem(i);
+                if (item != null && item.getNome().equals(categoria)) {
+                    idCategoriaSelecionada = item.getId();
                     break;
                 }
             }
-            int idCategoriaSelecionada = (categoriaSelecionada != null) ? categoriaSelecionada.getId() : -1;
+        }
 
-            double valor;
-            String dataParaBanco;
-            try {
-                String valorLimpo = valorDespesa.replace("R$", "").replaceAll("[^0-9,]", "").replace(",", ".");
-                valor = Double.parseDouble(valorLimpo);
-                dataParaBanco = DateUtils.converterDataParaISO(dataInput);
-            } catch (Exception e) {
-                Toast.makeText(requireContext(), "Valor ou data inválidos", Toast.LENGTH_SHORT).show();
+        double valor;
+        String dataParaBanco;
+        try {
+            String valorLimpo = valorDespesa.replace("R$", "").replaceAll("[^0-9,.]", "").replace(".", "").replace(",", ".");
+            valor = Double.parseDouble(valorLimpo);
+            dataParaBanco = DateUtils.converterDataParaISO(dataInput);
+        } catch (Exception e) {
+            Toast.makeText(requireContext(), "Valor ou data inválidos", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        boolean sucesso;
+        boolean isRecorrente = containerRepeticao.getVisibility() == View.VISIBLE;
+
+        if (isRecorrente) {
+            if (!despesaFixa && valorPeriodoSelecionado <= 0) {
+                textInputPeriodo.setError(getString(R.string.selecione_um_periodo));
+                return;
+            } else {
+                textInputPeriodo.setError(null);
+            }
+
+            if (!despesaFixa && quantidade < MIN_VALUE) {
+                Toast.makeText(getContext(), String.format(getString(R.string.quantidade_minima_parcelas), MIN_VALUE), Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            if (despesaFixa == 1 || quantidade > 1) {
-                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, quantidade, periodo, 1);
+            if (despesaFixa) {
+                periodo = 0;
+                sucesso = TransacoesDAO.salvarTransacaoFixa(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, periodo);
             } else {
-                sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);
+                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, quantidade, periodo, 0);
             }
+        } else {
+            sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);
         }
 
         if (sucesso) {
@@ -285,7 +341,7 @@ public class MenuCadDespesaFragment extends Fragment {
             Toast.makeText(getContext(), "Erro ao salvar!", Toast.LENGTH_SHORT).show();
         }
     }
-    
+
     private void setupViews(View root) {
         slidingMenuDespesa = root.findViewById(R.id.slidingMenuDespesa);
         overlayDespesa = root.findViewById(R.id.overlayDespesa);
@@ -308,11 +364,10 @@ public class MenuCadDespesaFragment extends Fragment {
         textInputNomeDespesa = root.findViewById(R.id.textInputNomeDespesa);
         textInputCategoriaDespesa = root.findViewById(R.id.textInputCategoriaDespesa);
         textInputDataDespesa = root.findViewById(R.id.textInputDataDespesa);
-        menuConta = root.findViewById(R.id.menuConta);
         textInputPeriodo = root.findViewById(R.id.textInputPeriodo);
     }
 
-    private void setupListeners(View root) {
+    private void setupListeners() {
         overlayDespesa.setOnClickListener(v -> fecharMenu());
         btnSalvarDespesa.setOnClickListener(v -> salvarDespesa());
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
@@ -320,7 +375,14 @@ public class MenuCadDespesaFragment extends Fragment {
         inputDataDespesa.setFocusable(false);
         inputDataDespesa.setClickable(true);
         inputDataDespesa.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date()));
-        
+
+        autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
+            Categoria categoriaSelecionada = (Categoria) parent.getItemAtPosition(position);
+            if (categoriaSelecionada != null) {
+                autoCompleteCategoria.setText(categoriaSelecionada.getNome(), false);
+            }
+        });
+
         menuRepete.setOnClickListener(v -> {
             if (containerRepeticao.getVisibility() == View.GONE) {
                 containerRepeticao.setVisibility(View.VISIBLE);
@@ -331,120 +393,133 @@ public class MenuCadDespesaFragment extends Fragment {
 
         btnIncrement.setOnClickListener(v -> {
             int valorAtual = getNumberFromEditText();
-            if (valorAtual < MIN_VALUE) {
+            if (valorAtual == 0) {
                 inputQuantRep.setText(String.valueOf(MIN_VALUE));
             } else if (valorAtual < MAX_VALUE) {
-                valorAtual++;
-                inputQuantRep.setText(String.valueOf(valorAtual));
+                inputQuantRep.setText(String.valueOf(valorAtual + 1));
             }
         });
 
         btnDecrement.setOnClickListener(v -> {
             int valorAtual = getNumberFromEditText();
             if (valorAtual > MIN_VALUE) {
-                valorAtual--;
-                inputQuantRep.setText(String.valueOf(valorAtual));
-            } else if (valorAtual <= MIN_VALUE) {
-                inputQuantRep.setText("");
-            }
-        });
-
-        switchDespesaFixa.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                containerQuantidade.setEnabled(false);
-                containerQuantidade.setAlpha(0.5f);
-                textInputPeriodo.setEnabled(false);
-                textInputPeriodo.setAlpha(0.5f);
-                inputQuantRep.setText("");
-                autoCompletePeriodo.setText("");
-                valorPeriodoSelecionado = -1;
+                inputQuantRep.setText(String.valueOf(valorAtual - 1));
             } else {
-                containerQuantidade.setEnabled(true);
-                containerQuantidade.setAlpha(1.0f);
-                textInputPeriodo.setEnabled(true);
-                textInputPeriodo.setAlpha(1.0f);
+                inputQuantRep.setText("");
             }
         });
-        
-        String[] periodosTexto = {"Mensal", "Semanal", "Anual", "Bimestral", "Trimestral", "Semestral"};
-        int[] periodosValores = {2, 1, 6, 3, 4, 5};
-        ArrayAdapter<String> adapterPeriodo = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, periodosTexto);
-        autoCompletePeriodo.setAdapter(adapterPeriodo);
-        autoCompletePeriodo.setOnItemClickListener((parent, view1, position, id) -> {
-            valorPeriodoSelecionado = periodosValores[position];
-        });
 
-        carregarCategorias();
-        carregarContas();
+        switchFixaListener = (buttonView, isChecked) -> {
+            inputQuantRep.setEnabled(!isChecked);
+            btnIncrement.setEnabled(!isChecked);
+            btnDecrement.setEnabled(!isChecked);
+            autoCompletePeriodo.setEnabled(!isChecked);
+
+            if (isChecked) {
+                inputQuantRep.setText("");
+                autoCompletePeriodo.setText("", false);
+                valorPeriodoSelecionado = -1;
+            }
+        };
+        switchDespesaFixa.setOnCheckedChangeListener(switchFixaListener);
+
+        autoCompletePeriodo.setOnItemClickListener((parent, view, position, id) -> valorPeriodoSelecionado = position + 1);
+        autoCompleteConta.setOnItemClickListener((parent, view, position, id) -> contaSelecionada[0] = (Conta) parent.getItemAtPosition(position));
     }
-    
+
     private int getNumberFromEditText() {
-        String texto = inputQuantRep.getText().toString();
-        if (texto.isEmpty()) {
-            return 0;
-        }
         try {
-            return Integer.parseInt(texto);
+            String text = inputQuantRep.getText() != null ? inputQuantRep.getText().toString() : "";
+            if (text.isEmpty()) return 0;
+            return Integer.parseInt(text);
         } catch (NumberFormatException e) {
             return 0;
         }
     }
 
-    private void carregarCategorias() {
+    private void carregarDadosIniciais() {
         List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
-        CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
-        autoCompleteCategoria.setAdapter(adapter);
-    }
+        CategoriasDropdownAdapter categoriaAdapter = new CategoriasDropdownAdapter(requireContext(), categorias);
+        autoCompleteCategoria.setAdapter(categoriaAdapter);
 
-    private void carregarContas() {
         List<Conta> contas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
-        ArrayAdapter<Conta> adapterConta = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
-        autoCompleteConta.setAdapter(adapterConta);
-        autoCompleteConta.setOnItemClickListener((parent, view, position, id) -> {
-            contaSelecionada[0] = (Conta) parent.getItemAtPosition(position);
-        });
+        ArrayAdapter<Conta> contaAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(contaAdapter);
+
+        String[] periodos = {"Semanal", "Mensal", "Bimestral", "Trimestral", "Semestral", "Anual"};
+        ArrayAdapter<String> periodoAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, periodos);
+        autoCompletePeriodo.setAdapter(periodoAdapter);
+        limparCamposRecorrencia();
     }
 
     private boolean validarCampos() {
         boolean valido = true;
-        if (inputValorDespesa.getText().toString().trim().isEmpty()) {
-            textInputValorDespesa.setError("Informe o valor");
+        if (inputValorDespesa.getText() == null || inputValorDespesa.getText().toString().trim().isEmpty()) {
+            textInputValorDespesa.setError("Informe um valor");
             valido = false;
+        } else {
+            textInputValorDespesa.setError(null);
         }
-        if (inputNomeDespesa.getText().toString().trim().isEmpty()) {
-            textInputNomeDespesa.setError("Informe a descrição");
+
+        if (inputNomeDespesa.getText() == null || inputNomeDespesa.getText().toString().trim().isEmpty()) {
+            textInputNomeDespesa.setError("Informe uma descrição");
             valido = false;
+        } else {
+            textInputNomeDespesa.setError(null);
         }
-        if (autoCompleteCategoria.getText().toString().trim().isEmpty()) {
-            textInputCategoriaDespesa.setError("Selecione uma categoria");
-            valido = false;
-        }
-        if (autoCompleteConta.getText().toString().trim().isEmpty()) {
-            menuConta.setError("Selecione uma conta");
-            valido = false;
-        }
+
         return valido;
     }
 
-    public void fecharMenu() {
-        slidingMenuDespesa.animate().translationY(slidingMenuDespesa.getHeight()).setDuration(300).withEndAction(() -> {
-            slidingMenuDespesa.setVisibility(View.GONE);
-            overlayDespesa.setVisibility(View.GONE);
-            backCallback.setEnabled(false);
-            getParentFragmentManager().beginTransaction().remove(this).commit();
-        }).start();
+    public void abrirMenu() {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if(getView() == null) return;
+            overlayDespesa.setVisibility(View.VISIBLE);
+            slidingMenuDespesa.setVisibility(View.VISIBLE);
+            slidingMenuDespesa.animate().translationY(0).setDuration(300).withEndAction(() -> {
+                inputValorDespesa.requestFocus();
+                InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+                if (imm != null) {
+                    imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+                }
+            });
+            backCallback.setEnabled(true);
+        }, 100);
     }
 
-    public void abrirMenu() {
-        overlayDespesa.setVisibility(View.VISIBLE);
-        slidingMenuDespesa.setVisibility(View.VISIBLE);
-        slidingMenuDespesa.post(() -> {
-            slidingMenuDespesa.setTranslationY(slidingMenuDespesa.getHeight());
-            slidingMenuDespesa.animate().translationY(0).setDuration(300).start();
-            inputValorDespesa.requestFocus();
-            InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+    public void fecharMenu() {
+        if(getView() == null) return;
+        InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+        }
+        slidingMenuDespesa.animate().translationY(slidingMenuDespesa.getHeight()).setDuration(300).withEndAction(() -> {
+            overlayDespesa.setVisibility(View.GONE);
+            slidingMenuDespesa.setVisibility(View.GONE);
+            idTransacaoEditando = -1;
+            limparCampos();
+            backCallback.setEnabled(false);
+            if (getParentFragment() != null && !getParentFragment().isStateSaved()) {
+                getParentFragment().getChildFragmentManager().beginTransaction().remove(this).commit();
+            }
         });
-        backCallback.setEnabled(true);
+    }
+
+    private void limparCampos() {
+        inputValorDespesa.setText("");
+        inputNomeDespesa.setText("");
+        inputDataDespesa.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date()));
+        inputObservacao.setText("");
+        autoCompleteCategoria.setText("");
+        autoCompleteConta.setText("");
+        limparCamposRecorrencia();
+    }
+
+    private void limparCamposRecorrencia() {
+        switchDespesaFixa.setChecked(false);
+        inputQuantRep.setText("");
+        autoCompletePeriodo.setText("", false);
+        valorPeriodoSelecionado = -1;
+        containerRepeticao.setVisibility(View.GONE);
     }
 }

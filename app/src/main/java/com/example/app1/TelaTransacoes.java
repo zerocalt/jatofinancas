@@ -11,32 +11,89 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.app1.data.TransacoesDAO;
 import com.example.app1.interfaces.BottomMenuListener;
 import com.example.app1.utils.MenuHelper;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.text.NumberFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
-public class TelaTransacoes extends AppCompatActivity implements BottomMenuListener {
+public class TelaTransacoes extends AppCompatActivity implements BottomMenuListener, MenuCadDespesaCartaoFragment.OnDespesaSalvaListener {
 
     private TextView txtMes, txtAno, txtNenhumaTransacao;
     private LinearLayout blocoReceitas, blocoDespesas, blocoCartao;
     private LinearLayout secaoReceitas, secaoDespesas, secaoCartao;
     private int idUsuarioLogado = -1;
+
+    private double totalReceitasValor = 0;
+    private double totalPendenteValor = 0;
+    private double totalPagoValor = 0;
+    private TextView totalReceitas, totalPendente, totalPago;
+
+    static class TransacaoItem implements Comparable<TransacaoItem> {
+        int id;
+        String descricao;
+        double valor;
+        String data; // yyyy-MM-dd HH:mm:ss
+        String categoriaNome;
+        String categoriaCor;
+        String tipoTransacao;
+        int recorrente;
+        int parcelas;
+        int numeroParcela;
+        int pago;
+        int recebido;
+        boolean isProjecao;
+        int idMestre; // Adicionado para lógica
+
+        public TransacaoItem(@NonNull Cursor cur, boolean isProjecao, String dataOverride) {
+            this.id = cur.getInt(cur.getColumnIndexOrThrow("id"));
+            this.descricao = cur.getString(cur.getColumnIndexOrThrow("descricao"));
+            this.valor = cur.getDouble(cur.getColumnIndexOrThrow("valor"));
+            this.data = (dataOverride != null) ? dataOverride : cur.getString(cur.getColumnIndexOrThrow("data"));
+            this.categoriaNome = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
+            this.categoriaCor = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
+            this.tipoTransacao = cur.getString(cur.getColumnIndexOrThrow("tipo"));
+            this.recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
+            this.parcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
+            this.numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
+            this.idMestre = cur.getInt(cur.getColumnIndexOrThrow("id_mestre"));
+            this.isProjecao = isProjecao;
+
+            if (isProjecao) {
+                this.pago = 0;
+                this.recebido = 0;
+            } else {
+                this.pago = cur.getInt(cur.getColumnIndexOrThrow("pago"));
+                this.recebido = cur.getInt(cur.getColumnIndexOrThrow("recebido"));
+            }
+        }
+
+        @Override
+        public int compareTo(TransacaoItem other) {
+            return other.data.compareTo(this.data); // Ordenação descendente
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +117,10 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
         secaoDespesas = findViewById(R.id.secao_despesas);
         secaoCartao = findViewById(R.id.secao_cartao);
         txtNenhumaTransacao = findViewById(R.id.txt_nenhuma_transacao);
+
+        totalReceitas = findViewById(R.id.totalReceitas);
+        totalPendente = findViewById(R.id.totalPendente);
+        totalPago = findViewById(R.id.totalPago);
 
         Calendar agora = Calendar.getInstance();
         String[] nomesMes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
@@ -105,9 +166,21 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
         blocoDespesas.removeAllViews();
         blocoCartao.removeAllViews();
 
-        boolean hasReceitas = carregarSecao("receita");
-        boolean hasDespesas = carregarSecao("despesa");
-        boolean hasCartao = carregarSecao("cartao");
+        totalReceitasValor = 0;
+        totalPendenteValor = 0;
+        totalPagoValor = 0;
+
+        boolean hasReceitas = carregarSecaoContas("receita");
+        boolean hasDespesas = carregarSecaoContas("despesa");
+        boolean hasCartao = carregarSecaoCartao();
+
+        totalReceitas.setText(formatarBR(totalReceitasValor));
+        totalPendente.setText(formatarBR(totalPendenteValor));
+        totalPago.setText(formatarBR(totalPagoValor));
+
+        totalReceitas.setTextColor(Color.parseColor("#006400"));
+        totalPendente.setTextColor(Color.parseColor("#E45757"));
+        totalPago.setTextColor(Color.parseColor("#E45757"));
 
         secaoReceitas.setVisibility(hasReceitas ? View.VISIBLE : View.GONE);
         secaoDespesas.setVisibility(hasDespesas ? View.VISIBLE : View.GONE);
@@ -120,67 +193,155 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
         }
     }
 
-    private boolean carregarSecao(String tipoSecao) {
+    private boolean carregarSecaoContas(String tipoSecao) {
+        int tipo = tipoSecao.equals("receita") ? 1 : 2;
+        List<TransacaoItem> itens = new ArrayList<>();
+
+        try (MeuDbHelper dbHelper = new MeuDbHelper(this);
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+
+            String mesStr = txtMes.getText().toString();
+            int ano = Integer.parseInt(txtAno.getText().toString());
+            int mes = getMesIndex(mesStr);
+            String mesAnoSelecionado = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
+
+            // ================================
+            // 1️⃣ TRANSACOES REAIS (existentes)
+            // ================================
+            String queryExistentes =
+                    "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
+                            "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
+                            "'transacao' AS tipo, t.recorrente, t.repetir_qtd AS parcelas, " +
+                            "1 AS numero_parcela, t.pago, t.recebido, t.id_mestre, t.repetir_periodo " +
+                            "FROM transacoes t " +
+                            "LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                            "WHERE t.id_usuario = ? AND t.tipo = ? " +
+                            "AND substr(t.data_movimentacao,1,7) = ? " +
+                            "AND (t.id_mestre IS NOT NULL OR t.recorrente = 0)";
+            try (Cursor cur = db.rawQuery(queryExistentes,
+                    new String[]{String.valueOf(idUsuarioLogado), String.valueOf(tipo), mesAnoSelecionado})) {
+                while (cur.moveToNext()) {
+                    itens.add(new TransacaoItem(cur, false, null));
+                }
+            }
+
+            // ========================================
+            // 2️⃣ PROJECAO DE FIXAS (sem filha no mês)
+            // ========================================
+            String queryProjecao =
+                    "SELECT mestre.id, mestre.descricao, mestre.valor, mestre.data_movimentacao AS data, " +
+                            "c.nome AS categoria_nome, c.cor AS categoria_cor, 'transacao' AS tipo, " +
+                            "mestre.recorrente, mestre.repetir_qtd AS parcelas, mestre.repetir_periodo, " +
+                            "mestre.pago, mestre.recebido, 1 AS numero_parcela, mestre.id_mestre " +
+                            "FROM transacoes AS mestre " +
+                            "LEFT JOIN categorias c ON mestre.id_categoria = c.id " +
+                            "WHERE mestre.id_usuario = ? AND mestre.tipo = ? " +
+                            "AND mestre.recorrente = 1 AND mestre.recorrente_ativo = 1 " +
+                            "AND mestre.id_mestre IS NULL " + // só os mestres
+                            "AND substr(mestre.data_movimentacao,1,7) <= ? " +
+                            "AND NOT EXISTS ( " +
+                            "   SELECT 1 FROM transacoes AS filha " +
+                            "   WHERE filha.id_mestre = mestre.id " +
+                            "   AND substr(filha.data_movimentacao,1,7) = ? " +
+                            ")";
+
+            try (Cursor curMestre = db.rawQuery(queryProjecao,
+                    new String[]{String.valueOf(idUsuarioLogado), String.valueOf(tipo), mesAnoSelecionado, mesAnoSelecionado})) {
+
+                while (curMestre.moveToNext()) {
+                    String dataInicioStr = curMestre.getString(curMestre.getColumnIndexOrThrow("data"));
+                    int repetirPeriodo = curMestre.getInt(curMestre.getColumnIndexOrThrow("repetir_periodo"));
+
+                    if (shouldOccurInMonth(dataInicioStr, repetirPeriodo, ano, mes)) {
+                        try {
+                            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+                            Calendar calProjecao = Calendar.getInstance();
+                            calProjecao.setTime(sdf.parse(dataInicioStr.substring(0, 10)));
+                            calProjecao.set(Calendar.YEAR, ano);
+                            calProjecao.set(Calendar.MONTH, mes);
+                            String dataProjecao = sdf.format(calProjecao.getTime()) + " 00:00:00";
+
+                            itens.add(new TransacaoItem(curMestre, true, dataProjecao));
+                        } catch (ParseException e) {
+                            Log.e("TelaTransacoes", "Erro ao projetar data", e);
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e("TelaTransacoes", "Erro ao carregar seção de contas", e);
+        }
+
+        // =============================
+        // 3️⃣ Monta o layout da tela
+        // =============================
+        Collections.sort(itens);
+
+        if (!itens.isEmpty()) {
+            LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+            LinearLayout layoutDestino = tipoSecao.equals("receita") ? blocoReceitas : blocoDespesas;
+            String ultimoDia = "";
+
+            for (TransacaoItem item : itens) {
+                if (tipoSecao.equals("receita")) {
+                    totalReceitasValor += item.valor;
+                } else {
+                    if (item.pago == 1)
+                        totalPagoValor += item.valor;
+                    else
+                        totalPendenteValor += item.valor;
+                }
+
+                String dataFormatada = formatarDataBR(item.data, true);
+                if (!dataFormatada.equals(ultimoDia)) {
+                    TextView dataLabel = new TextView(this);
+                    dataLabel.setText(dataFormatada);
+                    dataLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                    dataLabel.setTextColor(Color.GRAY);
+                    dataLabel.setTextSize(13f);
+                    dataLabel.setPadding(4, 16, 4, 8);
+                    layoutDestino.addView(dataLabel);
+                    ultimoDia = dataFormatada;
+                }
+
+                View itemView = createTransacaoView(item, inflater, tipoSecao);
+                layoutDestino.addView(itemView);
+            }
+        }
+
+        return !itens.isEmpty();
+    }
+
+    private boolean carregarSecaoCartao() {
         SQLiteDatabase db = null;
         Cursor cur = null;
         boolean hasContent = false;
         try {
             String mesStr = txtMes.getText().toString();
             int ano = Integer.parseInt(txtAno.getText().toString());
-            int mes = 0;
-            final String[] nomesMes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
-            for (int i = 0; i < nomesMes.length; i++) {
-                if (nomesMes[i].equalsIgnoreCase(mesStr)) {
-                    mes = i;
-                    break;
-                }
-            }
+            int mes = getMesIndex(mesStr);
 
-            Calendar inicio = Calendar.getInstance();
-            inicio.set(ano, mes, 1);
-            Calendar fim = Calendar.getInstance();
-            fim.set(ano, mes, inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
-
-            String dataInicio = String.format(Locale.ROOT, "%04d-%02d-%02d", inicio.get(Calendar.YEAR), inicio.get(Calendar.MONTH) + 1, inicio.get(Calendar.DAY_OF_MONTH));
-            String dataFim = String.format(Locale.ROOT, "%04d-%02d-%02d", fim.get(Calendar.YEAR), fim.get(Calendar.MONTH) + 1, fim.get(Calendar.DAY_OF_MONTH));
+            Calendar inicioCal = Calendar.getInstance();
+            inicioCal.set(ano, mes, 1, 0, 0, 0);
+            Calendar fimCal = Calendar.getInstance();
+            fimCal.set(ano, mes, inicioCal.getActualMaximum(Calendar.DAY_OF_MONTH), 23, 59, 59);
+            SimpleDateFormat isoFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
+            String dataInicio = isoFormat.format(inicioCal.getTime());
+            String dataFim = isoFormat.format(fimCal.getTime());
 
             db = new MeuDbHelper(this).getReadableDatabase();
-            String query;
-            String[] args;
-
-            LinearLayout layoutDestino;
-
-            switch (tipoSecao) {
-                case "receita":
-                    query = "SELECT t.id, t.descricao, t.valor, t.data_movimentacao as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao' as tipo, t.recorrente, t.repetir_qtd as parcelas, 1 as numero_parcela FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id WHERE t.id_usuario = ? AND t.tipo = 1 AND t.data_movimentacao BETWEEN ? AND ? AND (t.id_mestre IS NOT NULL OR t.recorrente = 0) ORDER BY t.data_movimentacao DESC";
-                    args = new String[]{String.valueOf(idUsuarioLogado), dataInicio, dataFim};
-                    layoutDestino = blocoReceitas;
-                    break;
-                case "despesa":
-                    query = "SELECT t.id, t.descricao, t.valor, t.data_movimentacao as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao' as tipo, t.recorrente, t.repetir_qtd as parcelas, 1 as numero_parcela FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id WHERE t.id_usuario = ? AND t.tipo = 2 AND t.data_movimentacao BETWEEN ? AND ? AND (t.id_mestre IS NOT NULL OR t.recorrente = 0) ORDER BY t.data_movimentacao DESC";
-                    args = new String[]{String.valueOf(idUsuarioLogado), dataInicio, dataFim};
-                    layoutDestino = blocoDespesas;
-                    break;
-                case "cartao":
-                    query = "SELECT * FROM ( " +
-                            "SELECT tc.id, tc.descricao, p.valor, p.data_vencimento as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao_cartao' as tipo, tc.recorrente, tc.parcelas, p.numero_parcela " +
-                            "FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id LEFT JOIN categorias c ON tc.id_categoria = c.id " +
-                            "WHERE tc.id_usuario = ? AND p.data_vencimento BETWEEN ? AND ? " +
-                            "UNION ALL " +
-                            "SELECT tc.id, tc.descricao, tc.valor, tc.data_compra as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao_cartao' as tipo, tc.recorrente, tc.parcelas, 1 as numero_parcela " +
-                            "FROM transacoes_cartao tc LEFT JOIN categorias c ON tc.id_categoria = c.id " +
-                            "WHERE tc.id_usuario = ? AND (tc.parcelas = 1 OR tc.parcelas IS NULL) AND tc.recorrente = 0 AND tc.data_compra BETWEEN ? AND ? " +
-                            "UNION ALL " +
-                            "SELECT drc.id_transacao_cartao as id, tc.descricao, drc.valor, drc.data_inicial as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao_cartao' as tipo, 1 as recorrente, 1 as parcelas, 1 as numero_parcela " + 
-                            "FROM despesas_recorrentes_cartao drc JOIN transacoes_cartao tc ON drc.id_transacao_cartao = tc.id LEFT JOIN categorias c ON tc.id_categoria = c.id " +
-                            "WHERE tc.id_usuario = ? AND drc.data_inicial <= ? AND (drc.data_final IS NULL OR drc.data_final >= ?) " +
-                            ") ORDER BY data DESC";
-                    args = new String[]{String.valueOf(idUsuarioLogado), dataInicio, dataFim, String.valueOf(idUsuarioLogado), dataInicio, dataFim, String.valueOf(idUsuarioLogado), dataFim, dataInicio};
-                    layoutDestino = blocoCartao;
-                    break;
-                default:
-                    return false;
-            }
+            // Esta query é complexa e pode ser otimizada no futuro. Por agora, restauramos a funcionalidade.
+            String query = "SELECT * FROM ( " +
+                           "SELECT tc.id, tc.descricao, p.valor, p.data_vencimento as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao_cartao' as tipo, tc.recorrente, tc.parcelas, p.numero_parcela, p.paga as pago, 0 as recebido, tc.id as id_mestre, 0 as repetir_periodo " +
+                           "FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id LEFT JOIN categorias c ON tc.id_categoria = c.id " +
+                           "WHERE tc.id_usuario = ? AND p.data_vencimento BETWEEN ? AND ? " +
+                           "UNION ALL " +
+                           "SELECT tc.id, tc.descricao, tc.valor, tc.data_compra as data, c.nome as categoria_nome, c.cor as categoria_cor, 'transacao_cartao' as tipo, tc.recorrente, tc.parcelas, 1 as numero_parcela, 0 as pago, 0 as recebido, 0 as id_mestre, 0 as repetir_periodo " +
+                           "FROM transacoes_cartao tc LEFT JOIN categorias c ON tc.id_categoria = c.id " +
+                           "WHERE tc.id_usuario = ? AND (tc.parcelas = 1 OR tc.parcelas IS NULL) AND tc.recorrente = 0 AND tc.data_compra BETWEEN ? AND ? " +
+                           ") ORDER BY data DESC";
+            String[] args = {String.valueOf(idUsuarioLogado), dataInicio, dataFim, String.valueOf(idUsuarioLogado), dataInicio, dataFim};
 
             cur = db.rawQuery(query, args);
             LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -189,6 +350,12 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
                 hasContent = true;
                 String ultimoDia = "";
                 while (cur.moveToNext()) {
+                    if (cur.getInt(cur.getColumnIndexOrThrow("pago")) == 1) {
+                        totalPagoValor += cur.getDouble(cur.getColumnIndexOrThrow("valor"));
+                    } else {
+                        totalPendenteValor += cur.getDouble(cur.getColumnIndexOrThrow("valor"));
+                    }
+
                     String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data"));
                     String dataFormatada = formatarDataBR(dataRegistro, true);
 
@@ -199,15 +366,15 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
                         dataLabel.setTextColor(Color.GRAY);
                         dataLabel.setTextSize(13f);
                         dataLabel.setPadding(4, 16, 4, 8);
-                        layoutDestino.addView(dataLabel);
+                        blocoCartao.addView(dataLabel);
                         ultimoDia = dataFormatada;
                     }
-                    View item = createTransacaoView(cur, inflater, tipoSecao);
-                    layoutDestino.addView(item);
+                    View item = createTransacaoView(new TransacaoItem(cur, false, null), inflater, "cartao");
+                    blocoCartao.addView(item);
                 }
             }
         } catch (Exception e) {
-            Log.e("TelaTransacoes", "Erro ao carregar seção " + tipoSecao, e);
+            Log.e("TelaTransacoes", "Erro ao carregar seção cartao", e);
         } finally {
             if (cur != null) cur.close();
             if (db != null) db.close();
@@ -215,49 +382,81 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
         return hasContent;
     }
 
-    private View createTransacaoView(Cursor cur, LayoutInflater inflater, String tipo) {
-        View item = inflater.inflate(R.layout.item_transacao, null, false);
-        
-        double valor = cur.getDouble(cur.getColumnIndexOrThrow("valor"));
-        String descricao = cur.getString(cur.getColumnIndexOrThrow("descricao"));
-        int idTransacao = cur.getInt(cur.getColumnIndexOrThrow("id"));
-        String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
-        String corCategoria = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
-        int recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
-        int parcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
-        int numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
 
-        ((TextView) item.findViewById(R.id.tituloTransacao)).setText(descricao);
-        ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
+    private boolean shouldOccurInMonth(String dataInicioStr, int repetirPeriodo, int anoSelecionado, int mesSelecionado) {
+        if (dataInicioStr == null || dataInicioStr.length() < 7) return false;
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+            Date dataInicio = sdf.parse(dataInicioStr.substring(0, 10));
+
+            Calendar calInicio = Calendar.getInstance();
+            calInicio.setTime(dataInicio);
+
+            Calendar calSelecionado = Calendar.getInstance();
+            calSelecionado.set(Calendar.YEAR, anoSelecionado);
+            calSelecionado.set(Calendar.MONTH, mesSelecionado);
+            calSelecionado.set(Calendar.DAY_OF_MONTH, 1);
+
+            // Se o mês selecionado é antes da data inicial, não ocorre ainda
+            if (calSelecionado.before(calInicio)) return false;
+
+            // Calcula a diferença total em meses entre início e mês atual
+            int anosDiff = anoSelecionado - calInicio.get(Calendar.YEAR);
+            int mesesDiff = anosDiff * 12 + (mesSelecionado - calInicio.get(Calendar.MONTH));
+
+            // período = 1 (mensal), 2 (bimestral), 3 (trimestral)...
+            if (repetirPeriodo < 1) repetirPeriodo = 1;
+
+            // Se a diferença é múltiplo do período, então deve ocorrer neste mês
+            return mesesDiff % repetirPeriodo == 0;
+
+        } catch (ParseException e) {
+            Log.e("TelaTransacoes", "Erro em shouldOccurInMonth", e);
+            return false;
+        }
+    }
+
+    private View createTransacaoView(TransacaoItem transacao, LayoutInflater inflater, String tipoSecao) {
+        View item = inflater.inflate(R.layout.item_transacao, null, false);
+
+        ((TextView) item.findViewById(R.id.tituloTransacao)).setText(transacao.descricao);
+        ((TextView) item.findViewById(R.id.tituloCategoria)).setText(transacao.categoriaNome != null ? transacao.categoriaNome : "Outros");
         
         TextView valorView = item.findViewById(R.id.valorTransacao);
-        valorView.setText(formatarBR(valor));
+        valorView.setText(formatarBR(transacao.valor));
 
         TextView inicialCat = item.findViewById(R.id.txtIconCategoria);
-        inicialCat.setText(categoria != null && !categoria.isEmpty() ? categoria.substring(0, 1) : "?");
+        inicialCat.setText(transacao.categoriaNome != null && !transacao.categoriaNome.isEmpty() ? transacao.categoriaNome.substring(0, 1) : "?");
 
         Drawable background = inicialCat.getBackground();
         if (background instanceof GradientDrawable) {
             GradientDrawable circle = (GradientDrawable) background.mutate();
-            if (corCategoria != null && !corCategoria.isEmpty()) {
+            if (transacao.categoriaCor != null && !transacao.categoriaCor.isEmpty()) {
                 try {
-                    circle.setColor(Color.parseColor(corCategoria));
-                } catch (IllegalArgumentException e) { /* Cor inválida, usa padrão */ }
+                    circle.setColor(Color.parseColor(transacao.categoriaCor));
+                } catch (IllegalArgumentException e) { /* Cor inválida */ }
             }
         }
 
-        if (tipo.equals("receita")) {
-            valorView.setTextColor(Color.parseColor("#008000"));
+        if (tipoSecao.equals("receita")) {
+            valorView.setTextColor(Color.parseColor("#006400"));
         } else {
-            valorView.setTextColor(Color.parseColor("#E45757"));
+             valorView.setTextColor(Color.parseColor("#E45757"));
         }
+
+        ImageView statusIndicator = item.findViewById(R.id.statusIndicator);
+        boolean isPaga = (tipoSecao.equals("receita") && transacao.recebido == 1) || (!tipoSecao.equals("receita") && transacao.pago == 1);
+        ((GradientDrawable) statusIndicator.getDrawable()).setColor(isPaga ? Color.parseColor("#006400") : Color.parseColor("#E45757"));
         
         TextView labelTipo = item.findViewById(R.id.labelTipoTransacao);
         String tipoLabel = "";
-        if (recorrente == 1) {
+        if (transacao.isProjecao) {
             tipoLabel = "(fixa)";
-        } else if (parcelas > 1) {
-            tipoLabel = "(" + numeroParcela + "/" + parcelas + ")";
+        } else if (transacao.recorrente == 1 && transacao.idMestre > 0) { // Parcela de uma recorrencia
+            tipoLabel = "";
+        } else if (transacao.parcelas > 1) {
+            tipoLabel = "(" + transacao.numeroParcela + "/" + transacao.parcelas + ")";
         }
 
         if (!tipoLabel.isEmpty()) {
@@ -267,17 +466,24 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
             labelTipo.setVisibility(View.GONE);
         }
 
-        final String finalTipo = tipo;
-        item.setOnClickListener(v -> mostrarMenuTransacao(v, idTransacao, finalTipo));
+        item.setOnClickListener(v -> {
+            int idParaOperacao = transacao.id;
+            // Se for filha de uma transação recorrente, a operação deve ser no mestre.
+            if (transacao.idMestre > 0) {
+                idParaOperacao = transacao.idMestre;
+            }
+            mostrarMenuTransacao(v, idParaOperacao, transacao.tipoTransacao);
+        });
+
         return item;
     }
 
     private void mostrarMenuTransacao(View itemView, int idTransacao, String tipo) {
-        MenuHelper.MenuItemData[] menuItems = new MenuHelper.MenuItemData[]{
+        MenuHelper.MenuItemData[] menuItems = {
                 new MenuHelper.MenuItemData("Editar", R.drawable.ic_edit, () -> {
                     if ("transacao_cartao".equals(tipo)) {
                         MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, -1);
-                        fragment.setOnDespesaSalvaListener(this::carregarTransacoes);
+                        fragment.setOnDespesaSalvaListener(this);
                         getSupportFragmentManager().beginTransaction()
                                 .replace(R.id.containerFragment, fragment)
                                 .addToBackStack(null)
@@ -294,39 +500,41 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
                         fragment.editarTransacao(idTransacao);
                     }
                 }),
-                new MenuHelper.MenuItemData("Excluir", R.drawable.ic_delete, () -> {
+                new MenuHelper.MenuItemData("Excluir", R.drawable.ic_delete, () ->
                     new android.app.AlertDialog.Builder(this)
                             .setTitle("Excluir Transação")
                             .setMessage("Tem certeza que deseja excluir esta transação?")
                             .setPositiveButton("Sim", (dialog, which) -> excluirTransacao(idTransacao, tipo))
                             .setNegativeButton("Não", null)
-                            .show();
-                })
+                            .show()
+                )
         };
         MenuHelper.showMenu(this, itemView, menuItems);
     }
-    
+
     private void excluirTransacao(int id, String tipo) {
-        try (SQLiteDatabase db = new MeuDbHelper(this).getWritableDatabase()) {
-            if ("transacao_cartao".equals(tipo)) {
-                db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(id)});
-                db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(id)});
-            } else {
-                db.delete("transacoes", "id = ?", new String[]{String.valueOf(id)});
-            }
-            Toast.makeText(this, "Transação excluída com sucesso!", Toast.LENGTH_SHORT).show();
+        boolean sucesso = TransacoesDAO.excluirTransacao(this, id, tipo);
+        if (sucesso) {
+            Toast.makeText(this, "Transação removida com sucesso!", Toast.LENGTH_SHORT).show();
             carregarTransacoes();
-        } catch (Exception e) {
-            Toast.makeText(this, "Erro ao excluir transação.", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "Erro ao remover transação.", Toast.LENGTH_SHORT).show();
         }
+    }
+
+    private int getMesIndex(String nomeMes) {
+        String[] nomes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
+        for (int i = 0; i < nomes.length; i++) {
+            if (nomes[i].equalsIgnoreCase(nomeMes)) return i;
+        }
+        return 0;
     }
 
     private String getTipoMovimento(int idTransacao) {
         try (SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase();
              Cursor cursor = db.rawQuery("SELECT tipo FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
             if (cursor.moveToFirst()) {
-                int tipo = cursor.getInt(cursor.getColumnIndexOrThrow("tipo"));
-                return tipo == 1 ? "receita" : "despesa";
+                return cursor.getInt(cursor.getColumnIndexOrThrow("tipo")) == 1 ? "receita" : "despesa";
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -335,35 +543,34 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
     }
 
     private String formatarBR(double valor) {
-        NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
-        return formatoBR.format(valor);
+        return NumberFormat.getCurrencyInstance(new Locale("pt", "BR")).format(valor);
     }
 
     private String formatarDataBR(String dataISO, boolean comDiaDaSemana) {
-        if (dataISO == null || dataISO.isEmpty()) {
-            return "Data inválida";
-        }
+        if (dataISO == null || dataISO.isEmpty()) return "Data inválida";
+        String formatoSaida = comDiaDaSemana ? "EEEE, dd 'de' MMMM" : "dd/MM/yyyy";
+        SimpleDateFormat sdfSaida = new SimpleDateFormat(formatoSaida, new Locale("pt", "BR"));
+
         try {
-            SimpleDateFormat sdfISO = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-            Date date = sdfISO.parse(dataISO);
-            String formato = comDiaDaSemana ? "EEEE, dd/MM/yyyy" : "dd/MM/yyyy";
-            SimpleDateFormat sdfBR = new SimpleDateFormat(formato, new Locale("pt", "BR"));
-            return sdfBR.format(date);
+            SimpleDateFormat sdfEntrada = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+            Date date = sdfEntrada.parse(dataISO);
+            return sdfSaida.format(date);
         } catch (Exception e) {
             try {
-                SimpleDateFormat sdfISO = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-                Date date = sdfISO.parse(dataISO);
-                String formato = comDiaDaSemana ? "EEEE, dd/MM/yyyy" : "dd/MM/yyyy";
-                SimpleDateFormat sdfBR = new SimpleDateFormat(formato, new Locale("pt", "BR"));
-                return sdfBR.format(date);
+                SimpleDateFormat sdfEntrada = new SimpleDateFormat("yyyy-M-dd", Locale.getDefault());
+                Date date = sdfEntrada.parse(dataISO);
+                return sdfSaida.format(date);
             } catch (Exception e2) {
-                return dataISO;
+                return dataISO; // Retorna o valor original se ambos os parsings falharem
             }
         }
     }
 
     @Override
-    public void onFabDespesaCartaoClick(int idUsuario) {
-        // Delegado para o BottomMenuFragment
+    public void onFabDespesaCartaoClick(int idUsuario) {}
+
+    @Override
+    public void onDespesaSalva() {
+        carregarTransacoes();
     }
 }
