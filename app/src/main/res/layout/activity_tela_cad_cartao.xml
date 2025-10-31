@@ -376,7 +376,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         android:visibility="gone" />
 
-    <!-- abre o menu cadDespesa -->
+    <!-- Container para abrir o fragmento de despesa do cartão -->
     <FrameLayout
         android:id="@+id/fragmentContainerDespesa"
         android:layout_width="match_parent"

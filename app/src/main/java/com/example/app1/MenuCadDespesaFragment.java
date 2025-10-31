@@ -1,5 +1,6 @@
 package com.example.app1;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -12,7 +13,6 @@ import androidx.fragment.app.Fragment;
 
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,7 +30,6 @@ import com.example.app1.data.ContaDAO;
 import com.example.app1.data.TransacoesDAO;
 import com.example.app1.utils.DateUtils;
 import com.example.app1.utils.MascaraMonetaria;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
@@ -44,38 +43,42 @@ import java.util.Locale;
 
 public class MenuCadDespesaFragment extends Fragment {
 
-    private static final String ARG_ID_USUARIO = "id_usuario";
     private int idUsuario;
     private View slidingMenuDespesa;
     private View overlayDespesa;
-    private TextInputEditText inputValorDespesa, inputDataDespesa, inputNomeDespesa;
+    private TextInputEditText inputValorDespesa, inputDataDespesa, inputNomeDespesa, inputObservacao;
     private OnBackPressedCallback backCallback;
     private MaterialAutoCompleteTextView autoCompleteCategoria, autoCompleteConta, autoCompletePeriodo;
-    private TextInputLayout textInputValorDespesa, textInputDataDespesa, menuConta, textInputConta, textInputCategoria;
+    private TextInputLayout textInputValorDespesa, textInputDataDespesa, menuConta, textInputCategoriaDespesa, textInputNomeDespesa, textInputPeriodo;
 
-    private MenuCadContaFragment menuCadContaFragment;
-
-    // define a quantidade de parcelas que pode escolher
-    private final int MAX_VALUE = 500; // Exemplo: máximo de 12 parcelas
-    private final int MIN_VALUE = 2;  // Mínimo de 1 parcela
+    private final int MAX_VALUE = 500;
+    private final int MIN_VALUE = 2;
 
     private EditText inputQuantRep;
-    private ImageButton btnIncrement;
-    private ImageButton btnDecrement;
+    private ImageButton btnIncrement, btnDecrement;
     private TextView menuRepete;
     private LinearLayout containerRepeticao, containerQuantidade;
     private MaterialSwitch switchDespesaFixa;
-    private TextInputLayout textInputPeriodo, textInputNomeDespesa, textInputCategoriaDespesa, textInputPago;
     private Button btnSalvarDespesa;
-    // Variável para guardar a conta selecionada
     final Conta[] contaSelecionada = new Conta[1];
+    private int valorPeriodoSelecionado = -1;
 
-    private int valorPeriodoSelecionado = -1; // valor numérico do período
+    private int idTransacaoEditando = -1;
+    private OnTransacaoSalvaListener onTransacaoSalvaListener;
 
-    public static MenuCadDespesaFragment newInstance(int idUsuario) {
+    public interface OnTransacaoSalvaListener {
+        void onTransacaoSalva();
+    }
+
+    public void setOnTransacaoSalvaListener(OnTransacaoSalvaListener listener) {
+        this.onTransacaoSalvaListener = listener;
+    }
+
+    public static MenuCadDespesaFragment newInstance(int idUsuario, String tipoMovimento) {
         MenuCadDespesaFragment fragment = new MenuCadDespesaFragment();
         Bundle args = new Bundle();
-        args.putInt(ARG_ID_USUARIO, idUsuario);
+        args.putInt("id_usuario", idUsuario);
+        args.putString("tipoMovimento", tipoMovimento);
         fragment.setArguments(args);
         return fragment;
     }
@@ -84,18 +87,13 @@ public class MenuCadDespesaFragment extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
-            idUsuario = getArguments().getInt(ARG_ID_USUARIO);
+            idUsuario = getArguments().getInt("id_usuario");
         }
 
         backCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 fecharMenu();
-                if (getActivity() != null) {
-                    View container = getActivity().findViewById(R.id.rootMenuConta);
-                    if (container != null) container.setVisibility(View.GONE);
-                }
-                setEnabled(false);
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
@@ -103,370 +101,283 @@ public class MenuCadDespesaFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-        // Infla o layout XML que você mandou
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa, container, false);
-
-        slidingMenuDespesa = root.findViewById(R.id.slidingMenuDespesa);
-        overlayDespesa = root.findViewById(R.id.overlayDespesa);
-
-        inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
-        inputNomeDespesa = root.findViewById(R.id.inputNomeDespesa);
-        inputDataDespesa = root.findViewById(R.id.inputDataDespesa);
-        inputQuantRep = root.findViewById(R.id.inputQuantRep);
-
-        btnSalvarDespesa = root.findViewById(R.id.btnSalvarDespesa);
-        btnIncrement = root.findViewById(R.id.btn_increment);
-        btnDecrement = root.findViewById(R.id.btn_decrement);
-
-        menuRepete = root.findViewById(R.id.menuRepete);
-        containerRepeticao = root.findViewById(R.id.container_repeticao);
-        containerQuantidade = root.findViewById(R.id.container_quantidade);
-        switchDespesaFixa = root.findViewById(R.id.switchDespesaFixa);
-
-        autoCompleteCategoria = root.findViewById(R.id.autoCompleteCategoria);
-        autoCompleteConta = root.findViewById(R.id.autoCompleteConta);
-        autoCompletePeriodo = root.findViewById(R.id.autoCompletePeriodo);
-
-        textInputValorDespesa = root.findViewById(R.id.textInputValorDespesa);
-        textInputNomeDespesa = root.findViewById(R.id.textInputNomeDespesa);
-        textInputCategoriaDespesa = root.findViewById(R.id.textInputCategoriaDespesa);
-        textInputDataDespesa = root.findViewById(R.id.textInputDataDespesa);
-        menuConta = root.findViewById(R.id.menuConta);
-        textInputPeriodo = root.findViewById(R.id.textInputPeriodo);
-
-        // fecha o menu Despesa clicando fora dele
-        overlayDespesa.setOnClickListener(v -> fecharMenu());
-
-        // coloca mascara no inPutValor
-        inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
-
-        // campo data
-        inputDataDespesa.setOnClickListener(v -> DateUtils.openDatePicker(requireContext(), inputDataDespesa));
-        inputDataDespesa.setFocusable(false);
-        inputDataDespesa.setClickable(true);
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
-        String dataAtual = sdf.format(new java.util.Date());
-        inputDataDespesa.setText(dataAtual);
-
-        // Carrega categorias
-        List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
-        CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
-        autoCompleteCategoria.setAdapter(adapter);
-
-        // Carrega contas
-        // Preenche menu suspenso de conta para seleção, trazendo contas do banco
-        List<Conta> contas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
-        MaterialAutoCompleteTextView autoCompleteConta = root.findViewById(R.id.autoCompleteConta);
-        ArrayAdapter<Conta> adapterConta = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
-        autoCompleteConta.setAdapter(adapterConta);
-        // Quando o usuário escolhe uma conta
-        autoCompleteConta.setOnItemClickListener((parent, view, position, id) -> {
-            contaSelecionada[0] = (Conta) parent.getItemAtPosition(position);
-            //Log.d("ContaSelecionada", "ID: " + contaSelecionada[0].getId() + " Nome: " + contaSelecionada[0].getNome());
-        });
-
-        // Botão para abrir menu cadastro conta
-        View btnAddConta = root.findViewById(R.id.btnAddConta);
-        btnAddConta.setOnClickListener(v -> abrirMenuConta());
-        menuCadContaFragment = MenuCadContaFragment.newInstance(idUsuario);
-        menuCadContaFragment.setOnContaSalvaListener(nomeConta -> {
-            // Recarrega lista de contas do banco
-            List<Conta> contasAtualizadas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
-
-            // Atualiza o adapter
-            ArrayAdapter<Conta> novoAdapter = new ArrayAdapter<>(requireContext(),
-                    android.R.layout.simple_dropdown_item_1line,
-                    contasAtualizadas);
-            autoCompleteConta.setAdapter(novoAdapter);
-
-            // Encontra a conta recém-criada na lista (pelo nome)
-            for (Conta c : contasAtualizadas) {
-                if (c.getNome().equalsIgnoreCase(nomeConta)) {
-                    contaSelecionada[0] = c;
-                    autoCompleteConta.setText(c.getNome(), false);
-                    //Log.d("ContaSelecionada", "Nova conta cadastrada ID: " + c.getId());
-                    break;
-                }
-            }
-
-            // Fecha o menu de conta
-            fecharMenuConta();
-        });
-        // Adiciona o fragment dentro do container (só se ainda não tiver sido adicionado)
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.fragmentContainerConta, menuCadContaFragment)
-                .commitNow(); // commitNow garante que ele já está disponível
-        // Configura o listener de retorno
-
-        // Botão para abrir menu cadastro categoria
-        View btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
-        MenuCadCategoriaFragment menuCadCategoriaFragment = MenuCadCategoriaFragment.newInstance(idUsuario);
-
-        // Listener para atualizar lista após salvar
-        menuCadCategoriaFragment.setOnCategoriaSalvaListener(nomeCategoria -> {
-            // Recarrega categorias
-            List<Categoria> categoriasAtualizadas = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
-            CategoriasDropdownAdapter novoAdapter = new CategoriasDropdownAdapter(requireContext(), categoriasAtualizadas);
-            autoCompleteCategoria.setAdapter(novoAdapter);
-            autoCompleteCategoria.setText(nomeCategoria, false);
-            fecharMenuCategoria();
-        });
-        // Adiciona o fragment
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.fragmentContainerCategoria, menuCadCategoriaFragment)
-                .commitNow();
-        // Abre o menu de categoria
-        btnAddCategoria.setOnClickListener(v -> abrirMenuCategoria());
-
-
-        // Lista as opções do Período
-        MaterialAutoCompleteTextView autoCompletePeriodo = root.findViewById(R.id.autoCompletePeriodo);
-        // Opções exibidas (na ordem que o usuário verá)
-        String[] periodosTexto = {"Mensal", "Semanal", "Anual", "Bimestral", "Trimestral", "Semestral"};
-        // Valores correspondentes (mantendo a correspondência)
-        int[] periodosValores = {2, 1, 6, 3, 4, 5};
-        // Cria o adapter com os textos
-        ArrayAdapter<String> adapterPeriodo = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_dropdown_item_1line,
-                periodosTexto
-        );
-        // Define o adapter no campo
-        autoCompletePeriodo.setAdapter(adapterPeriodo);
-        // Quando o usuário selecionar um item
-        autoCompletePeriodo.setOnItemClickListener((parent, view1, position, id) -> {
-            String periodoSelecionado = periodosTexto[position];
-            valorPeriodoSelecionado = periodosValores[position];
-        });
-
-        // Botões de quantidade de Parcelas
-        inputQuantRep = root.findViewById(R.id.inputQuantRep);
-        btnIncrement = root.findViewById(R.id.btn_increment);
-        btnDecrement = root.findViewById(R.id.btn_decrement);
-        // 1. Lógica do Botão de Aumentar (+)
-        btnIncrement.setOnClickListener(v -> {
-            int valorAtual = getNumberFromEditText();
-            if (valorAtual < MAX_VALUE) {
-                valorAtual++;
-                inputQuantRep.setText(String.valueOf(valorAtual));
-            }
-        });
-        // 2. Lógica do Botão de Diminuir (-)
-        btnDecrement.setOnClickListener(v -> {
-            int valorAtual = getNumberFromEditText();
-            if (valorAtual > MIN_VALUE) {
-                valorAtual--;
-                inputQuantRep.setText(String.valueOf(valorAtual));
-            }else if (valorAtual == MIN_VALUE) {
-                // Se já estiver no mínimo e apertar "-", limpa o campo
-                inputQuantRep.setText("");
-            }
-        });
-        // 3. Lógica para limitar a digitação manual
-        inputQuantRep.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) { }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-                if (s.length() == 0) return; // Não faz nada se estiver vazio (o Stepper geralmente precisa de um valor)
-
-                try {
-                    int valor = Integer.parseInt(s.toString());
-
-                    // Limita o valor ao máximo e mínimo
-                    if (valor > MAX_VALUE) {
-                        inputQuantRep.setText(String.valueOf(MAX_VALUE));
-                        inputQuantRep.setSelection(inputQuantRep.getText().length()); // Reposiciona o cursor no final
-                    } else if (valor < MIN_VALUE) {
-                        // Se for menor que o mínimo (e não for um zero temporário), define para o mínimo
-                        if (valor != 0) {
-                            inputQuantRep.setText(String.valueOf(MIN_VALUE));
-                            inputQuantRep.setSelection(inputQuantRep.getText().length());
-                        }
-                    }
-                } catch (NumberFormatException e) {
-                    // Isso é improvável de acontecer com inputType="number"
-                }
-            }
-        });
-
-        // apertar o botão despesa Repete aparece o resto do menu
-        menuRepete = root.findViewById(R.id.menuRepete);
-        containerRepeticao = root.findViewById(R.id.container_repeticao);
-        menuRepete.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Verifica se o container está invisível (GONE)
-                if (containerRepeticao.getVisibility() == View.GONE) {
-                    // Se estiver GONE, mostra
-                    containerRepeticao.setVisibility(View.VISIBLE);
-                } else {
-                    // Se estiver VISIBLE, esconde
-                    containerRepeticao.setVisibility(View.GONE);
-                }
-            }
-        });
-
-        // ativou o botao depesa fixa desativa o resto
-        switchDespesaFixa.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            // A variável 'isChecked' será true se o switch estiver ativado (Despesa Fixa)
-            // Se Despesa Fixa estiver ATIVADO (isChecked = true)
-            if (isChecked) {
-                // 1. Desativa a Quantidade (Stepper)
-                // Definimos o container como desabilitado, mudando a aparência
-                containerQuantidade.setEnabled(false);
-                // Opcional: podemos também escurecer o visual
-                containerQuantidade.setAlpha(0.5f);
-                // 2. Desativa o Período (Dropdown)
-                textInputPeriodo.setEnabled(false);
-                textInputPeriodo.setAlpha(0.5f); // Opcional: escurece o visual
-
-                // RESET: limpa quantidade e período
-                inputQuantRep.setText("");
-                autoCompletePeriodo.setText(""); // limpa seleção
-                valorPeriodoSelecionado = -1; // reset interno
-            } else {
-                // Se Despesa Fixa estiver DESATIVADO (isChecked = false)
-                // 1. Ativa a Quantidade (Stepper)
-                containerQuantidade.setEnabled(true);
-                containerQuantidade.setAlpha(1.0f); // Restaura o brilho
-                // 2. Ativa o Período (Dropdown)
-                textInputPeriodo.setEnabled(true);
-                textInputPeriodo.setAlpha(1.0f); // Restaura o brilho
-            }
-        });
-
-        // Botão Salvar Despesa
-        btnSalvarDespesa.setOnClickListener(v -> {
-            if (validarCampos()) {
-                salvarDespesa();
-            }
-        });
-
-        // Limpa os erros da validação
-        inputValorDespesa.addTextChangedListener(new SimpleTextWatcher(() -> textInputValorDespesa.setError(null)));
-        inputNomeDespesa.addTextChangedListener(new SimpleTextWatcher(() -> textInputNomeDespesa.setError(null)));
-        autoCompleteCategoria.addTextChangedListener(new SimpleTextWatcher(() -> textInputCategoriaDespesa.setError(null)));
-        inputDataDespesa.addTextChangedListener(new SimpleTextWatcher(() -> textInputDataDespesa.setError(null)));
-        autoCompleteConta.addTextChangedListener(new SimpleTextWatcher(() -> menuConta.setError(null)));
-
+        setupViews(root);
+        setupListeners(root);
         return root;
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-
         String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
-
-        TextView titulo = view.findViewById(R.id.tituloDespesa);
-        TextInputLayout textInputValor = view.findViewById(R.id.textInputValorDespesa);
-        TextInputLayout textInputNome = view.findViewById(R.id.textInputNomeDespesa);
-        Button btnSalvar = view.findViewById(R.id.btnSalvarDespesa);
-        TextView labelRepete = view.findViewById(R.id.menuRepete);
-        TextView textoTipo = view.findViewById(R.id.textoTipo);
-        TextInputLayout textInputCategoriaDespesa = view.findViewById(R.id.textInputCategoriaDespesa);
-        TextInputLayout textInputDataDespesa = view.findViewById(R.id.textInputDataDespesa);
-        TextView textoFixa = view.findViewById(R.id.textoFixa);
-
-
-
-
-        if (tipoMovimento.equals("receita")) {
-            titulo.setText("Adicionar Receita");
-            textInputValor.setHint("* Valor da Receita (ex: 1234,56)");
-            textInputNome.setHint("* Descrição da Receita");
-            labelRepete.setText("RECEITA REPETE?");
-            btnSalvar.setText("Salvar Receita");
-            textoTipo.setText("Recebido");
-            textInputCategoriaDespesa.setHint("* Categoria da Receita");
-            textInputDataDespesa.setHint("Data da Receita");
-            textoFixa.setText("Essa Receita repete todos os meses?");
-        } else {
-            titulo.setText("Adicionar Despesa");
-            textInputValor.setHint("* Valor da Despesa (ex: 1234,56)");
-            textInputNome.setHint("* Descrição da Despesa");
-            labelRepete.setText("DESPESA REPETE?");
-            btnSalvar.setText("Salvar Despesa");
-            textoTipo.setText("Pago");
-            textInputCategoriaDespesa.setHint("* Categoria da Despesa");
-            textInputDataDespesa.setHint("Data da Despesa");
-            textoFixa.setText("Essa Despesa repete todos os meses?");
-        }
+        configuraInterfacePorTipo(tipoMovimento);
 
         abrirMenu();
 
+        if (idTransacaoEditando != -1) {
+            carregarDadosParaEdicao(idTransacaoEditando, tipoMovimento);
+        }
     }
 
-    public void fecharMenu() {
-        slidingMenuDespesa.animate()
-                .translationY(slidingMenuDespesa.getHeight())
-                .setDuration(300)
-                .withEndAction(() -> {
-                    slidingMenuDespesa.setVisibility(View.GONE);
-                    overlayDespesa.setVisibility(View.GONE);
-                    backCallback.setEnabled(false);
-
-                }).start();
+    public void editarTransacao(int idTransacao) {
+        this.idTransacaoEditando = idTransacao;
+        if (getView() != null) {
+            String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
+            carregarDadosParaEdicao(idTransacao, tipoMovimento);
+        }
     }
 
-    public void abrirMenu() {
-        overlayDespesa.setVisibility(View.VISIBLE);
-        slidingMenuDespesa.setVisibility(View.VISIBLE);
-        slidingMenuDespesa.post(() -> {
-            slidingMenuDespesa.setTranslationY(slidingMenuDespesa.getHeight());
-            slidingMenuDespesa.animate().translationY(0).setDuration(300).start();
+    private void carregarDadosParaEdicao(int idTransacao, String tipoMovimento) {
+        String titulo = tipoMovimento.equals("receita") ? "Editar Receita" : "Editar Despesa";
+        configuraInterfacePorTipo(titulo);
+        menuRepete.setVisibility(View.GONE);
+        containerRepeticao.setVisibility(View.GONE);
 
-            // Solicita foco e mostra teclado
-            inputValorDespesa.requestFocus();
-            InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-            if (imm != null) imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+        SQLiteDatabase db = new MeuDbHelper(requireContext()).getReadableDatabase();
+        try (Cursor cursor = db.rawQuery("SELECT * FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+            if (cursor.moveToFirst()) {
+                inputNomeDespesa.setText(cursor.getString(cursor.getColumnIndexOrThrow("descricao")));
+                inputValorDespesa.setText(String.format(Locale.GERMAN, "%.2f", cursor.getDouble(cursor.getColumnIndexOrThrow("valor"))));
+                inputObservacao.setText(cursor.getString(cursor.getColumnIndexOrThrow("observacao")));
 
+                try {
+                    String dataDoBanco = cursor.getString(cursor.getColumnIndexOrThrow("data_movimentacao"));
+                    inputDataDespesa.setText(DateUtils.converterDataParaPtBR(dataDoBanco));
+                } catch (Exception e) {
+                    inputDataDespesa.setText("");
+                }
+
+                MaterialSwitch switchStatus = getView().findViewById(R.id.switchDespesaPago);
+                int status = "receita".equals(tipoMovimento) ? cursor.getInt(cursor.getColumnIndexOrThrow("recebido")) : cursor.getInt(cursor.getColumnIndexOrThrow("pago"));
+                switchStatus.setChecked(status == 1);
+
+                int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
+                ArrayAdapter<Categoria> adapterCategoria = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+                for (int i = 0; i < adapterCategoria.getCount(); i++) {
+                    if (adapterCategoria.getItem(i).getId() == idCategoria) {
+                        autoCompleteCategoria.setText(adapterCategoria.getItem(i).getNome(), false);
+                        break;
+                    }
+                }
+
+                int idConta = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
+                ArrayAdapter<Conta> adapterConta = (ArrayAdapter<Conta>) autoCompleteConta.getAdapter();
+                for (int i = 0; i < adapterConta.getCount(); i++) {
+                    if (adapterConta.getItem(i).getId() == idConta) {
+                        autoCompleteConta.setText(adapterConta.getItem(i).getNome(), false);
+                        contaSelecionada[0] = adapterConta.getItem(i);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    private void configuraInterfacePorTipo(String tipo) {
+        if(getView() == null) return;
+        TextView titulo = getView().findViewById(R.id.tituloDespesa);
+        TextView textoTipo = getView().findViewById(R.id.textoTipo);
+        TextView textoFixa = getView().findViewById(R.id.textoFixa);
+
+        if (tipo.toLowerCase().contains("receita")) {
+            titulo.setText(tipo.startsWith("Editar") ? "Editar Receita" : "Adicionar Receita");
+            textInputValorDespesa.setHint("* Valor da Receita (ex: 1234,56)");
+            textInputNomeDespesa.setHint("* Descrição da Receita");
+            btnSalvarDespesa.setText(tipo.startsWith("Editar") ? "Salvar Alterações" : "Salvar Receita");
+            textoTipo.setText("Recebido");
+            menuRepete.setText("RECEITA REPETE?");
+            textoFixa.setText("Essa Receita repete todos os meses?");
+            textInputCategoriaDespesa.setHint("* Categoria da Receita");
+            textInputDataDespesa.setHint("Data da Receita");
+        } else {
+            titulo.setText(tipo.startsWith("Editar") ? "Editar Despesa" : "Adicionar Despesa");
+            textInputValorDespesa.setHint("* Valor da Despesa (ex: 1234,56)");
+            textInputNomeDespesa.setHint("* Descrição da Despesa");
+            btnSalvarDespesa.setText(tipo.startsWith("Editar") ? "Salvar Alterações" : "Salvar Despesa");
+            textoTipo.setText("Pago");
+            menuRepete.setText("DESPESA REPETE?");
+            textoFixa.setText("Essa Despesa repete todos os meses?");
+            textInputCategoriaDespesa.setHint("* Categoria da Despesa");
+            textInputDataDespesa.setHint("Data da Despesa");
+        }
+    }
+
+    private void salvarDespesa() {
+        String tipoMovimento = getArguments().getString("tipoMovimento", "despesa");
+        if (!validarCampos()) return;
+
+        boolean sucesso = false;
+
+        if (idTransacaoEditando > 0) {
+            // LÓGICA DE EDIÇÃO
+            ContentValues values = new ContentValues();
+            try {
+                String valorLimpo = inputValorDespesa.getText().toString().replaceAll("[^0-9,]", "").replace(",", ".");
+                double valor = Double.parseDouble(valorLimpo);
+                values.put("valor", valor);
+                values.put("data_movimentacao", DateUtils.converterDataParaISO(inputDataDespesa.getText().toString()));
+            } catch (Exception e) {
+                Toast.makeText(getContext(), "Valor ou data inválidos.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            values.put("descricao", inputNomeDespesa.getText().toString());
+            values.put("observacao", inputObservacao.getText().toString());
+
+            try (SQLiteDatabase db = new MeuDbHelper(getContext()).getWritableDatabase()) {
+                int rows = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(idTransacaoEditando)});
+                sucesso = rows > 0;
+            }
+        } else {
+            // LÓGICA DE CRIAÇÃO (ORIGINAL RESTAURADA)
+            String valorDespesa = inputValorDespesa.getText().toString().trim();
+            String nomeDespesa = inputNomeDespesa.getText().toString().trim();
+            String categoria = autoCompleteCategoria.getText().toString().trim();
+            String dataInput = inputDataDespesa.getText().toString().trim();
+            int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
+            int tipo = tipoMovimento.equals("receita") ? 1 : 2;
+            int periodo = valorPeriodoSelecionado;
+            int despesaFixa = switchDespesaFixa.isChecked() ? 1 : 0;
+            int quantidade = getNumberFromEditText();
+            String observacao = inputObservacao.getText().toString().trim();
+            int statusMarcado = ((MaterialSwitch) getView().findViewById(R.id.switchDespesaPago)).isChecked() ? 1 : 0;
+
+            int pago = (tipo == 2) ? statusMarcado : 0;
+            int recebido = (tipo == 1) ? statusMarcado : 0;
+
+            Categoria categoriaSelecionada = null;
+            ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
+            for (int i = 0; i < adapter.getCount(); i++) {
+                if (adapter.getItem(i) != null && adapter.getItem(i).getNome().equals(categoria)) {
+                    categoriaSelecionada = adapter.getItem(i);
+                    break;
+                }
+            }
+            int idCategoriaSelecionada = (categoriaSelecionada != null) ? categoriaSelecionada.getId() : -1;
+
+            double valor;
+            String dataParaBanco;
+            try {
+                String valorLimpo = valorDespesa.replace("R$", "").replaceAll("[^0-9,]", "").replace(",", ".");
+                valor = Double.parseDouble(valorLimpo);
+                dataParaBanco = DateUtils.converterDataParaISO(dataInput);
+            } catch (Exception e) {
+                Toast.makeText(requireContext(), "Valor ou data inválidos", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            if (despesaFixa == 1 || quantidade > 1) {
+                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, quantidade, periodo, 1);
+            } else {
+                sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);
+            }
+        }
+
+        if (sucesso) {
+            String msg = (tipoMovimento.equals("receita") ? "Receita" : "Despesa") + (idTransacaoEditando > 0 ? " atualizada" : " salva") + " com sucesso!";
+            Toast.makeText(getContext(), msg, Toast.LENGTH_SHORT).show();
+            if (onTransacaoSalvaListener != null) {
+                onTransacaoSalvaListener.onTransacaoSalva();
+            }
+            fecharMenu();
+        } else {
+            Toast.makeText(getContext(), "Erro ao salvar!", Toast.LENGTH_SHORT).show();
+        }
+    }
+    
+    private void setupViews(View root) {
+        slidingMenuDespesa = root.findViewById(R.id.slidingMenuDespesa);
+        overlayDespesa = root.findViewById(R.id.overlayDespesa);
+        inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
+        inputNomeDespesa = root.findViewById(R.id.inputNomeDespesa);
+        inputDataDespesa = root.findViewById(R.id.inputDataDespesa);
+        inputQuantRep = root.findViewById(R.id.inputQuantRep);
+        inputObservacao = root.findViewById(R.id.inputObservacao);
+        btnSalvarDespesa = root.findViewById(R.id.btnSalvarDespesa);
+        btnIncrement = root.findViewById(R.id.btn_increment);
+        btnDecrement = root.findViewById(R.id.btn_decrement);
+        menuRepete = root.findViewById(R.id.menuRepete);
+        containerRepeticao = root.findViewById(R.id.container_repeticao);
+        containerQuantidade = root.findViewById(R.id.container_quantidade);
+        switchDespesaFixa = root.findViewById(R.id.switchDespesaFixa);
+        autoCompleteCategoria = root.findViewById(R.id.autoCompleteCategoria);
+        autoCompleteConta = root.findViewById(R.id.autoCompleteConta);
+        autoCompletePeriodo = root.findViewById(R.id.autoCompletePeriodo);
+        textInputValorDespesa = root.findViewById(R.id.textInputValorDespesa);
+        textInputNomeDespesa = root.findViewById(R.id.textInputNomeDespesa);
+        textInputCategoriaDespesa = root.findViewById(R.id.textInputCategoriaDespesa);
+        textInputDataDespesa = root.findViewById(R.id.textInputDataDespesa);
+        menuConta = root.findViewById(R.id.menuConta);
+        textInputPeriodo = root.findViewById(R.id.textInputPeriodo);
+    }
+
+    private void setupListeners(View root) {
+        overlayDespesa.setOnClickListener(v -> fecharMenu());
+        btnSalvarDespesa.setOnClickListener(v -> salvarDespesa());
+        inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
+        inputDataDespesa.setOnClickListener(v -> DateUtils.openDatePicker(requireContext(), inputDataDespesa));
+        inputDataDespesa.setFocusable(false);
+        inputDataDespesa.setClickable(true);
+        inputDataDespesa.setText(new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(new Date()));
+        
+        menuRepete.setOnClickListener(v -> {
+            if (containerRepeticao.getVisibility() == View.GONE) {
+                containerRepeticao.setVisibility(View.VISIBLE);
+            } else {
+                containerRepeticao.setVisibility(View.GONE);
+            }
         });
-        backCallback.setEnabled(true);
-    }
 
-    // Abre o menu para cadastro de contas.
-    private void abrirMenuConta() {
-        View container = requireView().findViewById(R.id.fragmentContainerConta);
-        container.setVisibility(View.VISIBLE);
-        menuCadContaFragment.abrirMenu();
-    }
+        btnIncrement.setOnClickListener(v -> {
+            int valorAtual = getNumberFromEditText();
+            if (valorAtual < MIN_VALUE) {
+                inputQuantRep.setText(String.valueOf(MIN_VALUE));
+            } else if (valorAtual < MAX_VALUE) {
+                valorAtual++;
+                inputQuantRep.setText(String.valueOf(valorAtual));
+            }
+        });
 
-    // Fecha o menu de cadastro de contas.
-    private void fecharMenuConta() {
-        menuCadContaFragment.fecharMenu();
-        View container = requireView().findViewById(R.id.fragmentContainerConta);
-        container.setVisibility(View.GONE);
-    }
+        btnDecrement.setOnClickListener(v -> {
+            int valorAtual = getNumberFromEditText();
+            if (valorAtual > MIN_VALUE) {
+                valorAtual--;
+                inputQuantRep.setText(String.valueOf(valorAtual));
+            } else if (valorAtual <= MIN_VALUE) {
+                inputQuantRep.setText("");
+            }
+        });
 
-    private void abrirMenuCategoria() {
-        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
-        container.setVisibility(View.VISIBLE);
-        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
-                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
-        if (frag != null) frag.abrirMenu();
-    }
+        switchDespesaFixa.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked) {
+                containerQuantidade.setEnabled(false);
+                containerQuantidade.setAlpha(0.5f);
+                textInputPeriodo.setEnabled(false);
+                textInputPeriodo.setAlpha(0.5f);
+                inputQuantRep.setText("");
+                autoCompletePeriodo.setText("");
+                valorPeriodoSelecionado = -1;
+            } else {
+                containerQuantidade.setEnabled(true);
+                containerQuantidade.setAlpha(1.0f);
+                textInputPeriodo.setEnabled(true);
+                textInputPeriodo.setAlpha(1.0f);
+            }
+        });
+        
+        String[] periodosTexto = {"Mensal", "Semanal", "Anual", "Bimestral", "Trimestral", "Semestral"};
+        int[] periodosValores = {2, 1, 6, 3, 4, 5};
+        ArrayAdapter<String> adapterPeriodo = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, periodosTexto);
+        autoCompletePeriodo.setAdapter(adapterPeriodo);
+        autoCompletePeriodo.setOnItemClickListener((parent, view1, position, id) -> {
+            valorPeriodoSelecionado = periodosValores[position];
+        });
 
-    private void fecharMenuCategoria() {
-        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
-                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
-        if (frag != null) frag.fecharMenu();
-        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
-        container.setVisibility(View.GONE);
+        carregarCategorias();
+        carregarContas();
     }
-
-    /**
-     * Auxiliar para obter o valor do EditText com segurança,
-     * retornando 0 se o campo estiver vazio ou for inválido.
-     */
+    
     private int getNumberFromEditText() {
         String texto = inputQuantRep.getText().toString();
         if (texto.isEmpty()) {
@@ -479,181 +390,61 @@ public class MenuCadDespesaFragment extends Fragment {
         }
     }
 
+    private void carregarCategorias() {
+        List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
+        CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
+        autoCompleteCategoria.setAdapter(adapter);
+    }
+
+    private void carregarContas() {
+        List<Conta> contas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
+        ArrayAdapter<Conta> adapterConta = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(adapterConta);
+        autoCompleteConta.setOnItemClickListener((parent, view, position, id) -> {
+            contaSelecionada[0] = (Conta) parent.getItemAtPosition(position);
+        });
+    }
+
     private boolean validarCampos() {
         boolean valido = true;
-        String valor = inputValorDespesa.getText().toString().trim();
-        String nome = inputNomeDespesa.getText().toString().trim();
-        String categoria = autoCompleteCategoria.getText().toString().trim();
-        String data = inputDataDespesa.getText().toString().trim();
-        String conta = autoCompleteConta.getText().toString().trim();
-        // Limpa erros antigos
-        textInputValorDespesa.setError(null);
-        textInputNomeDespesa.setError(null);
-        textInputCategoriaDespesa.setError(null);
-        textInputDataDespesa.setError(null);
-        menuConta.setError(null);
-        if (valor.isEmpty()) {
-            textInputValorDespesa.setError("Informe o valor da despesa/receita");
+        if (inputValorDespesa.getText().toString().trim().isEmpty()) {
+            textInputValorDespesa.setError("Informe o valor");
             valido = false;
         }
-        if (nome.isEmpty()) {
-            textInputNomeDespesa.setError("Informe o nome da despesa/receita");
+        if (inputNomeDespesa.getText().toString().trim().isEmpty()) {
+            textInputNomeDespesa.setError("Informe a descrição");
             valido = false;
         }
-        if (categoria.isEmpty()) {
+        if (autoCompleteCategoria.getText().toString().trim().isEmpty()) {
             textInputCategoriaDespesa.setError("Selecione uma categoria");
             valido = false;
         }
-        if (data.isEmpty()) {
-            textInputDataDespesa.setError("Selecione uma data");
-            valido = false;
-        }
-        if (conta.isEmpty()) {
+        if (autoCompleteConta.getText().toString().trim().isEmpty()) {
             menuConta.setError("Selecione uma conta");
             valido = false;
         }
-        // Dá foco no primeiro campo inválido
-        if (!valido) {
-            if (valor.isEmpty()) inputValorDespesa.requestFocus();
-            else if (nome.isEmpty()) inputNomeDespesa.requestFocus();
-            else if (categoria.isEmpty()) autoCompleteCategoria.requestFocus();
-            else if (data.isEmpty()) inputDataDespesa.requestFocus();
-            else if (conta.isEmpty()) autoCompleteConta.requestFocus();
-        }
-
-        // Verifica se tem valor na quantidade, se sim, valida tb o periodo
-        String quantidadeStr = inputQuantRep.getText().toString().trim();
-        int quantidade = quantidadeStr.isEmpty() ? 0 : Integer.parseInt(quantidadeStr);
-        // Se houver quantidade, validar período
-        if (quantidade > 0 && (valorPeriodoSelecionado == -1 || autoCompletePeriodo.getText().toString().isEmpty())) {
-            textInputPeriodo.setError("Selecione um período para a quantidade");
-            valido = false;
-        } else {
-            textInputPeriodo.setError(null);
-        }
-
         return valido;
     }
 
-    // utilitário pequeno para reduzir boilerplate ao usar TextWatcher
-    private static class SimpleTextWatcher implements android.text.TextWatcher {
-        private final Runnable callback;
-        public SimpleTextWatcher(Runnable callback) { this.callback = callback; }
-        @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-            if (callback != null) callback.run();
-        }
-        @Override public void afterTextChanged(android.text.Editable s) {}
+    public void fecharMenu() {
+        slidingMenuDespesa.animate().translationY(slidingMenuDespesa.getHeight()).setDuration(300).withEndAction(() -> {
+            slidingMenuDespesa.setVisibility(View.GONE);
+            overlayDespesa.setVisibility(View.GONE);
+            backCallback.setEnabled(false);
+            getParentFragmentManager().beginTransaction().remove(this).commit();
+        }).start();
     }
 
-    private void salvarDespesa() {
-        String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
-        // Pegando os valores do formulário
-        String valorDespesa = inputValorDespesa.getText().toString().trim();
-        String nomeDespesa = inputNomeDespesa.getText().toString().trim();
-        String categoria = autoCompleteCategoria.getText().toString().trim();
-        String dataInput = inputDataDespesa.getText().toString().trim(); // dd/MM/yyyy
-        int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
-        int tipo = tipoMovimento.equals("receita") ? 1 : 2; // 1 = Receita, 2 = Despesa
-        int periodo = valorPeriodoSelecionado == -1 ? 0 : valorPeriodoSelecionado;
-        int despesaFixa = switchDespesaFixa.isChecked() ? 1 : 0;
-        int quantidade = getNumberFromEditText();
-        String observacao = ((TextInputEditText) requireView().findViewById(R.id.inputObservacao)).getText().toString().trim();
-
-        // Estado do switchDespesaPago ou Recebido
-        MaterialSwitch switchDespesaPago = requireView().findViewById(R.id.switchDespesaPago);
-        int statusMarcado = switchDespesaPago.isChecked() ? 1 : 0;
-
-        // pega a categoria selecionada
-        Categoria categoriaSelecionada = null;
-        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
-        for (int i = 0; i < adapter.getCount(); i++) {
-            Categoria c = adapter.getItem(i);
-            if (c != null && c.getNome().equals(categoria)) {
-                categoriaSelecionada = c;
-                break;
-            }
-        }
-        int idCategoriaSelecionada = categoriaSelecionada.getId();
-
-        // Conversão de valor
-        double valor;
-        try {
-            String valorLimpo = valorDespesa.replace("R$", "").replaceAll("[^0-9,\\.]", "").trim();
-            valor = Double.parseDouble(valorLimpo.replace(".", "").replace(",", "."));
-        } catch (NumberFormatException e) {
-            Toast.makeText(requireContext(), "Valor inválido", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Conversão de data do formulário (dd/MM/yyyy) para padrão do banco (yyyy-MM-dd)
-        String dataParaBanco = "";
-        try {
-            SimpleDateFormat sdfInput = new SimpleDateFormat("dd/MM/yyyy");
-            SimpleDateFormat sdfBanco = new SimpleDateFormat("yyyy-MM-dd");
-            Date data = sdfInput.parse(dataInput);
-            dataParaBanco = sdfBanco.format(data);
-        } catch (Exception e) {
-            e.printStackTrace();
-            Toast.makeText(requireContext(), "Data inválida", Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Define os campos "pago" e "recebido" de acordo com o tipo
-        int pago = 0;
-        int recebido = 0;
-
-        if (tipo == 1) { // receita
-            recebido = statusMarcado;
-        } else { // despesa
-            pago = statusMarcado;
-        }
-
-        // Inserir no banco
-        boolean sucesso;
-        if (despesaFixa == 1 || quantidade > 1) {
-            sucesso = TransacoesDAO.salvarTransacaoRecorrente(
-                    requireContext(),
-                    idUsuario,
-                    idConta,
-                    valor,
-                    tipo,
-                    pago,
-                    recebido,
-                    dataParaBanco,
-                    nomeDespesa,
-                    idCategoriaSelecionada,
-                    observacao,
-                    quantidade,
-                    periodo,
-                    1 // recorrente ativo
-            );
-        } else {
-            sucesso = TransacoesDAO.salvarTransacaoUnica(
-                    requireContext(),
-                    idUsuario,
-                    idConta,
-                    valor,
-                    tipo,
-                    pago,
-                    recebido,
-                    dataParaBanco,
-                    nomeDespesa,
-                    idCategoriaSelecionada,
-                    observacao
-            );
-        }
-
-        if (sucesso) {
-            String msg = tipo == 1 ? "Receita salva com sucesso!" : "Despesa salva com sucesso!";
-            Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show();
-            // Fecha o menu
-            getParentFragmentManager().beginTransaction()
-                    .remove(this)
-                    .commit();
-        } else {
-            Toast.makeText(requireContext(), "Erro ao salvar!", Toast.LENGTH_SHORT).show();
-        }
+    public void abrirMenu() {
+        overlayDespesa.setVisibility(View.VISIBLE);
+        slidingMenuDespesa.setVisibility(View.VISIBLE);
+        slidingMenuDespesa.post(() -> {
+            slidingMenuDespesa.setTranslationY(slidingMenuDespesa.getHeight());
+            slidingMenuDespesa.animate().translationY(0).setDuration(300).start();
+            inputValorDespesa.requestFocus();
+            InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+            imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
+        });
+        backCallback.setEnabled(true);
     }
-
 }

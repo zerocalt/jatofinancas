@@ -71,7 +71,7 @@
         android:gravity="center"
         android:padding="16dp"
         app:layout_constraintTop_toBottomOf="@id/menuSuperior"
-        app:layout_constraintBottom_toTopOf="@id/menu_container"
+        app:layout_constraintBottom_toTopOf="@+id/menu_container"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent">
 
@@ -100,8 +100,9 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
+    <!-- Container padronizado para abrir fragmentos de cadastro -->
     <FrameLayout
-        android:id="@+id/fragment_abrirmenubottom"
+        android:id="@+id/containerFragment"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         />

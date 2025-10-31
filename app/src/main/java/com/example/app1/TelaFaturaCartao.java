@@ -48,7 +48,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
     private int dataFechamento = 0;
     private int dataVencimento = 0;
     private String bandeiraCartao = "outros";
-    private int idUsuarioLogado = -1; // adicione e inicialize corretamente
+    private int idUsuarioLogado = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -153,7 +153,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
         db.close();
     }
 
-    private void carregarFatura() {
+    public void carregarFatura() {
         String mesStr = txtMes.getText().toString();
         int ano = Integer.parseInt(txtAno.getText().toString());
 
@@ -350,25 +350,21 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                 new MenuHelper.MenuItemData("Editar", R.drawable.ic_edit, new MenuHelper.MenuItemClickListener() {
                     @Override
                     public void onClick() {
-                        // Cria o fragment com usuário e cartão
                         MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
 
-                        // Registra o listener para atualizar a fatura
                         fragment.setOnDespesaSalvaListener(new MenuCadDespesaCartaoFragment.OnDespesaSalvaListener() {
                             @Override
                             public void onDespesaSalva() {
-                                new Handler(Looper.getMainLooper()).post(() -> carregarFatura()); // método que você usa para atualizar a fatura na tela
+                                new Handler(Looper.getMainLooper()).post(() -> carregarFatura());
                             }
                         });
 
-                        // Adiciona o fragment ao container
                         getSupportFragmentManager()
                                 .beginTransaction()
                                 .replace(R.id.containerFragment, fragment)
                                 .addToBackStack(null)
                                 .commit();
 
-                        // Seta a transação que queremos editar
                         fragment.editarTransacao(finalIdTransacaoCartao);
                     }
                 }),
@@ -418,11 +414,9 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
         Calendar dataFinal = Calendar.getInstance();
 
         if (dataFechamento > 0) {
-            // Data do fechamento do mês anterior
             dataFinal.set(agora.get(Calendar.YEAR), agora.get(Calendar.MONTH), dataFechamento);
             dataFinal.add(Calendar.MONTH, -1);
         } else {
-            // Último dia do mês anterior
             dataFinal.set(agora.get(Calendar.YEAR), agora.get(Calendar.MONTH), 1);
             dataFinal.add(Calendar.DAY_OF_MONTH, -1);
         }
@@ -435,21 +429,15 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
 
     @Override
     public void onFabDespesaCartaoClick(int idUsuario) {
-
-        // Crie o Fragment de Cadastro
         MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuario, idCartao);
 
-        // 1. REGISTRA O LISTENER DE ATUALIZAÇÃO NO FRAGMENT DE CADASTRO
         fragment.setOnDespesaSalvaListener(() -> {
-            // A lógica que será chamada quando o Fragment de Cadastro for fechado
             new Handler(Looper.getMainLooper()).post(() -> carregarFatura());
         });
 
-        // 2. Adiciona o Fragment de Cadastro no container correto (deve ser o ID que o MenuBottomUtils usaria)
-        // OBS: Verifique o ID R.id.fragment_abrirmenubottom no seu layout!
         getSupportFragmentManager()
                 .beginTransaction()
-                .replace(R.id.fragment_abrirmenubottom, fragment)
+                .replace(R.id.containerFragment, fragment) // USA O CONTAINER PADRÃO
                 .addToBackStack(null)
                 .commit();
     }
