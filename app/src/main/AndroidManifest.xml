@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <application
+        android:name=".MeuApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -13,19 +14,19 @@
         android:theme="@style/Theme.App1"
         tools:targetApi="31">
         <activity
-            android:name=".TelaTransacoes"
-            android:exported="false" />
-        <activity
             android:name=".TelaFaturaCartao"
             android:exported="false" />
         <activity
             android:name=".TelaCadCartao"
             android:exported="false" />
         <activity
-            android:name=".TelaCadastroUsuario"
+            android:name=".TelaTransacoes"
             android:exported="false" />
         <activity
-            android:name=".SplashActivity"
+            android:name=".TelaPrincipal"
+            android:exported="false" />
+        <activity
+            android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -33,19 +34,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".TelaPrincipal"
-            android:exported="false" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-
-        <meta-data
-            android:name="developer_name"
-            android:value="Jairo Ferraz" />
-        <meta-data
-            android:name="developer_email"
-            android:value="jairo.ferraz@hotmail.com" />
     </application>
 
 </manifest>

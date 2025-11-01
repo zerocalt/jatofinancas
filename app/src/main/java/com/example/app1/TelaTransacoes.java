@@ -23,6 +23,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.app1.data.TransacoesCartaoDAO;
 import com.example.app1.data.TransacoesDAO;
 import com.example.app1.interfaces.BottomMenuListener;
 import com.example.app1.utils.MenuHelper;
@@ -513,12 +514,29 @@ public class TelaTransacoes extends AppCompatActivity implements BottomMenuListe
     }
 
     private void excluirTransacao(int id, String tipo) {
-        boolean sucesso = TransacoesDAO.excluirTransacao(this, id, tipo);
-        if (sucesso) {
-            Toast.makeText(this, "Transação removida com sucesso!", Toast.LENGTH_SHORT).show();
-            carregarTransacoes();
+        if ("transacao_cartao".equals(tipo)) {
+            int resultado = TransacoesCartaoDAO.excluirTransacao(this, id);
+            switch (resultado) {
+                case 0: // Sucesso
+                    Toast.makeText(this, "Despesa do cartão removida com sucesso!", Toast.LENGTH_SHORT).show();
+                    carregarTransacoes();
+                    break;
+                case 1: // Fatura Paga
+                    Toast.makeText(this, "Não é possível remover. A despesa pertence a uma fatura já paga.", Toast.LENGTH_LONG).show();
+                    break;
+                case -1: // Erro
+                default:
+                    Toast.makeText(this, "Erro ao remover a despesa do cartão.", Toast.LENGTH_SHORT).show();
+                    break;
+            }
         } else {
-            Toast.makeText(this, "Erro ao remover transação.", Toast.LENGTH_SHORT).show();
+            boolean sucesso = TransacoesDAO.excluirTransacao(this, id, tipo);
+            if (sucesso) {
+                Toast.makeText(this, "Transação removida com sucesso!", Toast.LENGTH_SHORT).show();
+                carregarTransacoes();
+            } else {
+                Toast.makeText(this, "Erro ao remover transação.", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 

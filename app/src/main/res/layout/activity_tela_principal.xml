@@ -70,10 +70,9 @@
 
         <!-- Saldo em Contas -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:layout_marginTop="16dp"
+            android:layout_columnSpan="2"
             android:gravity="center"
             android:orientation="horizontal">
 
@@ -97,43 +96,6 @@
 
                 <TextView
                     android:id="@+id/saldoContas"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="R$ 0,00"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Limites Cartões -->
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:layout_marginTop="16dp"
-            android:gravity="center"
-            android:orientation="horizontal">
-
-            <ImageView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:padding="8dp"
-                android:src="@drawable/ic_credit_card_5px"
-                android:background="@drawable/bg_circle"/>
-
-            <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Limites Cartões" />
-
-                <TextView
-                    android:id="@+id/limitesCartoes"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="R$ 0,00"
@@ -225,6 +187,101 @@
         android:background="#444444"
         app:layout_constraintTop_toBottomOf="@id/resumoGrid" />
 
+    <LinearLayout
+        android:id="@+id/alertasPendentes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintTop_toBottomOf="@id/divider2">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:text="Alertas / Pendências" />
+
+        <LinearLayout
+            android:id="@+id/receitasPendentes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/background_lista_cartoes"
+            android:layout_marginTop="0dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_margin="10dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_trending_up"
+                android:background="@drawable/bg_circle_green"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:layout_weight="1"
+                android:text="Receitas Pendentes" />
+
+            <TextView
+                android:id="@+id/valorReceitasPendentes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#339933"
+                android:text="R$ 10,00"
+                android:gravity="end"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp"/>
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/despesasPendentes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:background="@drawable/background_lista_cartoes"
+            android:layout_marginTop="5dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:layout_margin="10dp"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:padding="6dp"
+                android:src="@drawable/ic_trending_down"
+                android:background="@drawable/bg_circle_red"/>
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:layout_weight="1"
+                android:text="Despesas Pendentes" />
+
+            <TextView
+                android:id="@+id/valorDespesasPendentes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#E45757"
+                android:text="R$ 10,00"
+                android:gravity="end"
+                android:textStyle="bold"
+                android:layout_marginEnd="10dp"/>
+
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/containerFragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </LinearLayout>
+
     <!-- Fragmento/container do menu inferior (menu azul + FAB) -->
     <FrameLayout
         android:id="@+id/menu_container"
@@ -233,11 +290,5 @@
         app:layout_constraintBottom_toBottomOf="parent" />
 
     <!-- Container padronizado para abrir fragmentos de cadastro -->
-    <FrameLayout
-        android:id="@+id/containerFragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        tools:layout_editor_absoluteX="0dp"
-        tools:layout_editor_absoluteY="0dp" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
