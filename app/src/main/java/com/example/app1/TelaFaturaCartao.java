@@ -91,6 +91,11 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                 .commit();
 
         carregarCabecalhoCartao();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
         carregarFatura();
     }
 

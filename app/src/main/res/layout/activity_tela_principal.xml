@@ -59,13 +59,32 @@
         </LinearLayout>
     </LinearLayout>
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="visible"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/menuSuperior" />
+
+    <androidx.constraintlayout.widget.Group
+        android:id="@+id/groupContent"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:constraint_referenced_ids="resumoGrid,divider2,alertasPendentes"
+        tools:visibility="visible" />
+
     <GridLayout
         android:id="@+id/resumoGrid"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:columnCount="2"
-        android:rowCount="2"
         android:padding="16dp"
+        android:rowCount="2"
         app:layout_constraintTop_toBottomOf="@id/menuSuperior">
 
         <!-- Saldo em Contas -->
@@ -79,9 +98,9 @@
             <ImageView
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:background="@drawable/bg_circle"
                 android:padding="8dp"
-                android:src="@drawable/ic_account_balance"
-                android:background="@drawable/bg_circle"/>
+                android:src="@drawable/ic_account_balance" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -116,9 +135,9 @@
             <ImageView
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:background="@drawable/bg_circle_green"
                 android:padding="8dp"
-                android:src="@drawable/ic_trending_up"
-                android:background="@drawable/bg_circle_green"/>
+                android:src="@drawable/ic_trending_up" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -153,9 +172,9 @@
             <ImageView
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:background="@drawable/bg_circle_red"
                 android:padding="8dp"
-                android:src="@drawable/ic_trending_down"
-                android:background="@drawable/bg_circle_red"/>
+                android:src="@drawable/ic_trending_down" />
 
             <LinearLayout
                 android:layout_width="wrap_content"
@@ -204,37 +223,36 @@
             android:id="@+id/receitasPendentes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/background_lista_cartoes"
-            android:layout_marginTop="0dp"
             android:layout_marginLeft="16dp"
             android:layout_marginRight="16dp"
-            android:gravity="center_vertical">
+            android:background="@drawable/background_lista_cartoes"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <ImageView
-                android:layout_margin="10dp"
                 android:layout_width="30dp"
                 android:layout_height="30dp"
+                android:layout_margin="10dp"
+                android:background="@drawable/bg_circle_green"
                 android:padding="6dp"
-                android:src="@drawable/ic_trending_up"
-                android:background="@drawable/bg_circle_green"/>
+                android:src="@drawable/ic_trending_up" />
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
                 android:layout_weight="1"
-                android:text="Receitas Pendentes" />
+                android:text="Receitas Pendentes"
+                android:textColor="@color/white" />
 
             <TextView
                 android:id="@+id/valorReceitasPendentes"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#339933"
-                android:text="R$ 10,00"
+                android:layout_marginEnd="10dp"
                 android:gravity="end"
-                android:textStyle="bold"
-                android:layout_marginEnd="10dp"/>
+                android:text="R$ 10,00"
+                android:textColor="#339933"
+                android:textStyle="bold" />
 
         </LinearLayout>
 
@@ -242,44 +260,41 @@
             android:id="@+id/despesasPendentes"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:background="@drawable/background_lista_cartoes"
-            android:layout_marginTop="5dp"
             android:layout_marginLeft="16dp"
+            android:layout_marginTop="5dp"
             android:layout_marginRight="16dp"
-            android:gravity="center_vertical">
+            android:background="@drawable/background_lista_cartoes"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <ImageView
-                android:layout_margin="10dp"
                 android:layout_width="30dp"
                 android:layout_height="30dp"
+                android:layout_margin="10dp"
+                android:background="@drawable/bg_circle_red"
                 android:padding="6dp"
-                android:src="@drawable/ic_trending_down"
-                android:background="@drawable/bg_circle_red"/>
+                android:src="@drawable/ic_trending_down" />
 
             <TextView
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
                 android:layout_weight="1"
-                android:text="Despesas Pendentes" />
+                android:text="Despesas Pendentes"
+                android:textColor="@color/white" />
 
             <TextView
                 android:id="@+id/valorDespesasPendentes"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="#E45757"
-                android:text="R$ 10,00"
+                android:layout_marginEnd="10dp"
                 android:gravity="end"
-                android:textStyle="bold"
-                android:layout_marginEnd="10dp"/>
+                android:text="R$ 10,00"
+                android:textColor="#E45757"
+                android:textStyle="bold" />
 
         </LinearLayout>
 
-        <FrameLayout
-            android:id="@+id/containerFragment"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+
     </LinearLayout>
 
     <!-- Fragmento/container do menu inferior (menu azul + FAB) -->
@@ -289,6 +304,11 @@
         android:layout_height="wrap_content"
         app:layout_constraintBottom_toBottomOf="parent" />
 
-    <!-- Container padronizado para abrir fragmentos de cadastro -->
+    <FrameLayout
+        android:id="@+id/containerFragment"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+
 
 </androidx.constraintlayout.widget.ConstraintLayout>

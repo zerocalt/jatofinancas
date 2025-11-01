@@ -5,13 +5,14 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
-import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -19,25 +20,21 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
 import com.example.app1.data.CartaoDAO;
-import com.example.app1.data.ContaDAO;
+import com.example.app1.data.CategoriaDAO;
 import com.example.app1.utils.DateUtils;
-import com.example.app1.utils.MenuBottomUtils;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
-import com.example.app1.utils.MascaraMonetaria;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
-import android.os.Handler;
-import android.os.Looper;
-import android.widget.TextView;
-import com.example.app1.data.CategoriaDAO;
 
 public class MenuCadDespesaCartaoFragment extends Fragment {
 
@@ -49,17 +46,17 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     private int idUsuarioLogado = -1;
     private int idCartao = -1;
 
-    private android.widget.Button btnSalvarDespesaCartao;
+    private Button btnSalvarDespesaCartao;
     private OnBackPressedCallback backCallback;
     private MaterialAutoCompleteTextView autoCompleteParcelas;
     private TextInputEditText inputObservacao;
 
     private int idTransacaoEditando = -1;
 
-    private OnDespesaSalvaListener despesaSalvaListener;
+    private OnDespesaSalvaListener onDespesaSalvaListener;
 
     public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
-        this.despesaSalvaListener = listener;
+        this.onDespesaSalvaListener = listener;
     }
 
     public static MenuCadDespesaCartaoFragment newInstance(int idUsuario, int idCartao) {
@@ -74,16 +71,10 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         backCallback = new OnBackPressedCallback(false) {
             @Override
             public void handleOnBackPressed() {
                 fecharMenu();
-                if (getActivity() != null) {
-                    View container = getActivity().findViewById(R.id.rootMenuConta);
-                    if (container != null) container.setVisibility(View.GONE);
-                }
-                setEnabled(false);
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
@@ -91,8 +82,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa_cartao, container, false);
 
         if (getArguments() != null) {
@@ -100,24 +90,30 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             idCartao = getArguments().getInt("id_cartao", -1);
         }
 
+        bindViews(root);
+        setupUI(root);
+
+        return root;
+    }
+
+    private void bindViews(View root) {
         overlayDespesaCartao = root.findViewById(R.id.overlayDespesaCartao);
         slidingMenuDespesaCartao = root.findViewById(R.id.slidingMenuDespesaCartao);
-
         tilNomeDespesaCartao = root.findViewById(R.id.textInputNomeDespesaCartao);
         tilCategoriaDespesa = root.findViewById(R.id.textInputCategoriaDespesa);
         tilDataDespesaCartao = root.findViewById(R.id.textInputDataDespesaCartao);
         tilValorDespesa = root.findViewById(R.id.textInputValorDespesa);
-
         inputNomeDespesaCartao = root.findViewById(R.id.inputNomeDespesaCartao);
         inputDataDespesaCartao = root.findViewById(R.id.inputDataDespesaCartao);
         inputValorDespesa = root.findViewById(R.id.inputValorDespesa);
-
         autoCompleteCategoria = root.findViewById(R.id.autoCompleteCategoria);
         autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
         inputObservacao = root.findViewById(R.id.inputObservacao);
         autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
+        btnSalvarDespesaCartao = root.findViewById(R.id.btnSalvarDespesaCartao);
+    }
 
-        // Switch de despesa fixa
+    private void setupUI(View root) {
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = root.findViewById(R.id.switchDespesaFixa);
 
         inputNomeDespesaCartao.addTextChangedListener(new SimpleTextWatcher(() -> tilNomeDespesaCartao.setError(null)));
@@ -125,169 +121,98 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         inputDataDespesaCartao.setFocusable(false);
         inputDataDespesaCartao.setClickable(true);
 
-        // Carrega categorias
         List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
-        CategoriasDropdownAdapter adapter = new CategoriasDropdownAdapter(requireContext(), categorias);
-        autoCompleteCategoria.setAdapter(adapter);
+        CategoriasDropdownAdapter categoriasAdapter = new CategoriasDropdownAdapter(requireContext(), categorias);
+        autoCompleteCategoria.setAdapter(categoriasAdapter);
 
-        // Carrega cartões
-        List<Cartao> cartao = CartaoDAO.buscarCartoesAtivosPorUsuario(requireContext(), idUsuarioLogado);
-        MaterialAutoCompleteTextView autoCompleteCartao = root.findViewById(R.id.autoCompleteCartao);
-        ArrayAdapter<Cartao> adapterCartao = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, cartao);
-        autoCompleteCartao.setAdapter(adapterCartao);
-        // Se houver pelo menos um cartão, já seleciona o primeiro
-        if (!cartao.isEmpty()) {
-            Cartao primeiroCartao = cartao.get(0);
-            autoCompleteCartao.setText(primeiroCartao.getNome(), false);
-            idCartao = primeiroCartao.getId();  // guarda o ID para salvar depois
-        }
-        // Quando o usuário escolhe uma conta
-        autoCompleteCartao.setOnItemClickListener((parent, view, position, id) -> {
-            Cartao selecionado = (Cartao) parent.getItemAtPosition(position);
-            idCartao = selecionado.getId(); // atualiza o ID que será salvo
-            //Log.d("ContaSelecionada", "ID: " + contaSelecionada[0].getId() + " Nome: " + contaSelecionada[0].getNome());
-        });
+        List<Cartao> cartoes = CartaoDAO.buscarCartoesAtivosPorUsuario(requireContext(), idUsuarioLogado);
+        autoCompleteCartao.setAdapter(new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, cartoes));
 
-        autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
-            Categoria c = (Categoria) parent.getItemAtPosition(position);
-            autoCompleteCategoria.setText(c.getNome(), false);
-            tilCategoriaDespesa.setError(null);
-        });
-
-        // Preenche o nome do cartão e bloqueia edição
         if (idCartao != -1) {
-            try (SQLiteDatabase dbRead = new MeuDbHelper(requireContext()).getReadableDatabase()) {
-                try (Cursor cursor = dbRead.rawQuery("SELECT nome FROM cartoes WHERE id = ?", new String[]{String.valueOf(idCartao)})) {
-                    if (cursor.moveToFirst()) {
-                        autoCompleteCartao.setText(cursor.getString(cursor.getColumnIndexOrThrow("nome")), false);
-                    }
+            for (Cartao c : cartoes) {
+                if (c.getId() == idCartao) {
+                    autoCompleteCartao.setText(c.getNome(), false);
+                    break;
                 }
             }
+        } else if (!cartoes.isEmpty()) {
+            Cartao primeiro = cartoes.get(0);
+            autoCompleteCartao.setText(primeiro.getNome(), false);
+            idCartao = primeiro.getId();
         }
+
+        autoCompleteCartao.setOnItemClickListener((parent, view, position, id) -> idCartao = ((Cartao) parent.getItemAtPosition(position)).getId());
+        autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> tilCategoriaDespesa.setError(null));
 
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
         overlayDespesaCartao.setOnClickListener(v -> fecharMenu());
+        btnSalvarDespesaCartao.setOnClickListener(v -> {
+            if (idTransacaoEditando > 0) {
+                atualizarDespesa(idTransacaoEditando);
+            } else {
+                salvarNovaDespesa();
+            }
+        });
 
-        btnSalvarDespesaCartao = root.findViewById(R.id.btnSalvarDespesaCartao);
-        btnSalvarDespesaCartao.setOnClickListener(v -> salvarDespesa());
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
+        inputDataDespesaCartao.setText(sdf.format(new java.util.Date()));
 
-        // Define a data atual formatada
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault());
-        String dataAtual = sdf.format(new java.util.Date());
-        inputDataDespesaCartao.setText(dataAtual);
-
-        // Cria o adapter vazio para parcelas
         ArrayAdapter<String> parcelasAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, new ArrayList<>());
         autoCompleteParcelas.setAdapter(parcelasAdapter);
 
-        // Atualiza parcelas conforme o valor digitado
         inputValorDespesa.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                atualizarOpcoesParcelas(s.toString(), parcelasAdapter, autoCompleteParcelas);
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                atualizarOpcoesParcelas(s.toString(), parcelasAdapter);
             }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) { }
+            @Override public void afterTextChanged(android.text.Editable s) { }
         });
 
-        // Listener que desativa o switch se usuário escolher mais de 1 parcela
         autoCompleteParcelas.setOnItemClickListener((parent, view, position, id) -> {
-            String parcelaSelecionada = (String) parent.getItemAtPosition(position);
-
             int qtd = 1;
-            if (parcelaSelecionada.contains("x")) {
-                try {
-                    qtd = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim());
-                } catch (Exception e) {
-                    qtd = 1;
-                }
-            }
-
-            if (qtd > 1) {
-                switchDespesaFixa.setChecked(false);
-                switchDespesaFixa.setEnabled(false);
-            } else {
-                switchDespesaFixa.setEnabled(true);
-            }
+            try {
+                String sel = (String) parent.getItemAtPosition(position);
+                qtd = Integer.parseInt(sel.substring(0, sel.indexOf('x')).trim());
+            } catch (Exception e) { /* fallback to 1 */ }
+            switchDespesaFixa.setEnabled(qtd <= 1);
+            if (qtd > 1) switchDespesaFixa.setChecked(false);
         });
-
-        // Botão para abrir menu cadastro categoria
-        View btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
-        MenuCadCategoriaFragment menuCadCategoriaFragment = MenuCadCategoriaFragment.newInstance(idUsuarioLogado);
-
-        // Listener para atualizar lista após salvar
-        menuCadCategoriaFragment.setOnCategoriaSalvaListener(nomeCategoria -> {
-            // Recarrega categorias
-            List<Categoria> categoriasAtualizadas = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
-            CategoriasDropdownAdapter novoAdapter = new CategoriasDropdownAdapter(requireContext(), categoriasAtualizadas);
-            autoCompleteCategoria.setAdapter(novoAdapter);
-            autoCompleteCategoria.setText(nomeCategoria, false);
-            fecharMenuCategoria();
-        });
-        // Adiciona o fragment
-        getChildFragmentManager().beginTransaction()
-                .replace(R.id.fragmentContainerCategoria, menuCadCategoriaFragment)
-                .commitNow();
-        // Abre o menu de categoria
-        btnAddCategoria.setOnClickListener(v -> abrirMenuCategoria());
-
-        return root;
     }
 
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        abrirMenu();
-
-        // Se alguém pediu para abrir a edição, faz aqui
-        if (idTransacaoEditando != -1) {
-            abrirMenuEditarDespesa(idTransacaoEditando);
-            idTransacaoEditando = -1; // reset
+        if (idTransacaoEditando > 0) {
+            abrirMenuParaEdicao(idTransacaoEditando);
+        } else {
+            abrirMenu();
         }
     }
 
-    // Novo método para setar a transação a editar
-    public void editarTransacao(int idTransacao) {
-        idTransacaoEditando = idTransacao;
-    }
-
-    // Função auxiliar para atualizar opções do adapter
-    private void atualizarOpcoesParcelas(String valorStr, ArrayAdapter<String> adapter, MaterialAutoCompleteTextView autoComplete) {
-        valorStr = valorStr.replaceAll("[^0-9,\\.]", "").trim();
+    private void atualizarOpcoesParcelas(String valorStr, ArrayAdapter<String> adapter) {
+        valorStr = valorStr.replaceAll("[^0-9,.]", "").replace(".", "").replace(",", ".");
         if (valorStr.isEmpty()) {
             adapter.clear();
-            autoComplete.setText("");
+            autoCompleteParcelas.setText("");
             return;
         }
-
-        double valor;
         try {
-            valorStr = valorStr.replace(".", "");
-            valor = Double.parseDouble(valorStr.replace(",", "."));
+            double valor = Double.parseDouble(valorStr);
+            NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
+            List<String> parcelas = new ArrayList<>();
+            for (int i = 1; i <= 24; i++) {
+                parcelas.add(String.format(Locale.getDefault(), "%dx - %s", i, formatoBR.format(valor / i)));
+            }
+            adapter.clear();
+            adapter.addAll(parcelas);
+            adapter.notifyDataSetChanged();
+            autoCompleteParcelas.setText(parcelas.get(0), false);
         } catch (Exception e) {
             adapter.clear();
-            autoComplete.setText("");
-            return;
+            autoCompleteParcelas.setText("");
         }
-
-        NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
-        ArrayList<String> parcelas = new ArrayList<>();
-        for (int i = 1; i <= 24; i++) {
-            double resultadoParcela = valor / i;
-            String parcelaStr = i + "x - " + formatoBR.format(resultadoParcela);
-            parcelas.add(parcelaStr);
-        }
-        adapter.clear();
-        adapter.addAll(parcelas);
-        adapter.notifyDataSetChanged();
-        autoComplete.setText(parcelas.get(0), false);
     }
-
 
     public void abrirMenu() {
         overlayDespesaCartao.setVisibility(View.VISIBLE);
@@ -295,451 +220,227 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         slidingMenuDespesaCartao.post(() -> {
             slidingMenuDespesaCartao.setTranslationY(slidingMenuDespesaCartao.getHeight());
             slidingMenuDespesaCartao.animate().translationY(0).setDuration(300).start();
-
-            // Solicita foco e mostra teclado
             inputValorDespesa.requestFocus();
             InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
             if (imm != null) imm.showSoftInput(inputValorDespesa, InputMethodManager.SHOW_IMPLICIT);
-
-            // Esconde o FAB se existir na Activity
-            View fab = requireActivity().findViewById(R.id.addcartao);
-            if (fab != null && fab.getVisibility() == View.VISIBLE) {
-                if (fab instanceof FloatingActionButton)
-                    ((FloatingActionButton) fab).hide();
-                else
-                    fab.setVisibility(View.GONE);
-            }
         });
         backCallback.setEnabled(true);
     }
 
     public void fecharMenu() {
+        InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (getView() != null) imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
         slidingMenuDespesaCartao.animate()
                 .translationY(slidingMenuDespesaCartao.getHeight())
                 .setDuration(300)
                 .withEndAction(() -> {
-                    slidingMenuDespesaCartao.setVisibility(View.GONE);
-                    overlayDespesaCartao.setVisibility(View.GONE);
-                    backCallback.setEnabled(false);
-
-                    // Reexibe o FAB se existir
-                    View fab = requireActivity().findViewById(R.id.addcartao);
-                    if (fab != null && fab.getVisibility() != View.VISIBLE) {
-                        if (fab instanceof FloatingActionButton)
-                            ((FloatingActionButton) fab).show();
-                        else
-                            fab.setVisibility(View.VISIBLE);
+                    if (onDespesaSalvaListener != null) {
+                        onDespesaSalvaListener.onDespesaSalva();
+                    }
+                    if (getParentFragmentManager() != null) {
+                        getParentFragmentManager().beginTransaction().remove(this).commit();
                     }
                 }).start();
     }
+    private boolean validarCampos(ContentContainer C) {
+        C.nome = inputNomeDespesaCartao.getText().toString().trim();
+        C.categoriaTexto = autoCompleteCategoria.getText().toString().trim();
+        C.data = inputDataDespesaCartao.getText().toString().trim();
 
-    private void salvarDespesa() {
-        String nome = inputNomeDespesaCartao.getText().toString().trim();
-        String categoriaTexto = autoCompleteCategoria.getText().toString().trim();
-        String observacao = inputObservacao.getText().toString().trim();
-        String data = inputDataDespesaCartao.getText().toString().trim();
-        String dataISO = null;
+        if (C.nome.isEmpty() || C.categoriaTexto.isEmpty() || C.data.isEmpty()) {
+            if (C.nome.isEmpty()) tilNomeDespesaCartao.setError("Informe o nome");
+            if (C.categoriaTexto.isEmpty()) tilCategoriaDespesa.setError("Informe a categoria");
+            if (C.data.isEmpty()) tilDataDespesaCartao.setError("Informe a data");
+            return false;
+        }
+
         try {
-            dataISO = DateUtils.converterDataParaISO(data);
-        } catch (Exception e) {
-            e.printStackTrace();
+            C.dataISO = DateUtils.converterDataParaISO(C.data) + " 00:00:00";
+        } catch (ParseException e) {
+            tilDataDespesaCartao.setError("Data inválida");
+            return false;
+        }
+
+        String valorStr = inputValorDespesa.getText().toString().replace("R$", "").replaceAll("[^0-9,]", "").replace(".", "").replace(",", ".");
+        try { C.valor = Double.parseDouble(valorStr); } catch (Exception e) { C.valor = 0; }
+
+        if (C.valor <= 0) {
+            tilValorDespesa.setError("Valor deve ser maior que zero");
+            return false;
         }
 
         String parcelaSelecionada = autoCompleteParcelas.getText().toString();
-        int quantidadeParcelas = 1; // padrão
-        if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
-            try {
-                quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim());
-            } catch (Exception e) { }
+        C.quantidadeParcelas = 1;
+        if (!parcelaSelecionada.isEmpty()) {
+            try { C.quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim()); } catch (Exception e) { /* usa 1 */ }
         }
 
-        boolean despesaRecorrente = false;
+        C.categoria = CategoriaDAO.buscarCategoriaPorNome(requireContext(), idUsuarioLogado, C.categoriaTexto);
+        if (C.categoria == null) {
+            tilCategoriaDespesa.setError("Categoria inválida");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void salvarNovaDespesa() {
+        btnSalvarDespesaCartao.setEnabled(false);
+        ContentContainer C = new ContentContainer();
+        if (!validarCampos(C)) {
+            btnSalvarDespesaCartao.setEnabled(true);
+            return;
+        }
+        
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
-        if (switchDespesaFixa != null) {
-            despesaRecorrente = switchDespesaFixa.isChecked();
-        }
 
-        // Validações
-        if (nome.isEmpty()) {
-            tilNomeDespesaCartao.setError("Informe o nome da despesa");
-            return;
-        }
-        if (categoriaTexto.isEmpty()) {
-            tilCategoriaDespesa.setError("Informe a categoria");
-            return;
-        }
-        if (data.isEmpty()) {
-            tilDataDespesaCartao.setError("Informe a data da despesa");
-            return;
-        }
+        try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                ContentValues valores = C.toContentValues();
+                valores.put("recorrente", switchDespesaFixa.isChecked() ? 1 : 0);
+                valores.put("id_usuario", idUsuarioLogado);
+                valores.put("id_cartao", idCartao);
+                valores.put("observacao", inputObservacao.getText().toString().trim());
 
-        String valorStr = inputValorDespesa.getText().toString().trim();
-        // remove "R$" e espaços
-        valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
-        // substitui pontos (milhares) e converte vírgula em ponto
-        valorStr = valorStr.replace(".", "").replace(",", ".");
-        //valorStr = valorStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
-
-        double valor = 0;
-        try {
-            if (!valorStr.isEmpty()) {
-                valor = Double.parseDouble(valorStr);
-            }
-        } catch (NumberFormatException e) {
-            Snackbar.make(requireView(), "Valor inválido", Snackbar.LENGTH_LONG).show();
-            return;
-        }
-
-        if (idUsuarioLogado == -1) {
-            Snackbar.make(requireView(), "Usuário inválido", Snackbar.LENGTH_LONG).show();
-            return;
-        }
-
-        // Busca categoria selecionada
-        Categoria categoriaSelecionada = null;
-        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
-        for (int i = 0; i < adapter.getCount(); i++) {
-            Categoria c = adapter.getItem(i);
-            if (c != null && c.getNome().equals(categoriaTexto)) {
-                categoriaSelecionada = c;
-                break;
-            }
-        }
-        if (categoriaSelecionada == null) {
-            tilCategoriaDespesa.setError("Informe uma categoria válida");
-            return;
-        }
-
-        SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase();
-        db.beginTransaction();
-        try {
-            ContentValues valores = new ContentValues();
-            valores.put("descricao", nome);
-            valores.put("id_categoria", categoriaSelecionada.getId());
-            valores.put("data_compra", dataISO);
-            valores.put("valor", valor);
-            valores.put("parcelas", quantidadeParcelas);
-            valores.put("observacao", observacao);
-            valores.put("id_usuario", idUsuarioLogado);
-            valores.put("id_cartao", idCartao);
-            valores.put("recorrente", despesaRecorrente ? 1 : 0);
-
-            long idTransacao;
-            if (idTransacaoEditando > 0) {
-                // Atualiza transação existente
-                idTransacao = idTransacaoEditando;
-                db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacaoEditando)});
-
-                // Atualiza ou insere despesas recorrentes
-                if (despesaRecorrente) {
-                    ContentValues valoresRecorrentes = new ContentValues();
-                    valoresRecorrentes.put("valor", valor);
-                    valoresRecorrentes.put("data_inicial", dataISO);
-
-                    Cursor cursorRecorrente = db.rawQuery(
-                            "SELECT id FROM despesas_recorrentes_cartao WHERE id_transacao_cartao = ?",
-                            new String[]{String.valueOf(idTransacaoEditando)});
-                    if (cursorRecorrente.moveToFirst()) {
-                        int idRecorrente = cursorRecorrente.getInt(cursorRecorrente.getColumnIndexOrThrow("id"));
-                        db.update("despesas_recorrentes_cartao", valoresRecorrentes, "id = ?", new String[]{String.valueOf(idRecorrente)});
-                    } else {
-                        valoresRecorrentes.put("id_transacao_cartao", idTransacao);
-                        valoresRecorrentes.putNull("data_final");
-                        db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
-                    }
-                    cursorRecorrente.close();
+                long idTransacao = db.insert("transacoes_cartao", null, valores);
+                
+                if (idTransacao != -1) {
+                    gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
                 }
 
-                // Atualiza parcelas existentes ou cria novas
-                db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoEditando)});
-            } else {
-                // Insere nova transação
-                idTransacao = db.insert("transacoes_cartao", null, valores);
+                db.setTransactionSuccessful();
+                Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
+                fecharMenu();
 
-                // Insere recorrentes se necessário
-                if (idTransacao != -1 && despesaRecorrente) {
-                    ContentValues valoresRecorrentes = new ContentValues();
-                    valoresRecorrentes.put("id_transacao_cartao", idTransacao);
-                    valoresRecorrentes.put("valor", valor);
-                    valoresRecorrentes.put("data_inicial", dataISO);
-                    valoresRecorrentes.putNull("data_final");
-                    db.insert("despesas_recorrentes_cartao", null, valoresRecorrentes);
-                }
+            } catch (Exception e) {
+                Log.e("SalvarDespesa", "Erro durante transação de salvamento", e);
+            } finally {
+                db.endTransaction();
             }
-
-            // Gera parcelas
-            if (idTransacao != -1 && quantidadeParcelas > 1) {
-                double valorParcela = valor / quantidadeParcelas;
-                java.text.SimpleDateFormat sdfIso = new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault());
-                java.util.Calendar calendar = java.util.Calendar.getInstance();
-                try { calendar.setTime(sdfIso.parse(dataISO)); } catch(Exception e) {}
-
-                for (int i = 1; i <= quantidadeParcelas; i++) {
-                    ContentValues valoresParcela = new ContentValues();
-                    valoresParcela.put("id_transacao_cartao", idTransacao);
-                    valoresParcela.put("numero_parcela", i);
-                    valoresParcela.put("valor", valorParcela);
-                    valoresParcela.put("paga", 0);
-                    valoresParcela.putNull("id_fatura");
-                    String dataVencimento = sdfIso.format(calendar.getTime());
-                    valoresParcela.put("data_vencimento", dataVencimento);
-                    db.insert("parcelas_cartao", null, valoresParcela);
-                    calendar.add(java.util.Calendar.MONTH, 1);
-                }
-            }
-
-            db.setTransactionSuccessful();
-
-            // 1. Notifica a Activity Pai (TelaFaturaCartao) que os dados foram salvos com sucesso
-            if (despesaSalvaListener != null) {
-                despesaSalvaListener.onDespesaSalva();
-            }
-
-            fecharMenu();
-
-            Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
-
-            if (listener != null) listener.onDespesaSalva();
-            limparCampos();
-            idTransacaoEditando = -1; // reseta para próxima inclusão
-
         } catch (Exception e) {
-            Snackbar.make(requireView(), "Erro ao salvar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
-        } finally {
-            db.endTransaction();
-            db.close();
+            Log.e("SalvarDespesa", "Erro ao abrir DB", e);
+        }
+        btnSalvarDespesaCartao.setEnabled(true);
+    }
+
+    private void atualizarDespesa(int idTransacao) {
+        btnSalvarDespesaCartao.setEnabled(false);
+        ContentContainer C = new ContentContainer();
+        if (!validarCampos(C)) {
+            btnSalvarDespesaCartao.setEnabled(true);
+            return;
+        }
+
+        com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
+
+        try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                ContentValues valores = C.toContentValues();
+                valores.put("recorrente", switchDespesaFixa.isChecked() ? 1 : 0);
+                valores.put("id_cartao", idCartao);
+
+                db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacao)});
+                db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacao)});
+                
+                gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
+
+                db.setTransactionSuccessful();
+                Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
+                fecharMenu();
+
+            } catch (Exception e) {
+                Log.e("AtualizarDespesa", "Erro durante transação de atualização", e);
+            } finally {
+                db.endTransaction();
+            }
+        } catch (Exception e) {
+            Log.e("AtualizarDespesa", "Erro ao abrir DB", e);
+        }
+        btnSalvarDespesaCartao.setEnabled(true);
+    }
+    
+    private void gerarParcelas(SQLiteDatabase db, long idTransacao, double valorTotal, int qtdParcelas, String dataISO) {
+       try {
+            double valorParcela = valorTotal / qtdParcelas;
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).parse(dataISO));
+
+            for (int i = 1; i <= qtdParcelas; i++) {
+                ContentValues pVal = new ContentValues();
+                pVal.put("id_transacao_cartao", idTransacao);
+                pVal.put("numero_parcela", i);
+                pVal.put("valor", valorParcela);
+                pVal.put("paga", 0);
+                pVal.putNull("id_fatura");
+                pVal.put("data_vencimento", sdf.format(cal.getTime()));
+                db.insert("parcelas_cartao", null, pVal);
+                cal.add(Calendar.MONTH, 1);
+            }
+        } catch (ParseException e) {
+            Log.e("GerarParcelas", "Erro de parse na data ao gerar parcelas. Data: " + dataISO, e);
+            throw new RuntimeException("Erro ao gerar parcelas devido a data inválida.", e);
         }
     }
 
-    private void limparCampos() {
-        inputNomeDespesaCartao.setText("");
-        inputDataDespesaCartao.setText("");
-        inputValorDespesa.setText("");
-        autoCompleteCategoria.setText("");
+    public void editarTransacao(int idTransacao) {
+        this.idTransacaoEditando = idTransacao;
+    }
+
+    private void abrirMenuParaEdicao(int idTransacao) {
+        ((TextView) requireView().findViewById(R.id.tituloDespesa)).setText("Editar Despesa do Cartão");
+        btnSalvarDespesaCartao.setText("Salvar Alterações");
+        
+        try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getReadableDatabase();
+             Cursor c = db.rawQuery("SELECT * FROM transacoes_cartao WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+            
+            if (c.moveToFirst()) {
+                inputNomeDespesaCartao.setText(c.getString(c.getColumnIndexOrThrow("descricao")));
+                inputValorDespesa.setText(String.format(Locale.getDefault(), "%.2f", c.getDouble(c.getColumnIndexOrThrow("valor"))));
+                inputObservacao.setText(c.getString(c.getColumnIndexOrThrow("observacao")));
+                inputDataDespesaCartao.setText(DateUtils.converterDataParaPtBR(c.getString(c.getColumnIndexOrThrow("data_compra"))));
+                
+                int idCategoria = c.getInt(c.getColumnIndexOrThrow("id_categoria"));
+                Categoria cat = CategoriaDAO.buscarCategoriaPorId(requireContext(), idCategoria);
+                if (cat != null) autoCompleteCategoria.setText(cat.getNome(), false);
+
+                ((com.google.android.material.materialswitch.MaterialSwitch) requireView().findViewById(R.id.switchDespesaFixa)).setChecked(c.getInt(c.getColumnIndexOrThrow("recorrente")) == 1);
+            }
+        } catch (Exception e) {
+            Log.e("EditarDespesa", "Erro ao carregar dados", e);
+        }
+
+        abrirMenu();
     }
 
     private static class SimpleTextWatcher implements android.text.TextWatcher {
         private final Runnable callback;
-        public SimpleTextWatcher(Runnable callback) { this.callback = callback; }
+        SimpleTextWatcher(Runnable callback) { this.callback = callback; }
         @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-        @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
-            if (callback != null) callback.run();
-        }
+        @Override public void onTextChanged(CharSequence s, int start, int before, int count) { if (callback != null) callback.run(); }
         @Override public void afterTextChanged(android.text.Editable s) {}
+    }
+    
+    private static class ContentContainer {
+        String nome, categoriaTexto, data, dataISO;
+        double valor;
+        int quantidadeParcelas;
+        Categoria categoria;
+
+        ContentValues toContentValues() {
+            ContentValues v = new ContentValues();
+            v.put("descricao", nome);
+            v.put("id_categoria", categoria.getId());
+            v.put("data_compra", dataISO);
+            v.put("valor", valor);
+            v.put("parcelas", quantidadeParcelas);
+            return v;
+        }
     }
 
     public interface OnDespesaSalvaListener {
         void onDespesaSalva();
     }
-    private OnDespesaSalvaListener listener;
-
-    // substitua o abrirMenuEditarDespesa existente por este
-    public void abrirMenuEditarDespesa(int idTransacao) {
-        idTransacaoEditando = idTransacao;
-        TextView tituloDespesa = requireView().findViewById(R.id.tituloDespesa);
-        tituloDespesa.setText("Editar Despesa do Cartão");
-        btnSalvarDespesaCartao.setText("Editar Despesa");
-        btnSalvarDespesaCartao.setOnClickListener(v -> atualizarDespesa(idTransacao));
-
-        SQLiteDatabase db = new MeuDbHelper(requireContext()).getReadableDatabase();
-
-        // Busca dados da transação
-        Cursor cursor = db.rawQuery(
-                "SELECT t.descricao, t.valor, t.parcelas, t.data_compra, t.id_categoria, t.observacao, t.recorrente " +
-                        "FROM transacoes_cartao t WHERE t.id = ?",
-                new String[]{String.valueOf(idTransacao)}
-        );
-
-        if (cursor.moveToFirst()) {
-            String descricao = cursor.getString(cursor.getColumnIndexOrThrow("descricao"));
-            double valor = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
-            int parcelas = cursor.getInt(cursor.getColumnIndexOrThrow("parcelas"));
-            String dataCompra = cursor.getString(cursor.getColumnIndexOrThrow("data_compra"));
-            int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
-            String observacao = cursor.getString(cursor.getColumnIndexOrThrow("observacao"));
-            int recorrenteInt = cursor.getInt(cursor.getColumnIndexOrThrow("recorrente"));
-            boolean recorrente = recorrenteInt == 1;
-
-            // Preenche campos básicos
-            inputNomeDespesaCartao.setText(descricao);
-            inputValorDespesa.setText(String.format(Locale.getDefault(), "%.2f", valor));
-            inputObservacao.setText(observacao);
-
-            try {
-                inputDataDespesaCartao.setText(DateUtils.converterDataParaPtBR(dataCompra));
-            } catch (Exception e) {
-                e.printStackTrace();
-                inputDataDespesaCartao.setText("");
-            }
-
-            // 🔹 Carrega categorias antes de selecionar
-            List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
-            CategoriasDropdownAdapter adapterCategoria = new CategoriasDropdownAdapter(requireContext(), categorias);
-            autoCompleteCategoria.setAdapter(adapterCategoria);
-
-            // Seleciona categoria correta
-            for (Categoria c : categorias) {
-                if (c.getId() == idCategoria) {
-                    autoCompleteCategoria.setText(c.getNome(), false);
-                    break;
-                }
-            }
-
-            // Preenche parcelas
-            ArrayAdapter<String> adapterParcelas = (ArrayAdapter<String>) autoCompleteParcelas.getAdapter();
-            NumberFormat formatoBR = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
-            atualizarOpcoesParcelas(String.valueOf(formatoBR.format(valor)), adapterParcelas, autoCompleteParcelas);
-            autoCompleteParcelas.setText(parcelas + "x - " + formatoBR.format(valor / parcelas), false);
-
-            // Preenche switch de recorrente
-            com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
-            switchDespesaFixa.setChecked(recorrente);
-        }
-
-        cursor.close();
-        db.close();
-
-        abrirMenu(); // Abre o menu deslizando
-    }
-
-
-    private void atualizarDespesa(int idTransacaoCartao) {
-        String nome = inputNomeDespesaCartao.getText().toString().trim();
-        String categoriaTexto = autoCompleteCategoria.getText().toString().trim();
-        String observacao = inputObservacao.getText().toString().trim();
-        String data = inputDataDespesaCartao.getText().toString().trim();
-        String dataISO = null;
-        try { dataISO = DateUtils.converterDataParaISO(data); } catch (Exception ignored) {}
-
-        String valorStr = inputValorDespesa.getText().toString().trim().replace("R$", "").replaceAll("[^0-9,]", "").trim();
-        double valor = 0;
-        try { if (!valorStr.isEmpty()) valor = Double.parseDouble(valorStr.replace(",", ".")); }
-        catch (Exception ignored) {}
-
-        String parcelaSelecionada = autoCompleteParcelas.getText().toString();
-        int quantidadeParcelas = 1;
-        if (!parcelaSelecionada.isEmpty() && parcelaSelecionada.contains("x")) {
-            try { quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim()); }
-            catch (Exception ignored) {}
-        }
-
-        boolean despesaRecorrente = false;
-        com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
-        if (switchDespesaFixa != null) despesaRecorrente = switchDespesaFixa.isChecked();
-
-        if (nome.isEmpty()) { tilNomeDespesaCartao.setError("Informe o nome da despesa"); return; }
-        if (categoriaTexto.isEmpty()) { tilCategoriaDespesa.setError("Informe a categoria"); return; }
-        if (data.isEmpty()) { tilDataDespesaCartao.setError("Informe a data da despesa"); return; }
-
-        Categoria categoriaSelecionada = null;
-        ArrayAdapter<Categoria> adapter = (ArrayAdapter<Categoria>) autoCompleteCategoria.getAdapter();
-        for (int i = 0; i < adapter.getCount(); i++) {
-            Categoria c = adapter.getItem(i);
-            if (c != null && c.getNome().equals(categoriaTexto)) {
-                categoriaSelecionada = c;
-                break;
-            }
-        }
-        if (categoriaSelecionada == null) { tilCategoriaDespesa.setError("Informe uma categoria válida"); return; }
-
-        // Abre apenas UM DB
-        SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase();
-        db.beginTransaction();
-        try {
-            // FECHA recorrência antiga
-            ContentValues fecharRecorrente = new ContentValues();
-            java.text.SimpleDateFormat sdfIso = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-            String dataFinal = sdfIso.format(new java.util.Date()); // ou calcula o dia do fechamento
-            fecharRecorrente.put("data_final", dataFinal);
-            db.update("despesas_recorrentes_cartao", fecharRecorrente,
-                    "id_transacao_cartao = ? AND data_final IS NULL",
-                    new String[]{String.valueOf(idTransacaoCartao)});
-
-            // ATUALIZA transação
-            ContentValues valores = new ContentValues();
-            valores.put("descricao", nome);
-            valores.put("id_categoria", categoriaSelecionada.getId());
-            valores.put("data_compra", dataISO);
-            valores.put("valor", valor);
-            valores.put("parcelas", quantidadeParcelas);
-            valores.put("observacao", observacao);
-            valores.put("recorrente", despesaRecorrente ? 1 : 0);
-            valores.put("id_cartao", idCartao);
-            db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacaoCartao)});
-
-            // CRIA nova recorrência
-            if (despesaRecorrente) {
-                ContentValues novaRecorrente = new ContentValues();
-                novaRecorrente.put("id_transacao_cartao", idTransacaoCartao);
-                novaRecorrente.put("valor", valor);
-                novaRecorrente.put("data_inicial", sdfIso.format(new java.util.Date()));
-                novaRecorrente.putNull("data_final");
-                db.insert("despesas_recorrentes_cartao", null, novaRecorrente);
-            }
-
-            // ATUALIZA parcelas apenas se for mais de 1x
-            db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacaoCartao)});
-            if (quantidadeParcelas > 1) {
-                double valorParcela = valor / quantidadeParcelas;
-                java.util.Calendar cal = java.util.Calendar.getInstance();
-                try { cal.setTime(sdfIso.parse(dataISO)); } catch (Exception ignored) {}
-
-                for (int i = 1; i <= quantidadeParcelas; i++) {
-                    ContentValues valoresParcela = new ContentValues();
-                    valoresParcela.put("id_transacao_cartao", idTransacaoCartao);
-                    valoresParcela.put("numero_parcela", i);
-                    valoresParcela.put("valor", valorParcela);
-                    valoresParcela.put("paga", 0);
-                    valoresParcela.putNull("id_fatura");
-                    valoresParcela.put("data_vencimento", sdfIso.format(cal.getTime()));
-                    db.insert("parcelas_cartao", null, valoresParcela);
-                    cal.add(java.util.Calendar.MONTH, 1);
-                }
-            }
-
-            db.setTransactionSuccessful();
-            Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
-            fecharMenu();
-            if (listener != null) listener.onDespesaSalva();
-            limparCampos();
-
-        } catch (Exception e) {
-            Snackbar.make(requireView(), "Erro ao atualizar despesa: " + e.getMessage(), Snackbar.LENGTH_LONG).show();
-        } finally {
-            db.endTransaction();
-            db.close();
-        }
-    }
-
-    private List<String> carregarCartoesUsuario(Context ctx, int idUsuario) {
-        List<String> lista = new ArrayList<>();
-        String sql = "SELECT id, nome FROM cartoes WHERE id_usuario = ? AND ativo = 1 ORDER BY nome COLLATE NOCASE ASC";
-        try (SQLiteDatabase db = new MeuDbHelper(ctx).getReadableDatabase();
-             Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
-            if (cursor != null && cursor.moveToFirst()) {
-                do {
-                    String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
-                    lista.add(nome);
-                } while (cursor.moveToNext());
-            }
-        }
-        return lista;
-    }
-
-    private void abrirMenuCategoria() {
-        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
-        container.setVisibility(View.VISIBLE);
-        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
-                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
-        if (frag != null) frag.abrirMenu();
-    }
-
-    private void fecharMenuCategoria() {
-        MenuCadCategoriaFragment frag = (MenuCadCategoriaFragment)
-                getChildFragmentManager().findFragmentById(R.id.fragmentContainerCategoria);
-        if (frag != null) frag.fecharMenu();
-        View container = requireView().findViewById(R.id.fragmentContainerCategoria);
-        container.setVisibility(View.GONE);
-    }
-
 }

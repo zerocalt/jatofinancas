@@ -138,118 +138,15 @@
         android:background="#444444"
         app:layout_constraintTop_toBottomOf="@id/resumoContainer" />
 
-    <androidx.core.widget.NestedScrollView
-        android:id="@+id/scrollTransacoes"
-        android:layout_width="match_parent"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recycler_transacoes"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:fillViewport="true"
         app:layout_constraintTop_toBottomOf="@id/divider"
-        app:layout_constraintBottom_toTopOf="@id/menu_container"
-        android:overScrollMode="ifContentScrolls">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
-
-            <!-- Seção de Receitas -->
-            <LinearLayout
-                android:id="@+id/secao_receitas"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:visibility="gone">
-                <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Receitas"
-                        android:textSize="18sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:id="@+id/total_receitas"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:textColor="#008000"
-                        android:textStyle="bold"/>
-                </RelativeLayout>
-                <LinearLayout
-                    android:id="@+id/blocoReceitas"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-            </LinearLayout>
-
-            <!-- Seção de Despesas -->
-            <LinearLayout
-                android:id="@+id/secao_despesas"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp"
-                android:visibility="gone">
-                 <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Despesas"
-                        android:textSize="18sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:id="@+id/total_despesas"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:textColor="#E45757"
-                        android:textStyle="bold"/>
-                </RelativeLayout>
-                <LinearLayout
-                    android:id="@+id/blocoDespesas"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-            </LinearLayout>
-
-            <!-- Seção de Cartão -->
-            <LinearLayout
-                android:id="@+id/secao_cartao"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp"
-                android:visibility="gone">
-                 <RelativeLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Cartão de Crédito"
-                        android:textSize="18sp"
-                        android:textStyle="bold"/>
-                    <TextView
-                        android:id="@+id/total_cartao"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_alignParentEnd="true"
-                        android:textColor="#E45757"
-                        android:textStyle="bold"/>
-                </RelativeLayout>
-                <LinearLayout
-                    android:id="@+id/blocoCartao"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"/>
-            </LinearLayout>
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        app:layout_constraintBottom_toTopOf="@+id/menu_container"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:listitem="@layout/item_transacao" />
 
     <TextView
         android:id="@+id/txt_nenhuma_transacao"

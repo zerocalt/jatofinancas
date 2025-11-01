@@ -217,13 +217,9 @@ public class BottomMenuFragment extends Fragment {
 
     private void refreshCurrentActivity() {
         if (getActivity() instanceof TelaTransacoes) {
-            ((TelaTransacoes) getActivity()).carregarTransacoes();
-        } else if (getActivity() instanceof TelaFaturaCartao) {
-            ((TelaFaturaCartao) getActivity()).carregarFatura();
+            ((TelaTransacoes) getActivity()).carregarTransacoesAsync();
         } else if (getActivity() instanceof TelaPrincipal) {
-            Intent intent = new Intent(getActivity(), TelaPrincipal.class);
-            intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-            startActivity(intent);
+            ((TelaPrincipal) getActivity()).carregarDadosAsync();
         }
     }
 
