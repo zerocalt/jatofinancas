@@ -2,6 +2,7 @@ package com.example.app1;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -102,8 +103,8 @@ public class TransacaoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
 
                 // Tamanho menor e cor cinza
                 title.setTextSize(13);
-                title.setTextColor(Color.parseColor("#888888"));
-                title.setTypeface(null, android.graphics.Typeface.NORMAL);
+                title.setTextColor(Color.GRAY);
+                title.setTypeface(null, Typeface.BOLD);
             }
         }
     }
