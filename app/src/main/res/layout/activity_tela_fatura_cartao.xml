@@ -248,16 +248,4 @@
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent" />
 
-    <!-- Container para edição de despesa (usado por mostrarMenuDespesa) -->
-    <FrameLayout
-        android:id="@+id/containerFragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
-
-    <!-- Container para o FAB (usado por onFabDespesaCartaoClick) -->
-    <FrameLayout
-        android:id="@+id/fragment_abrirmenubottom"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -1,5 +1,6 @@
 package com.example.app1.data;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -11,6 +12,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ContaDAO {
+
+    public static boolean inserirConta(Context ctx, Conta conta, int idUsuario) {
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            ContentValues values = new ContentValues();
+            values.put("nome", conta.getNome());
+            values.put("saldo", conta.getSaldo());
+            values.put("tipo_conta", conta.getTipoConta());
+            values.put("cor", conta.getCor());
+            values.put("mostrar_na_tela_inicial", conta.getMostrarNaTelaInicial());
+            values.put("id_usuario", idUsuario);
+
+            long result = db.insert("contas", null, values);
+            return result != -1;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 
     /**
      * Carrega todas as contas do usuário e retorna uma lista de objetos Conta.

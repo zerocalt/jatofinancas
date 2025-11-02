@@ -14,6 +14,7 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -39,7 +40,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-public class MenuCadDespesaFragment extends Fragment {
+public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoriaFragment.OnCategoriaSalvaListener, MenuCadContaFragment.OnContaSalvaListener {
 
     private static final int MAX_VALUE = 99;
     private static final int MIN_VALUE = 2;
@@ -49,7 +50,7 @@ public class MenuCadDespesaFragment extends Fragment {
     private TextInputEditText inputValorDespesa, inputNomeDespesa, inputDataDespesa, inputObservacao;
     private EditText inputQuantRep;
     private Button btnSalvarDespesa;
-    private ImageButton btnIncrement, btnDecrement;
+    private ImageButton btnIncrement, btnDecrement, btnAddCategoria, btnAddConta;
     private TextView menuRepete;
     private LinearLayout containerRepeticao, containerQuantidade;
     private MaterialSwitch switchDespesaFixa;
@@ -64,6 +65,41 @@ public class MenuCadDespesaFragment extends Fragment {
 
     private OnTransacaoSalvaListener onTransacaoSalvaListener;
     private CompoundButton.OnCheckedChangeListener switchFixaListener;
+
+    @Override
+    public void onCategoriaSalva(String nomeCategoria) {
+        // Recarrega as categorias
+        List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuario);
+        CategoriasDropdownAdapter categoriaAdapter = new CategoriasDropdownAdapter(requireContext(), categorias);
+        autoCompleteCategoria.setAdapter(categoriaAdapter);
+
+        // Encontra e seleciona a nova categoria
+        for (int i = 0; i < categoriaAdapter.getCount(); i++) {
+            Categoria item = categoriaAdapter.getItem(i);
+            if (item != null && item.getNome().equals(nomeCategoria)) {
+                autoCompleteCategoria.setText(item.getNome(), false);
+                break;
+            }
+        }
+    }
+
+    @Override
+    public void onContaSalva(String nomeConta) {
+        // Recarrega as contas
+        List<Conta> contas = ContaDAO.carregarListaContas(requireContext(), idUsuario);
+        ArrayAdapter<Conta> contaAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
+        autoCompleteConta.setAdapter(contaAdapter);
+
+        // Encontra e seleciona a nova conta
+        for (int i = 0; i < contaAdapter.getCount(); i++) {
+            Conta item = contaAdapter.getItem(i);
+            if (item != null && item.getNome().equals(nomeConta)) {
+                autoCompleteConta.setText(item.getNome(), false);
+                contaSelecionada[0] = item;
+                break;
+            }
+        }
+    }
 
     public interface OnTransacaoSalvaListener {
         void onTransacaoSalva();
@@ -103,7 +139,7 @@ public class MenuCadDespesaFragment extends Fragment {
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_despesa, container, false);
         setupViews(root);
-        setupListeners();
+        setupListeners(root);
         carregarDadosIniciais();
         return root;
     }
@@ -126,6 +162,7 @@ public class MenuCadDespesaFragment extends Fragment {
         }
     }
 
+    @SuppressWarnings("unchecked")
     private void carregarDadosParaEdicao(int idTransacao) {
         String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
         configuraInterfacePorTipo(tipoMovimento.equals("receita") ? getString(R.string.editar_receita) : getString(R.string.editar_despesa));
@@ -222,7 +259,7 @@ public class MenuCadDespesaFragment extends Fragment {
                     } else {
                         limparCamposRecorrencia();
                     }
-                    
+
                     switchDespesaFixa.setOnCheckedChangeListener(switchFixaListener);
                 }
             }
@@ -250,6 +287,7 @@ public class MenuCadDespesaFragment extends Fragment {
         textInputDataDespesa.setHint(isReceita ? getString(R.string.data_da_receita) : getString(R.string.data_da_despesa));
     }
 
+    @SuppressWarnings("unchecked")
     private void salvarDespesa() {
         if (!validarCampos()) return;
 
@@ -365,9 +403,11 @@ public class MenuCadDespesaFragment extends Fragment {
         textInputCategoriaDespesa = root.findViewById(R.id.textInputCategoriaDespesa);
         textInputDataDespesa = root.findViewById(R.id.textInputDataDespesa);
         textInputPeriodo = root.findViewById(R.id.textInputPeriodo);
+        btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
+        btnAddConta = root.findViewById(R.id.btnAddConta);
     }
 
-    private void setupListeners() {
+    private void setupListeners(View root) {
         overlayDespesa.setOnClickListener(v -> fecharMenu());
         btnSalvarDespesa.setOnClickListener(v -> salvarDespesa());
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
@@ -425,6 +465,37 @@ public class MenuCadDespesaFragment extends Fragment {
 
         autoCompletePeriodo.setOnItemClickListener((parent, view, position, id) -> valorPeriodoSelecionado = position + 1);
         autoCompleteConta.setOnItemClickListener((parent, view, position, id) -> contaSelecionada[0] = (Conta) parent.getItemAtPosition(position));
+
+        // 👉 Abre fragment de cadastro de CATEGORIA
+        btnAddCategoria.setOnClickListener(v -> {
+            FrameLayout containerCategoria = requireActivity().findViewById(R.id.fragmentContainerCategoria);
+            containerCategoria.setVisibility(View.VISIBLE);
+
+            MenuCadCategoriaFragment fragment = MenuCadCategoriaFragment.newInstance(idUsuario);
+            fragment.setOnCategoriaSalvaListener(this);
+
+            requireActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragmentContainerCategoria, fragment)
+                    .addToBackStack(null)
+                    .commit();
+        });
+
+        // 👉 Abre fragment de cadastro de CONTA
+        btnAddConta.setOnClickListener(v -> {
+            FrameLayout containerConta = requireActivity().findViewById(R.id.fragmentContainerConta);
+            containerConta.setVisibility(View.VISIBLE);
+
+            MenuCadContaFragment fragment = MenuCadContaFragment.newInstance(idUsuario);
+            fragment.setOnContaSalvaListener(this);
+
+            requireActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragmentContainerConta, fragment)
+                    .addToBackStack(null)
+                    .commit();
+        });
+
     }
 
     private int getNumberFromEditText() {

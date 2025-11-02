@@ -227,7 +227,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
     private void salvarCartao() {
         String nome = ((TextInputEditText) findViewById(R.id.inputNomeCartao)).getText().toString().trim();
         String bandeira = ((MaterialAutoCompleteTextView) findViewById(R.id.autoCompleteBandeira)).getText().toString().trim();
-        String limiteStr = ((TextInputEditText) findViewById(R.id.inputLimite)).getText().toString().replaceAll("[^\\d,.]", "").replace(".", "").replace(",", ".");
+        String limiteStr = ((TextInputEditText) findViewById(R.id.inputLimite)).getText().toString().replaceAll("[^0-9,.]", "").replace(".", "").replace(",", ".");
         String vencimentoStr = ((TextInputEditText) findViewById(R.id.inputDiaVencimento)).getText().toString().trim();
         String fechamentoStr = ((TextInputEditText) findViewById(R.id.inputDiaFechamento)).getText().toString().trim();
         String cor = ((TextInputEditText) findViewById(R.id.inputCor)).getText().toString().trim();

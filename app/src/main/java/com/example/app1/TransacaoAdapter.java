@@ -99,6 +99,11 @@ public class TransacaoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
                 }
             } else { // Date Header
                 total.setVisibility(View.GONE);
+
+                // Tamanho menor e cor cinza
+                title.setTextSize(13);
+                title.setTextColor(Color.parseColor("#888888"));
+                title.setTypeface(null, android.graphics.Typeface.NORMAL);
             }
         }
     }

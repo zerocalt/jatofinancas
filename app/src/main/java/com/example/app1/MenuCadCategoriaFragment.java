@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
@@ -61,15 +62,10 @@ public class MenuCadCategoriaFragment extends Fragment {
             idUsuarioLogado = getArguments().getInt("id_usuario", -1);
         }
 
-        backCallback = new OnBackPressedCallback(false) {
+        backCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 fecharMenu();
-                if (getActivity() != null) {
-                    View container = getActivity().findViewById(R.id.fragmentContainerCategoria);
-                    if (container != null) container.setVisibility(View.GONE);
-                }
-                setEnabled(false);
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
@@ -134,13 +130,18 @@ public class MenuCadCategoriaFragment extends Fragment {
         backCallback.setEnabled(true);
     }
 
-    public void fecharMenu() {
-        slidingMenuCategoria.animate().translationY(slidingMenuCategoria.getHeight()).setDuration(300)
-                .withEndAction(() -> {
-                    slidingMenuCategoria.setVisibility(View.GONE);
-                    overlayCategoria.setVisibility(View.GONE);
-                    backCallback.setEnabled(false);
-                }).start();
+    private void fecharMenu() {
+        if (isAdded()) {
+            slidingMenuCategoria.animate().translationY(slidingMenuCategoria.getHeight()).setDuration(300).withEndAction(() -> {
+                if (isAdded()) {
+                    getParentFragmentManager().beginTransaction().remove(this).commit();
+                    View container = requireActivity().findViewById(R.id.fragmentContainerCategoria);
+                    if (container != null) {
+                        container.setVisibility(View.GONE);
+                    }
+                }
+            }).start();
+        }
     }
 
     private void salvarCategoria() {
@@ -176,4 +177,22 @@ public class MenuCadCategoriaFragment extends Fragment {
         }
     }
 
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+
+        // Esconde o container da categoria ao sair
+        if (isAdded()) {
+            FrameLayout container = requireActivity().findViewById(R.id.fragmentContainerCategoria);
+            if (container != null) {
+                container.setVisibility(View.GONE);
+            }
+        }
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        abrirMenu();
+    }
 }

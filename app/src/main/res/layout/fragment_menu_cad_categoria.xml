@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/rootMenuConta" android:layout_width="match_parent" android:layout_height="match_parent">
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootCategoria"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <!-- Fundo escurecido quando o menu está aberto -->
     <View
@@ -7,7 +11,8 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="#99000000"
-        android:visibility="gone" />
+        android:clickable="true"
+        android:focusable="true" />
 
     <!-- Menu que desliza para cima, fixado ao rodapé -->
     <LinearLayout

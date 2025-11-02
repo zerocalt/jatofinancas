@@ -12,6 +12,8 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.TextView;
 
 import androidx.activity.OnBackPressedCallback;
@@ -36,7 +38,7 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-public class MenuCadDespesaCartaoFragment extends Fragment {
+public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCategoriaFragment.OnCategoriaSalvaListener {
 
     private View overlayDespesaCartao;
     private View slidingMenuDespesaCartao;
@@ -50,6 +52,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
     private OnBackPressedCallback backCallback;
     private MaterialAutoCompleteTextView autoCompleteParcelas;
     private TextInputEditText inputObservacao;
+    private ImageButton btnAddCategoria;
 
     private int idTransacaoEditando = -1;
 
@@ -66,6 +69,21 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         args.putInt("id_cartao", idCartao);
         fragment.setArguments(args);
         return fragment;
+    }
+
+    @Override
+    public void onCategoriaSalva(String nomeCategoria) {
+        List<Categoria> categorias = CategoriaDAO.carregarCategorias(requireContext(), idUsuarioLogado);
+        CategoriasDropdownAdapter categoriasAdapter = new CategoriasDropdownAdapter(requireContext(), categorias);
+        autoCompleteCategoria.setAdapter(categoriasAdapter);
+
+        for (int i = 0; i < categoriasAdapter.getCount(); i++) {
+            Categoria item = categoriasAdapter.getItem(i);
+            if (item != null && item.getNome().equals(nomeCategoria)) {
+                autoCompleteCategoria.setText(item.getNome(), false);
+                break;
+            }
+        }
     }
 
     @Override
@@ -111,6 +129,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
         inputObservacao = root.findViewById(R.id.inputObservacao);
         autoCompleteParcelas = root.findViewById(R.id.autoCompleteParcelas);
         btnSalvarDespesaCartao = root.findViewById(R.id.btnSalvarDespesaCartao);
+        btnAddCategoria = root.findViewById(R.id.btnAddCategoria);
     }
 
     private void setupUI(View root) {
@@ -153,6 +172,20 @@ public class MenuCadDespesaCartaoFragment extends Fragment {
             } else {
                 salvarNovaDespesa();
             }
+        });
+
+        btnAddCategoria.setOnClickListener(v -> {
+            FrameLayout containerCategoria = requireActivity().findViewById(R.id.fragmentContainerCategoria);
+            containerCategoria.setVisibility(View.VISIBLE);
+
+            MenuCadCategoriaFragment fragment = MenuCadCategoriaFragment.newInstance(idUsuarioLogado);
+            fragment.setOnCategoriaSalvaListener(this);
+
+            requireActivity().getSupportFragmentManager()
+                    .beginTransaction()
+                    .replace(R.id.fragmentContainerCategoria, fragment)
+                    .addToBackStack(null)
+                    .commit();
         });
 
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());

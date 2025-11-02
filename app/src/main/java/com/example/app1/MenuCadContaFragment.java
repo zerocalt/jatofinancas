@@ -1,13 +1,12 @@
 package com.example.app1;
 
-import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.RadioGroup;
 
 import androidx.activity.OnBackPressedCallback;
@@ -15,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
+import com.example.app1.data.ContaDAO;
 import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -34,14 +34,10 @@ public class MenuCadContaFragment extends Fragment {
     private MaterialAutoCompleteTextView autoCompleteTipoConta;
     private RadioGroup radioGroupMostrar;
 
-    private MeuDbHelper dbHelper;
-    private SQLiteDatabase db;
-
     private int idUsuarioLogado = -1;
 
     private OnBackPressedCallback backCallback;
 
-    // Interface para callback quando uma conta for salva
     public interface OnContaSalvaListener {
         void onContaSalva(String nomeConta);
     }
@@ -67,15 +63,10 @@ public class MenuCadContaFragment extends Fragment {
             idUsuarioLogado = getArguments().getInt("id_usuario", -1);
         }
 
-        backCallback = new OnBackPressedCallback(false) {
+        backCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 fecharMenu();
-                if (getActivity() != null) {
-                    View container = getActivity().findViewById(R.id.fragmentContainerConta);
-                    if (container != null) container.setVisibility(View.GONE);
-                }
-                setEnabled(false);
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
@@ -98,8 +89,6 @@ public class MenuCadContaFragment extends Fragment {
         radioGroupMostrar = root.findViewById(R.id.radioGroupMostrarNaTelaInicial);
         btnSalvarConta = root.findViewById(R.id.btnSalvarConta);
 
-        dbHelper = new MeuDbHelper(requireContext());
-
         inputNomeConta.addTextChangedListener(new android.text.TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
@@ -121,13 +110,10 @@ public class MenuCadContaFragment extends Fragment {
         inputCorConta.setOnClickListener(v -> {
             new ColorPickerDialog.Builder(requireContext())
                     .setTitle("Escolha uma cor")
-                    .setPositiveButton("Confirmar", new ColorEnvelopeListener() {
-                        @Override
-                        public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
-                            String hex = "#" + envelope.getHexCode();
-                            inputCorConta.setText(hex);
-                            inputCorConta.setTextColor(envelope.getColor());
-                        }
+                    .setPositiveButton("Confirmar", (ColorEnvelopeListener) (envelope, fromUser) -> {
+                        String hex = "#" + envelope.getHexCode();
+                        inputCorConta.setText(hex);
+                        inputCorConta.setTextColor(envelope.getColor());
                     })
                     .setNegativeButton("Cancelar", (dialogInterface, i) -> dialogInterface.dismiss())
                     .attachAlphaSlideBar(true)
@@ -141,6 +127,12 @@ public class MenuCadContaFragment extends Fragment {
         return root;
     }
 
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        abrirMenu();
+    }
+
     public void abrirMenu() {
         overlayConta.setVisibility(View.VISIBLE);
         slidingMenuConta.setVisibility(View.VISIBLE);
@@ -152,18 +144,22 @@ public class MenuCadContaFragment extends Fragment {
     }
 
     public void fecharMenu() {
-        slidingMenuConta.animate().translationY(slidingMenuConta.getHeight()).setDuration(300)
-                .withEndAction(() -> {
-                    slidingMenuConta.setVisibility(View.GONE);
-                    overlayConta.setVisibility(View.GONE);
-                    backCallback.setEnabled(false);
-                }).start();
+        if (isAdded()) {
+            slidingMenuConta.animate().translationY(slidingMenuConta.getHeight()).setDuration(300).withEndAction(() -> {
+                if (isAdded()) {
+                    getParentFragmentManager().beginTransaction().remove(this).commit();
+                    View container = requireActivity().findViewById(R.id.fragmentContainerConta);
+                    if (container != null) {
+                        container.setVisibility(View.GONE);
+                    }
+                }
+            }).start();
+        }
     }
 
     private void salvarConta() {
         String nome = inputNomeConta.getText().toString().trim();
         String saldoStr = inputSaldoConta.getText().toString().trim();
-        saldoStr = saldoStr.replace("R$", "").replaceAll("[^0-9,]", "").trim();
         String cor = inputCorConta.getText().toString().trim();
         String tipoStr = autoCompleteTipoConta.getText().toString().trim();
 
@@ -176,15 +172,20 @@ public class MenuCadContaFragment extends Fragment {
 
         double saldo = 0;
         try {
-            if (!saldoStr.isEmpty()) {
-                saldo = Double.parseDouble(saldoStr.replace(",", "."));
+             if (!saldoStr.isEmpty()) {
+                String valorLimpo = saldoStr.replace("R$", "").replaceAll("[^0-9,.]", "").replace(".", "").replace(",", ".");
+                saldo = Double.parseDouble(valorLimpo);
             }
         } catch (NumberFormatException e) {
-            Snackbar.make(requireView(), "Saldo inválido. Use apenas números.", Snackbar.LENGTH_LONG).show();
+            Snackbar.make(requireView(), "Saldo inválido.", Snackbar.LENGTH_LONG).show();
             return;
         }
 
-        int tipoConta = 0;
+        if (cor.isEmpty()) {
+            cor = "#000000";
+        }
+
+        int tipoConta;
         switch (tipoStr.toLowerCase()) {
             case "corrente":
                 tipoConta = 1;
@@ -196,33 +197,22 @@ public class MenuCadContaFragment extends Fragment {
                 tipoConta = 3;
                 break;
             default:
-                tipoConta = 0;
-        }
-
-        if (cor.isEmpty()) {
-            cor = "#000000";
+                tipoConta = 0; // Outros
         }
 
         int mostrar = (radioGroupMostrar.getCheckedRadioButtonId() == R.id.radioMostrarSim) ? 1 : 0;
 
-        db = dbHelper.getWritableDatabase();
-        ContentValues valores = new ContentValues();
-        valores.put("nome", nome);
-        valores.put("saldo", saldo);
-        valores.put("tipo_conta", tipoConta);
-        valores.put("cor", cor);
-        valores.put("mostrar_na_tela_inicial", mostrar);
-        valores.put("id_usuario", idUsuarioLogado);
+        Conta novaConta = new Conta(nome, saldo, tipoConta, cor, mostrar);
 
-        long res = db.insert("contas", null, valores);
-        db.close();
+        boolean sucesso = ContaDAO.inserirConta(requireContext(), novaConta, idUsuarioLogado);
 
-        if (res != -1) {
-            fecharMenu();
-            limparCampos();
+        if (sucesso) {
+            Snackbar.make(requireView(), "Conta salva com sucesso!", Snackbar.LENGTH_SHORT).show();
             if (listener != null) {
                 listener.onContaSalva(nome);
             }
+            limparCampos();
+            fecharMenu();
         } else {
             Snackbar.make(requireView(), "Erro ao salvar conta.", Snackbar.LENGTH_LONG).show();
         }
@@ -234,5 +224,16 @@ public class MenuCadContaFragment extends Fragment {
         inputCorConta.setText("");
         autoCompleteTipoConta.setText("");
         radioGroupMostrar.check(R.id.radioMostrarSim);
+    }
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+        if (isAdded()) {
+            FrameLayout container = requireActivity().findViewById(R.id.fragmentContainerConta);
+            if (container != null) {
+                container.setVisibility(View.GONE);
+            }
+        }
     }
 }
