@@ -9,6 +9,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -18,26 +19,36 @@ import androidx.constraintlayout.widget.Group;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
+import com.example.app1.data.CartaoDAO;
+import com.example.app1.data.ContaDAO;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class TelaPrincipal extends AppCompatActivity {
     private TextView txtMes, txtAno;
-    private TextView saldoContas, receitasMes, despesasMes, valorReceitasPendentes, valorDespesasPendentes;
-    private LinearLayout receitasPendentes, despesasPendentes, alertasPendentes;
+    private TextView saldoContas, receitasMes, despesasMes, valorReceitasPendentes, valorDespesasPendentes, txtTotalContas, txtTotalCartao;
+    private LinearLayout receitasPendentes, despesasPendentes, alertasPendentes, totalContasLayout, layoutContas, layoutCartoes, totalCartaoLayout;
     private ProgressBar progressBar;
     private Group groupContent;
+    private RecyclerView recyclerContas, recyclerCartao;
+    private ContasAdapter contasAdapter;
+    private CartaoPrincipalAdapter cartaoAdapter;
+    private View dividerContas, dividerCartao;
     private int idUsuarioLogado = -1;
 
     // Classe para armazenar os resultados dos cálculos
@@ -47,6 +58,8 @@ public class TelaPrincipal extends AppCompatActivity {
         double totalDespesas;
         double receitasPendentes;
         double despesasPendentes;
+        List<Conta> contas;
+        List<CartaoFatura> cartoes;
     }
 
     @Override
@@ -76,6 +89,25 @@ public class TelaPrincipal extends AppCompatActivity {
         alertasPendentes = findViewById(R.id.alertasPendentes);
         progressBar = findViewById(R.id.progressBar);
         groupContent = findViewById(R.id.groupContent);
+        layoutContas = findViewById(R.id.layoutContas);
+        recyclerContas = findViewById(R.id.recyclerContas);
+        txtTotalContas = findViewById(R.id.txtTotalContas);
+        dividerContas = findViewById(R.id.dividerContas);
+        totalContasLayout = findViewById(R.id.totalContasLayout);
+        layoutCartoes = findViewById(R.id.layoutCartoes);
+        recyclerCartao = findViewById(R.id.recyclerCartao);
+        txtTotalCartao = findViewById(R.id.txtTotalCartao);
+        dividerCartao = findViewById(R.id.dividerCartao);
+        totalCartaoLayout = findViewById(R.id.totalCartaoLayout);
+
+        // Setup RecyclerViews
+        recyclerContas.setLayoutManager(new LinearLayoutManager(this));
+        contasAdapter = new ContasAdapter(this, new ArrayList<>());
+        recyclerContas.setAdapter(contasAdapter);
+
+        recyclerCartao.setLayoutManager(new LinearLayoutManager(this));
+        cartaoAdapter = new CartaoPrincipalAdapter(this, new ArrayList<>());
+        recyclerCartao.setAdapter(cartaoAdapter);
 
         // Setup inicial
         Calendar agora = Calendar.getInstance();
@@ -91,12 +123,12 @@ public class TelaPrincipal extends AppCompatActivity {
         fragment.setArguments(args);
         getSupportFragmentManager().beginTransaction().replace(R.id.menu_container, fragment).commit();
 
-        // Inicia o carregamento dos dados
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE);
+
         carregarDadosAsync();
     }
 
     public void carregarDadosAsync() {
-        // Mostra o loading e esconde o conteúdo
         progressBar.setVisibility(View.VISIBLE);
         groupContent.setVisibility(View.GONE);
 
@@ -104,10 +136,7 @@ public class TelaPrincipal extends AppCompatActivity {
         Handler handler = new Handler(Looper.getMainLooper());
 
         executor.execute(() -> {
-            // Lógica de cálculo em segundo plano
             ResumoFinanceiro resumo = calcularResumoFinanceiro();
-
-            // Após o término, atualiza a UI na thread principal
             handler.post(() -> {
                 atualizarUIComResumo(resumo);
                 progressBar.setVisibility(View.GONE);
@@ -119,36 +148,35 @@ public class TelaPrincipal extends AppCompatActivity {
     private ResumoFinanceiro calcularResumoFinanceiro() {
         ResumoFinanceiro resumo = new ResumoFinanceiro();
         
-        String mesStr = txtMes.getText().toString();
         int ano = Integer.parseInt(txtAno.getText().toString());
-        int mes = getMesIndex(mesStr);
+        int mes = getMesIndex(txtMes.getText().toString());
         String mesAnoSelecionado = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
+
+        resumo.contas = ContaDAO.getContasTelaInicial(this, idUsuarioLogado);
+        resumo.cartoes = CartaoDAO.getCartoesComFatura(this, idUsuarioLogado, ano, mes);
 
         try (MeuDbHelper dbHelper = new MeuDbHelper(this);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // Saldo total (não depende do mês)
-            try (Cursor c = db.rawQuery("SELECT SUM(saldo) FROM contas WHERE id_usuario = ?", new String[]{String.valueOf(idUsuarioLogado)})) {
+            try (Cursor c = db.rawQuery("SELECT SUM(saldo) FROM contas WHERE id_usuario = ? AND mostrar_na_tela_inicial = 1", new String[]{String.valueOf(idUsuarioLogado)})) {
                 if (c.moveToFirst()) resumo.saldoTotalContas = c.getDouble(0);
             }
             
-            // Transações do mês
             String queryExistentes = "SELECT valor, tipo, pago, recebido FROM transacoes WHERE id_usuario = ? AND substr(data_movimentacao, 1, 7) = ?";
             try (Cursor cur = db.rawQuery(queryExistentes, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado})) {
                 while (cur.moveToNext()) {
                     double valor = cur.getDouble(0);
                     int tipo = cur.getInt(1);
-                    if (tipo == 1) { // Receita
+                    if (tipo == 1) {
                         resumo.totalReceitas += valor;
                         if (cur.getInt(3) == 0) resumo.receitasPendentes += valor;
-                    } else { // Despesa
+                    } else {
                         resumo.totalDespesas += valor;
                         if (cur.getInt(2) == 0) resumo.despesasPendentes += valor;
                     }
                 }
             }
 
-            // Projeções de recorrentes
             String queryProjecao = "SELECT mestre.valor, mestre.tipo, mestre.data_movimentacao, mestre.repetir_periodo FROM transacoes AS mestre WHERE mestre.id_usuario = ? AND mestre.recorrente = 1 AND mestre.recorrente_ativo = 1 AND mestre.id_mestre IS NULL AND substr(mestre.data_movimentacao, 1, 7) <= ? AND NOT EXISTS (SELECT 1 FROM transacoes AS filha WHERE filha.id_mestre = mestre.id AND substr(filha.data_movimentacao, 1, 7) = ?)";
             try (Cursor curMestre = db.rawQuery(queryProjecao, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado, mesAnoSelecionado})) {
                 while (curMestre.moveToNext()) {
@@ -166,7 +194,6 @@ public class TelaPrincipal extends AppCompatActivity {
                 }
             }
 
-            // Faturas de cartão
             String queryFaturas = "SELECT f.valor_total, f.status FROM faturas f JOIN cartoes c ON f.id_cartao = c.id WHERE c.id_usuario = ? AND substr(f.data_vencimento, 1, 7) = ?";
             try (Cursor curFaturas = db.rawQuery(queryFaturas, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado})) {
                 while (curFaturas.moveToNext()) {
@@ -201,6 +228,41 @@ public class TelaPrincipal extends AppCompatActivity {
         receitasPendentes.setVisibility(mostrarReceitasPendentes ? View.VISIBLE : View.GONE);
         despesasPendentes.setVisibility(mostrarDespesasPendentes ? View.VISIBLE : View.GONE);
         alertasPendentes.setVisibility(mostrarReceitasPendentes || mostrarDespesasPendentes ? View.VISIBLE : View.GONE);
+
+        // Atualizar contas
+        if (resumo.contas != null && !resumo.contas.isEmpty()) {
+            layoutContas.setVisibility(View.VISIBLE);
+            contasAdapter.setContas(resumo.contas);
+
+            double total = 0;
+            for (Conta conta : resumo.contas) {
+                total += conta.getSaldo();
+            }
+            txtTotalContas.setText(formatarBR(total));
+            txtTotalContas.setTextColor(Color.WHITE);
+
+            dividerContas.setVisibility(View.VISIBLE);
+            totalContasLayout.setVisibility(View.VISIBLE);
+        } else {
+            layoutContas.setVisibility(View.GONE);
+        }
+
+        // Atualizar cartões
+        if (resumo.cartoes != null && !resumo.cartoes.isEmpty()) {
+            layoutCartoes.setVisibility(View.VISIBLE);
+            cartaoAdapter.setCartoes(resumo.cartoes);
+
+            double total = 0;
+            for (CartaoFatura cf : resumo.cartoes) {
+                total += cf.getValorFatura();
+            }
+            txtTotalCartao.setText(formatarBR(total));
+
+            dividerCartao.setVisibility(View.VISIBLE);
+            totalCartaoLayout.setVisibility(View.VISIBLE);
+        } else {
+            layoutCartoes.setVisibility(View.GONE);
+        }
     }
 
     private boolean shouldOccurInMonth(String dataInicioStr, int repetirPeriodo, int anoSelecionado, int mesSelecionado) {
@@ -255,7 +317,7 @@ public class TelaPrincipal extends AppCompatActivity {
         dialogFragment.setOnDateSetListener((year, monthOfYear) -> {
             txtMes.setText(nomesMes[monthOfYear]);
             txtAno.setText(String.valueOf(year));
-            carregarDadosAsync(); // Recarrega os dados para o novo mês
+            carregarDadosAsync();
         });
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");
     }

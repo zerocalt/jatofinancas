@@ -10,6 +10,16 @@
         android:visibility="gone" />
 
     <!-- Menu que desliza para cima, fixado ao rodapé -->
+    <ScrollView
+        android:id="@+id/scrollMenuDespesa"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fillViewport="true"
+        android:layout_gravity="bottom"
+        android:overScrollMode="ifContentScrolls"
+        android:scrollbars="none">
+
+    <!-- Menu que desliza para cima, fixado ao rodapé -->
     <LinearLayout
         android:id="@+id/slidingMenuDespesa"
         android:layout_width="match_parent"
@@ -79,7 +89,7 @@
                 android:id="@+id/inputNomeDespesa"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="text" />
+                android:inputType="textCapSentences" />
 
         </com.google.android.material.textfield.TextInputLayout>
 
@@ -251,7 +261,7 @@
                 android:id="@+id/inputObservacao"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textMultiLine"
+                android:inputType="textMultiLine|textCapSentences"
                 android:minLines="1"
                 android:maxLines="6"
                 android:gravity="top|start"
@@ -411,6 +421,8 @@
             android:textColor="#FFF"/>
 
     </LinearLayout>
+
+    </ScrollView>
 
     <!-- abre o menu cadConta -->
     <FrameLayout

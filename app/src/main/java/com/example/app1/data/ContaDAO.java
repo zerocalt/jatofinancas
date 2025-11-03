@@ -32,13 +32,34 @@ public class ContaDAO {
         }
     }
 
-    /**
-     * Carrega todas as contas do usuário e retorna uma lista de objetos Conta.
-     *
-     * @param ctx        Contexto da aplicação.
-     * @param idUsuario  ID do usuário logado.
-     * @return Lista de contas pertencentes ao usuário.
-     */
+    public static List<Conta> getContasTelaInicial(Context ctx, int idUsuario) {
+        List<Conta> contas = new ArrayList<>();
+        if (idUsuario == -1) {
+            return contas;
+        }
+
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getReadableDatabase();
+             Cursor cursor = db.rawQuery(
+                     "SELECT id, nome, saldo, tipo_conta, cor, mostrar_na_tela_inicial " +
+                             "FROM contas WHERE id_usuario = ? AND mostrar_na_tela_inicial = 1 ORDER BY nome COLLATE NOCASE ASC",
+                     new String[]{String.valueOf(idUsuario)})) {
+
+            while (cursor.moveToNext()) {
+                int id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
+                String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
+                double saldo = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
+                int tipoConta = cursor.getInt(cursor.getColumnIndexOrThrow("tipo_conta"));
+                String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
+                int mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial"));
+                contas.add(new Conta(id, nome, saldo, tipoConta, cor, mostrarNaTelaInicial));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return contas;
+    }
+
     public static List<Conta> carregarListaContas(Context ctx, int idUsuario) {
         List<Conta> contas = new ArrayList<>();
 

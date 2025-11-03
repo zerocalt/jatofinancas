@@ -7,12 +7,14 @@ import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
 
 import com.example.app1.Cartao;
-import com.example.app1.TelaCadCartao;
+import com.example.app1.CartaoFatura;
 import com.example.app1.MeuDbHelper;
+import com.example.app1.TelaCadCartao;
 
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 public class CartaoDAO {
 
@@ -156,4 +158,40 @@ public class CartaoDAO {
         }
         return cartoes;
     }
+
+    public static List<CartaoFatura> getCartoesComFatura(Context context, int idUsuario, int ano, int mes) {
+        List<CartaoFatura> listaCartaoFatura = new ArrayList<>();
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        String queryCartoes = "SELECT id, nome, bandeira, cor, data_vencimento_fatura FROM cartoes WHERE id_usuario = ? AND ativo = 1 ORDER BY nome ASC";
+        try (Cursor cursorCartoes = db.rawQuery(queryCartoes, new String[]{String.valueOf(idUsuario)})) {
+            while (cursorCartoes.moveToNext()) {
+                int idCartao = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("id"));
+                String nome = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("nome"));
+                String bandeira = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("bandeira"));
+                String cor = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("cor"));
+                int diaVencimento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_vencimento_fatura"));
+
+                Cartao cartao = new Cartao(idCartao, nome);
+                cartao.setBandeira(bandeira);
+                cartao.setCor(cor);
+                cartao.setDataVencimentoFatura(diaVencimento);
+
+                // Calcular o valor da fatura para o mês e ano especificados
+                String mesAnoFatura = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
+                double valorFatura = 0;
+                String queryFatura = "SELECT SUM(valor_total) FROM faturas WHERE id_cartao = ? AND substr(data_vencimento, 1, 7) = ?";
+                try (Cursor cursorFatura = db.rawQuery(queryFatura, new String[]{String.valueOf(idCartao), mesAnoFatura})) {
+                    if (cursorFatura.moveToFirst()) {
+                        valorFatura = cursorFatura.getDouble(0);
+                    }
+                }
+
+                listaCartaoFatura.add(new CartaoFatura(cartao, valorFatura));
+            }
+        }
+        return listaCartaoFatura;
+    }
+
 }
