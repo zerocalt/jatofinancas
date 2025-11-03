@@ -11,6 +11,7 @@ import android.text.TextUtils;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
@@ -23,6 +24,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.security.crypto.EncryptedSharedPreferences;
@@ -38,7 +40,6 @@ import com.google.android.material.textfield.TextInputEditText;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -47,9 +48,10 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
 
     private LinearLayout semCartao;
     private RecyclerView listaCartoes;
-    private FloatingActionButton fabAddCartao;
+    private FloatingActionButton fabAddCartao, btnAddConta;
     private LinearLayout slidingMenu;
     private View overlay;
+    private FrameLayout fragmentContainerConta;
 
     private SharedPreferences sharedPreferences;
     private int idUsuarioLogado = -1;
@@ -77,6 +79,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
     protected void onResume() {
         super.onResume();
         carregarCartoesAsync();
+        carregarDropdowns(); // Refresh account list on return
     }
 
     private void bindViews() {
@@ -85,6 +88,9 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         fabAddCartao = findViewById(R.id.addcartao);
         overlay = findViewById(R.id.overlay);
         slidingMenu = findViewById(R.id.slidingMenu);
+        btnAddConta = findViewById(R.id.btnAddConta);
+        fragmentContainerConta = findViewById(R.id.fragmentContainerConta);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -112,6 +118,15 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
     private void setupListeners() {
         fabAddCartao.setOnClickListener(v -> abrirSlidingMenuParaEdicao(null));
         overlay.setOnClickListener(v -> closeSlidingMenu());
+
+        btnAddConta.setOnClickListener(v -> {
+            fragmentContainerConta.setVisibility(View.VISIBLE);
+            MenuCadContaFragment fragment = MenuCadContaFragment.newInstance(idUsuarioLogado);
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragmentContainerConta, fragment)
+                    .addToBackStack(null) // Add to back stack to handle back press correctly
+                    .commit();
+        });
 
         ((TextInputEditText) findViewById(R.id.inputCor)).setOnClickListener(v -> {
             // Color picker logic
@@ -157,7 +172,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         this.idCartaoEdicao = idCartao;
 
         if (idCartao != null) {
-            ((TextView) findViewById(R.id.tituloSlidingMenu)).setText("Editar Cartão");
+            ((TextView) findViewById(R.id.tituloSlidingMenu)).setText("Editar Cartão de Crédito");
             ((Button) findViewById(R.id.btnSalvarCartao)).setText("Salvar Alterações");
 
             ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -191,7 +206,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
                 });
             });
         } else {
-            ((TextView) findViewById(R.id.tituloSlidingMenu)).setText("Adicionar Cartão");
+            ((TextView) findViewById(R.id.tituloSlidingMenu)).setText("Adicionar Cartão de Crédito");
             ((Button) findViewById(R.id.btnSalvarCartao)).setText("Salvar Cartão");
             limparCampos();
         }
@@ -329,6 +344,23 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         intent.putExtra("id_cartao", idCartao);
         intent.putExtra("id_usuario", idUsuario);
         startActivity(intent);
+    }
+
+    @Override
+    public void onBackPressed() {
+        // If a fragment is showing, pop it from the back stack
+        if (getSupportFragmentManager().getBackStackEntryCount() > 0) {
+            getSupportFragmentManager().popBackStack();
+            fragmentContainerConta.setVisibility(View.GONE);
+        } 
+        // If the sliding menu is visible, close it
+        else if (slidingMenu.getVisibility() == View.VISIBLE) {
+            closeSlidingMenu();
+        } 
+        // Otherwise, perform the default back action (finish activity)
+        else {
+            super.onBackPressed();
+        }
     }
 
     public static class CartaoModel {
