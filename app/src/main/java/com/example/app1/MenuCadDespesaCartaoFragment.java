@@ -56,12 +56,6 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
     private int idTransacaoEditando = -1;
 
-    private OnDespesaSalvaListener onDespesaSalvaListener;
-
-    public void setOnDespesaSalvaListener(OnDespesaSalvaListener listener) {
-        this.onDespesaSalvaListener = listener;
-    }
-
     public static MenuCadDespesaCartaoFragment newInstance(int idUsuario, int idCartao) {
         MenuCadDespesaCartaoFragment fragment = new MenuCadDespesaCartaoFragment();
         Bundle args = new Bundle();
@@ -89,10 +83,10 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        backCallback = new OnBackPressedCallback(false) {
+        backCallback = new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                fecharMenu();
+                fecharMenu(false);
             }
         };
         requireActivity().getOnBackPressedDispatcher().addCallback(this, backCallback);
@@ -165,7 +159,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
-        overlayDespesaCartao.setOnClickListener(v -> fecharMenu());
+        overlayDespesaCartao.setOnClickListener(v -> fecharMenu(false));
         btnSalvarDespesaCartao.setOnClickListener(v -> {
             if (idTransacaoEditando > 0) {
                 atualizarDespesa(idTransacaoEditando);
@@ -260,18 +254,22 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         backCallback.setEnabled(true);
     }
 
-    public void fecharMenu() {
+    public void fecharMenu(boolean despesaSalva) {
         InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
         if (getView() != null) imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+
+        if (despesaSalva) {
+            Bundle result = new Bundle();
+            result.putBoolean("atualizar", true);
+            getParentFragmentManager().setFragmentResult("despesaSalvaRequest", result);
+        }
+
         slidingMenuDespesaCartao.animate()
                 .translationY(slidingMenuDespesaCartao.getHeight())
                 .setDuration(300)
                 .withEndAction(() -> {
-                    if (onDespesaSalvaListener != null) {
-                        onDespesaSalvaListener.onDespesaSalva();
-                    }
                     if (getParentFragmentManager() != null) {
-                        getParentFragmentManager().beginTransaction().remove(this).commit();
+                        getParentFragmentManager().popBackStack();
                     }
                 }).start();
     }
@@ -344,7 +342,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
                 db.setTransactionSuccessful();
                 Snackbar.make(requireView(), "Despesa salva com sucesso!", Snackbar.LENGTH_LONG).show();
-                fecharMenu();
+                fecharMenu(true);
 
             } catch (Exception e) {
                 Log.e("SalvarDespesa", "Erro durante transação de salvamento", e);
@@ -381,7 +379,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
                 db.setTransactionSuccessful();
                 Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
-                fecharMenu();
+                fecharMenu(true);
 
             } catch (Exception e) {
                 Log.e("AtualizarDespesa", "Erro durante transação de atualização", e);
@@ -471,9 +469,5 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
             v.put("parcelas", quantidadeParcelas);
             return v;
         }
-    }
-
-    public interface OnDespesaSalvaListener {
-        void onDespesaSalva();
     }
 }

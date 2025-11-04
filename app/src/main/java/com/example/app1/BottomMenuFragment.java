@@ -45,6 +45,12 @@ public class BottomMenuFragment extends Fragment {
                              Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.fragment_bottom_menu, container, false);
 
+        getParentFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
+            if (bundle.getBoolean("atualizar")) {
+                refreshCurrentActivity();
+            }
+        });
+
         setupNavigation(v);
         setupFabMenu(v);
 
@@ -198,7 +204,6 @@ public class BottomMenuFragment extends Fragment {
 
             if (tipo.equals("despesa_cartao")) {
                 MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuario, -1);
-                fragment.setOnDespesaSalvaListener(() -> refreshCurrentActivity());
                 activity.getSupportFragmentManager().beginTransaction()
                         .replace(containerId, fragment).addToBackStack(null).commit();
             } else {
@@ -218,10 +223,32 @@ public class BottomMenuFragment extends Fragment {
     private void refreshCurrentActivity() {
         if (getActivity() instanceof TelaTransacoes) {
             ((TelaTransacoes) getActivity()).carregarTransacoesAsync();
+
         } else if (getActivity() instanceof TelaPrincipal) {
             ((TelaPrincipal) getActivity()).carregarDadosAsync();
+
+        } else if (getActivity() instanceof TelaFaturaCartao) {
+            TelaFaturaCartao tela = (TelaFaturaCartao) getActivity();
+            int idCartao = tela.getIdCartao();
+            int idUsuario = tela.getIdUsuario(); // 👈 adiciona este getter na TelaFaturaCartao se ainda não tiver
+
+            if (idCartao == -1 || idUsuario == -1) {
+                Toast.makeText(getContext(), "Erro: id do cartão ou usuário inválido", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            Intent intent = new Intent(getContext(), TelaFaturaCartao.class);
+            intent.putExtra("id_cartao", idCartao);
+            intent.putExtra("id_usuario", idUsuario); // 👈 garante envio dos dois dados
+            intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            getActivity().finish();
+            startActivity(intent);
         }
     }
+
+
+
 
     private void openMenu(View overlay, View quickActions, View... fabs) {
         overlay.setVisibility(View.VISIBLE);

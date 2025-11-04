@@ -66,6 +66,12 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_tela_cad_cartao);
 
+        getSupportFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
+            if (bundle.getBoolean("atualizar")) {
+                carregarCartoesAsync();
+            }
+        });
+
         bindViews();
         setupSharedPreferences();
         setupRecyclerView();
@@ -150,7 +156,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         autoCompleteConta.setAdapter(contasAdapter);
     }
 
-    private void carregarCartoesAsync() {
+    public void carregarCartoesAsync() {
         if (idUsuarioLogado == -1) return;
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -330,10 +336,11 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
 
     @Override
     public void onAddDespesaClick(int idCartao) {
+        FrameLayout container = findViewById(R.id.containerFragment); 
+        container.setVisibility(View.VISIBLE);
         MenuCadDespesaCartaoFragment despesaFragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
-        despesaFragment.setOnDespesaSalvaListener(this::carregarCartoesAsync);
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.fragmentContainerDespesa, despesaFragment)
+                .replace(R.id.containerFragment, despesaFragment)
                 .addToBackStack(null)
                 .commit();
     }

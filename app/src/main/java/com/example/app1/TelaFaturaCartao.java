@@ -69,6 +69,12 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             return;
         }
 
+        getSupportFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
+            if (bundle.getBoolean("atualizar")) {
+                carregarFatura();
+            }
+        });
+
         bindViews();
         setupInitialDate();
         setupListeners();
@@ -147,6 +153,11 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
         }
     }
 
+    public void carregarFatura(int idCartaoParam) {
+        this.idCartao = idCartaoParam;
+        carregarFatura(); // chama o método atual que faz o carregamento
+    }
+
     public void carregarFatura() {
         blocoDespesas.removeAllViews();
         double totalFatura = 0;
@@ -169,7 +180,8 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             try (MeuDbHelper dbHelper = new MeuDbHelper(this); SQLiteDatabase db = dbHelper.getReadableDatabase()) {
                 String query = "SELECT t.data_compra AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
                         "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas, p.data_vencimento " +
-                        "FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao LEFT JOIN categorias cat ON cat.id = t.id_categoria WHERE t.id_cartao = ?";
+                        "FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao LEFT JOIN categorias cat ON cat.id = t.id_categoria WHERE t.id_cartao = ? " +
+                        "ORDER BY t.data_compra DESC";
 
                 Cursor cur = db.rawQuery(query, new String[]{String.valueOf(idCartao)});
                 LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -265,8 +277,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
         MenuHelper.MenuItemData[] menuItens = {
                 new MenuHelper.MenuItemData("Editar", R.drawable.ic_edit, () -> {
                     MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
-                    fragment.setOnDespesaSalvaListener(this::carregarFatura);
-                    getSupportFragmentManager().beginTransaction().replace(R.id.main, fragment).addToBackStack(null).commit();
+                    getSupportFragmentManager().beginTransaction().replace(R.id.containerFragment, fragment).addToBackStack(null).commit();
                     fragment.editarTransacao(idTransacaoCartao);
                 }),
                 new MenuHelper.MenuItemData("Excluir", R.drawable.ic_delete, () -> {
@@ -305,7 +316,15 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
     @Override
     public void onFabDespesaCartaoClick(int idUsuario) {
         MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuario, idCartao);
-        fragment.setOnDespesaSalvaListener(this::carregarFatura);
-        getSupportFragmentManager().beginTransaction().replace(R.id.main, fragment).addToBackStack(null).commit();
+        getSupportFragmentManager().beginTransaction().replace(R.id.containerFragment, fragment).addToBackStack(null).commit();
     }
+
+    public int getIdCartao() {
+        return idCartao;
+    }
+
+    public int getIdUsuario() {
+        return idUsuarioLogado;
+    }
+
 }

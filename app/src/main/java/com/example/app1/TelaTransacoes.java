@@ -35,7 +35,7 @@ import java.util.concurrent.Executors;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
-public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaCartaoFragment.OnDespesaSalvaListener, TransacaoAdapter.OnTransacaoListener {
+public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapter.OnTransacaoListener {
 
     private TextView txtMes, txtAno, txtNenhumaTransacao;
     private int idUsuarioLogado = -1;
@@ -85,6 +85,12 @@ public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaC
         });
 
         idUsuarioLogado = getIntent().getIntExtra("id_usuario", -1);
+
+        getSupportFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
+            if (bundle.getBoolean("atualizar")) {
+                carregarTransacoesAsync();
+            }
+        });
 
         bindViews();
         setupRecyclerView();
@@ -154,7 +160,7 @@ public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaC
         String mesAno = String.format(Locale.ROOT, "%04d-%02d", Integer.parseInt(txtAno.getText().toString()), getMesIndex(txtMes.getText().toString()) + 1);
 
         try (SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase()) {
-            String queryContas = "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, c.nome AS categoria_nome, c.cor AS categoria_cor, (CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) as tipo, t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, t.pago, t.recebido, t.id_mestre, t.repetir_periodo FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id WHERE t.id_usuario = ? AND substr(t.data_movimentacao,1,7) = ?";
+            String queryContas = "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, c.nome AS categoria_nome, c.cor AS categoria_cor, (CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) as tipo, t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, t.pago, t.recebido, t.id_mestre, t.repetir_periodo FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id WHERE t.id_usuario = ? AND substr(t.data_movimentacao,1,7) = ? ORDER BY t.data_movimentacao DESC";
             try(Cursor cur = db.rawQuery(queryContas, new String[]{String.valueOf(idUsuarioLogado), mesAno})) {
                 while (cur.moveToNext()) {
                     String tipo = cur.getString(cur.getColumnIndexOrThrow("tipo"));
@@ -162,7 +168,7 @@ public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaC
                 }
             }
             
-            String queryCartao = "SELECT tc.id, tc.descricao, p.valor, p.data_vencimento as data, c.nome as categoria_nome, c.cor as categoria_cor, 'cartao' as tipo, tc.recorrente, tc.parcelas, p.numero_parcela, p.paga as pago, 0 as recebido, tc.id as id_mestre, 0 as repetir_periodo FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id LEFT JOIN categorias c ON tc.id_categoria = c.id WHERE tc.id_usuario = ? AND substr(p.data_vencimento,1,7) = ?";
+            String queryCartao = "SELECT tc.id, tc.descricao, p.valor, p.data_vencimento as data, c.nome as categoria_nome, c.cor as categoria_cor, 'cartao' as tipo, tc.recorrente, tc.parcelas, p.numero_parcela, p.paga as pago, 0 as recebido, tc.id as id_mestre, 0 as repetir_periodo FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id LEFT JOIN categorias c ON tc.id_categoria = c.id WHERE tc.id_usuario = ? AND substr(p.data_vencimento,1,7) = ? ORDER BY p.data_vencimento DESC";
             try(Cursor cur = db.rawQuery(queryCartao, new String[]{String.valueOf(idUsuarioLogado), mesAno})) {
                 while (cur.moveToNext()) {
                     itens.add(new TransacaoItem(cur, "cartao", false, null));
@@ -254,7 +260,6 @@ public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaC
     private void editarTransacao(int idTransacao, String tipo) {
          if ("cartao".equals(tipo)) {
             MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, -1);
-            fragment.setOnDespesaSalvaListener(this::carregarTransacoesAsync);
             fragment.editarTransacao(idTransacao);
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.containerFragment, fragment)
@@ -318,10 +323,5 @@ public class TelaTransacoes extends AppCompatActivity implements MenuCadDespesaC
                  return dataISO.length() > 10 ? dataISO.substring(0, 10) : dataISO;
             }
         }
-    }
-
-    @Override
-    public void onDespesaSalva() {
-        carregarTransacoesAsync();
     }
 }
