@@ -146,4 +146,18 @@ public class ContaDAO {
             return false;
         }
     }
+
+    public static boolean atualizarSaldoConta(Context ctx, int contaId, double novoSaldo) {
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            ContentValues values = new ContentValues();
+            values.put("saldo", novoSaldo);
+
+            int result = db.update("contas", values, "id = ?", new String[]{String.valueOf(contaId)});
+            return result > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

@@ -5,6 +5,10 @@
         android:icon="@drawable/ic_edit"
         android:title="Editar" />
     <item
+        android:id="@+id/menu_alterar_saldo"
+        android:icon="@drawable/ic_edit"
+        android:title="Alterar Saldo" />
+    <item
         android:id="@+id/menu_excluir"
         android:icon="@drawable/ic_delete"
         android:title="Excluir" />
