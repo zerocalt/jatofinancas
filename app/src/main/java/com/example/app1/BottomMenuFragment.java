@@ -75,9 +75,7 @@ public class BottomMenuFragment extends Fragment {
 
     private void mostrarMenuOpcoes(View view) {
         MenuHelper.MenuItemData[] menuItems = new MenuHelper.MenuItemData[]{
-                new MenuHelper.MenuItemData("Categorias", R.drawable.ic_category, () -> {
-                    // Ação para Categorias
-                }),
+                new MenuHelper.MenuItemData("Categorias", R.drawable.ic_category, () -> navigateTo(TelaCategorias.class)),
                 new MenuHelper.MenuItemData("Contas", R.drawable.ic_account_balance, () -> navigateTo(TelaConta.class)),
                 new MenuHelper.MenuItemData("Gráficos", R.drawable.ic_credit_card, () -> {
                     // Ação para Gráficos

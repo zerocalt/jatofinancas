@@ -1,7 +1,6 @@
 package com.example.app1;
 
-import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,7 +13,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 
-import com.example.app1.MeuDbHelper;
+import com.example.app1.data.CategoriaDAO;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -30,13 +29,10 @@ public class MenuCadCategoriaFragment extends Fragment {
     private TextInputEditText inputNomeCategoria, inputCorCategoria;
     private Button btnSalvarCategoria;
 
-    private MeuDbHelper dbHelper;
-    private SQLiteDatabase db;
-
     private int idUsuarioLogado = -1;
+    private int categoriaId = -1;
     private OnBackPressedCallback backCallback;
 
-    // Callback para avisar o fragment de despesa que uma categoria foi criada
     public interface OnCategoriaSalvaListener {
         void onCategoriaSalva(String nomeCategoria);
     }
@@ -48,9 +44,14 @@ public class MenuCadCategoriaFragment extends Fragment {
     }
 
     public static MenuCadCategoriaFragment newInstance(int idUsuario) {
+        return newInstance(idUsuario, -1);
+    }
+
+    public static MenuCadCategoriaFragment newInstance(int idUsuario, int categoriaId) {
         MenuCadCategoriaFragment fragment = new MenuCadCategoriaFragment();
         Bundle args = new Bundle();
         args.putInt("id_usuario", idUsuario);
+        args.putInt("categoria_id", categoriaId);
         fragment.setArguments(args);
         return fragment;
     }
@@ -60,6 +61,7 @@ public class MenuCadCategoriaFragment extends Fragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             idUsuarioLogado = getArguments().getInt("id_usuario", -1);
+            categoriaId = getArguments().getInt("categoria_id", -1);
         }
 
         backCallback = new OnBackPressedCallback(true) {
@@ -73,10 +75,7 @@ public class MenuCadCategoriaFragment extends Fragment {
 
     @Nullable
     @Override
-    public View onCreateView(@NonNull LayoutInflater inflater,
-                             @Nullable ViewGroup container,
-                             @Nullable Bundle savedInstanceState) {
-
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.fragment_menu_cad_categoria, container, false);
 
         overlayCategoria = root.findViewById(R.id.overlayCategoria);
@@ -86,22 +85,15 @@ public class MenuCadCategoriaFragment extends Fragment {
         inputCorCategoria = root.findViewById(R.id.inputCorCategoria);
         btnSalvarCategoria = root.findViewById(R.id.btnSalvarCategoria);
 
-        dbHelper = new MeuDbHelper(requireContext());
-
-        // Fecha o menu tocando fora
         overlayCategoria.setOnClickListener(v -> fecharMenu());
 
-        // Picker de cor
         inputCorCategoria.setOnClickListener(v -> {
             new ColorPickerDialog.Builder(requireContext())
                     .setTitle("Escolha uma cor")
-                    .setPositiveButton("Confirmar", new ColorEnvelopeListener() {
-                        @Override
-                        public void onColorSelected(ColorEnvelope envelope, boolean fromUser) {
-                            String hex = "#" + envelope.getHexCode();
-                            inputCorCategoria.setText(hex);
-                            inputCorCategoria.setTextColor(envelope.getColor());
-                        }
+                    .setPositiveButton("Confirmar", (ColorEnvelopeListener) (envelope, fromUser) -> {
+                        String hex = "#" + envelope.getHexCode();
+                        inputCorCategoria.setText(hex);
+                        inputCorCategoria.setTextColor(envelope.getColor());
                     })
                     .setNegativeButton("Cancelar", (dialog, i) -> dialog.dismiss())
                     .attachAlphaSlideBar(true)
@@ -109,10 +101,35 @@ public class MenuCadCategoriaFragment extends Fragment {
                     .show();
         });
 
-        // Botão salvar
         btnSalvarCategoria.setOnClickListener(v -> salvarCategoria());
 
         return root;
+    }
+
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        if (categoriaId != -1) {
+            carregarDadosCategoria();
+        }
+        abrirMenu();
+    }
+
+    private void carregarDadosCategoria() {
+        Categoria categoria = CategoriaDAO.buscarCategoriaPorId(getContext(), categoriaId);
+        if (categoria != null) {
+            preencherFormulario(categoria);
+        }
+    }
+
+    private void preencherFormulario(Categoria categoria) {
+        inputNomeCategoria.setText(categoria.getNome());
+        inputCorCategoria.setText(categoria.getCor());
+        try {
+            inputCorCategoria.setTextColor(Color.parseColor(categoria.getCor()));
+        } catch (IllegalArgumentException e) {
+            inputCorCategoria.setTextColor(Color.BLACK);
+        }
     }
 
     private void limparCampos() {
@@ -135,10 +152,6 @@ public class MenuCadCategoriaFragment extends Fragment {
             slidingMenuCategoria.animate().translationY(slidingMenuCategoria.getHeight()).setDuration(300).withEndAction(() -> {
                 if (isAdded()) {
                     getParentFragmentManager().beginTransaction().remove(this).commit();
-                    View container = requireActivity().findViewById(R.id.fragmentContainerCategoria);
-                    if (container != null) {
-                        container.setVisibility(View.GONE);
-                    }
                 }
             }).start();
         }
@@ -147,6 +160,7 @@ public class MenuCadCategoriaFragment extends Fragment {
     private void salvarCategoria() {
         String nome = inputNomeCategoria.getText().toString().trim();
         String cor = inputCorCategoria.getText().toString().trim();
+
         if (nome.isEmpty()) {
             tilNomeCategoria.setError("Informe o nome da categoria");
             return;
@@ -156,43 +170,31 @@ public class MenuCadCategoriaFragment extends Fragment {
         if (cor.isEmpty()) {
             cor = "#888888"; // cor padrão
         }
-        if (idUsuarioLogado == -1) {
-            Snackbar.make(requireView(), "Usuário inválido.", Snackbar.LENGTH_SHORT).show();
-            return;
+
+        Categoria categoria = new Categoria(categoriaId != -1 ? categoriaId : 0, nome, cor);
+
+        boolean sucesso;
+        if (categoriaId != -1) {
+            sucesso = CategoriaDAO.atualizarCategoria(getContext(), categoria);
+        } else {
+            if (idUsuarioLogado == -1) {
+                Snackbar.make(requireView(), "Usuário inválido.", Snackbar.LENGTH_SHORT).show();
+                return;
+            }
+            sucesso = CategoriaDAO.inserirCategoria(getContext(), categoria, idUsuarioLogado);
         }
-        // Cria o objeto
-        Categoria categoria = new Categoria(nome, cor);
-        // Salva no banco
-        boolean sucesso = com.example.app1.data.CategoriaDAO.inserirCategoria(requireContext(), categoria, idUsuarioLogado);
+
         if (sucesso) {
-            Snackbar.make(requireView(), "Categoria salva com sucesso!", Snackbar.LENGTH_SHORT).show();
-            // Notifica o fragmento de despesa para atualizar o spinner
+            String message = (categoriaId != -1) ? "Categoria atualizada com sucesso!" : "Categoria salva com sucesso!";
+            Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).show();
             if (listener != null) {
                 listener.onCategoriaSalva(categoria.getNome());
             }
             limparCampos();
             fecharMenu();
         } else {
-            Snackbar.make(requireView(), "Erro ao salvar categoria.", Snackbar.LENGTH_SHORT).show();
+            String message = (categoriaId != -1) ? "Erro ao atualizar categoria." : "Erro ao salvar categoria.";
+            Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).show();
         }
-    }
-
-    @Override
-    public void onDestroyView() {
-        super.onDestroyView();
-
-        // Esconde o container da categoria ao sair
-        if (isAdded()) {
-            FrameLayout container = requireActivity().findViewById(R.id.fragmentContainerCategoria);
-            if (container != null) {
-                container.setVisibility(View.GONE);
-            }
-        }
-    }
-
-    @Override
-    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
-        super.onViewCreated(view, savedInstanceState);
-        abrirMenu();
     }
 }

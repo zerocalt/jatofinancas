@@ -1,5 +1,6 @@
 package com.example.app1;
 
+import android.graphics.Color;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -153,8 +154,15 @@ public class MenuCadContaFragment extends Fragment {
             inputSaldoConta.setText(format.format(contaAtual.getSaldo()));
 
             inputCorConta.setText(contaAtual.getCor());
+            try {
+                inputCorConta.setTextColor(Color.parseColor(contaAtual.getCor()));
+            } catch (Exception e) {
+                 inputCorConta.setTextColor(Color.BLACK);
+            }
             autoCompleteTipoConta.setText(getTipoContaString(contaAtual.getTipoConta()), false);
-            if (contaAtual.getMostrarNaTelaInicial() == 1) {
+            
+            // CORRECTION: Use isMostrarNaTelaInicial() for boolean field
+            if (contaAtual.isMostrarNaTelaInicial()) {
                 radioGroupMostrar.check(R.id.radioMostrarSim);
             } else {
                 radioGroupMostrar.check(R.id.radioMostrarNao);
@@ -243,15 +251,18 @@ public class MenuCadContaFragment extends Fragment {
             default:
                 tipoConta = 0; // Outros
         }
-
-        int mostrar = (radioGroupMostrar.getCheckedRadioButtonId() == R.id.radioMostrarSim) ? 1 : 0;
+        
+        // CORRECTION: Use boolean instead of int
+        boolean mostrarNaTela = (radioGroupMostrar.getCheckedRadioButtonId() == R.id.radioMostrarSim);
 
         boolean sucesso;
         if (idContaEdicao == -1) {
-            Conta novaConta = new Conta(nome, saldo, tipoConta, cor, mostrar);
+            // CORRECTION: Use the correct constructor
+            Conta novaConta = new Conta(0, nome, saldo, cor, tipoConta, mostrarNaTela);
             sucesso = ContaDAO.inserirConta(requireContext(), novaConta, idUsuarioLogado);
         } else {
-            Conta contaAtualizada = new Conta(idContaEdicao, nome, saldo, tipoConta, cor, mostrar);
+            // CORRECTION: Use the correct constructor
+            Conta contaAtualizada = new Conta(idContaEdicao, nome, saldo, cor, tipoConta, mostrarNaTela);
             sucesso = ContaDAO.atualizarConta(requireContext(), contaAtualizada);
         }
 

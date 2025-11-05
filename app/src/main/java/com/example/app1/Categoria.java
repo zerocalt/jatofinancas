@@ -4,20 +4,23 @@ public class Categoria {
     private int id;
     private String nome;
     private String cor;
+    private double totalDespesa;
+    private boolean emUso; // Novo campo
 
-    public Categoria(int id, String nome, String cor) {
+    // Construtor principal
+    public Categoria(int id, String nome, String cor, double totalDespesa, boolean emUso) {
         this.id = id;
         this.nome = nome;
         this.cor = cor;
+        this.totalDespesa = totalDespesa;
+        this.emUso = emUso;
     }
 
-    // Construtor sem id (para novas categorias)
-    public Categoria(String nome, String cor) {
-        this.nome = nome;
-        this.cor = cor;
+    // Construtor simplificado para compatibilidade
+    public Categoria(int id, String nome, String cor) {
+        this(id, nome, cor, 0, false);
     }
 
-    // Getters e Setters
     public int getId() {
         return id;
     }
@@ -42,8 +45,19 @@ public class Categoria {
         this.cor = cor;
     }
 
-    @Override
-    public String toString() {
-        return nome;
+    public double getTotalDespesa() {
+        return totalDespesa;
+    }
+
+    public void setTotalDespesa(double totalDespesa) {
+        this.totalDespesa = totalDespesa;
+    }
+
+    public boolean isEmUso() {
+        return emUso;
+    }
+
+    public void setEmUso(boolean emUso) {
+        this.emUso = emUso;
     }
 }

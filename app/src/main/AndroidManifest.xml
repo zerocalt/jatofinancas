@@ -20,6 +20,9 @@
             android:name=".TelaConta"
             android:exported="false" />
         <activity
+            android:name=".TelaCategorias"
+            android:exported="false" />
+        <activity
             android:name=".TelaFaturaCartao"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

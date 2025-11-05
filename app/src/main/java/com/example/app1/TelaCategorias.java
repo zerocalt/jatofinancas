@@ -8,6 +8,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.TypedValue;
 import android.view.LayoutInflater;
+import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
@@ -30,7 +31,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import androidx.security.crypto.EncryptedSharedPreferences;
 import androidx.security.crypto.MasterKey;
 
-import com.example.app1.data.ContaDAO;
+import com.example.app1.data.CategoriaDAO;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -40,19 +41,19 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-public class TelaConta extends AppCompatActivity {
+public class TelaCategorias extends AppCompatActivity {
 
     private TextView txtMes, txtAno;
     private int idUsuarioLogado;
-    private FloatingActionButton fabCadConta;
-    private RecyclerView recyclerContas;
-    private ContasTelaContaAdapter contasAdapter;
+    private FloatingActionButton fabCadCategoria;
+    private RecyclerView recyclerCategorias;
+    private CategoriasAdapter categoriasAdapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_tela_conta);
+        setContentView(R.layout.activity_tela_categorias);
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -62,14 +63,14 @@ public class TelaConta extends AppCompatActivity {
         idUsuarioLogado = getIdUsuarioLogado();
         txtMes = findViewById(R.id.txtMes);
         txtAno = findViewById(R.id.txtAno);
-        fabCadConta = findViewById(R.id.fabCadConta);
-        recyclerContas = findViewById(R.id.recyclerContas);
+        fabCadCategoria = findViewById(R.id.fabCadCategoria);
+        recyclerCategorias = findViewById(R.id.recyclerCategorias);
 
         setupRecyclerView();
 
         findViewById(R.id.btnMesAno).setOnClickListener(v -> showMonthYearPicker());
 
-        fabCadConta.setOnClickListener(v -> {
+        fabCadCategoria.setOnClickListener(v -> {
             abrirFragmentoCadastro(null);
         });
 
@@ -77,8 +78,8 @@ public class TelaConta extends AppCompatActivity {
             @Override
             public void onFragmentViewDestroyed(@NonNull FragmentManager fm, @NonNull Fragment f) {
                 super.onFragmentViewDestroyed(fm, f);
-                if (f instanceof MenuCadContaFragment) {
-                    fabCadConta.setVisibility(View.VISIBLE);
+                if (f instanceof MenuCadCategoriaFragment) {
+                    fabCadCategoria.setVisibility(View.VISIBLE);
                 }
             }
         }, false);
@@ -89,28 +90,29 @@ public class TelaConta extends AppCompatActivity {
         txtAno.setText(String.valueOf(agora.get(Calendar.YEAR)));
 
         carregarMenu();
-        carregarContas();
+        carregarCategorias();
     }
 
     private void setupRecyclerView() {
-        recyclerContas.setLayoutManager(new LinearLayoutManager(this));
-        contasAdapter = new ContasTelaContaAdapter(this, new ArrayList<>());
-        recyclerContas.setAdapter(contasAdapter);
+        recyclerCategorias.setLayoutManager(new LinearLayoutManager(this));
+        categoriasAdapter = new CategoriasAdapter(this, new ArrayList<>());
+        recyclerCategorias.setAdapter(categoriasAdapter);
     }
 
-    private void carregarContas() {
-        List<Conta> contas = ContaDAO.carregarListaContas(this, idUsuarioLogado);
-        contasAdapter.setContas(contas);
+    private void carregarCategorias() {
+        String mesAno = String.format(Locale.ROOT, "%04d-%02d", Integer.parseInt(txtAno.getText().toString()), getMesIndex(txtMes.getText().toString()) + 1);
+        List<Categoria> categorias = CategoriaDAO.listarCategoriasComDespesas(this, idUsuarioLogado, mesAno);
+        categoriasAdapter.setCategorias(categorias);
     }
 
-    private void abrirFragmentoCadastro(Conta conta) {
-        fabCadConta.setVisibility(View.GONE);
-        MenuCadContaFragment fragment = (conta == null)
-                ? MenuCadContaFragment.newInstance(idUsuarioLogado)
-                : MenuCadContaFragment.newInstance(idUsuarioLogado, conta.getId());
+    private void abrirFragmentoCadastro(Categoria categoria) {
+        fabCadCategoria.setVisibility(View.GONE);
+        MenuCadCategoriaFragment fragment = (categoria == null)
+                ? MenuCadCategoriaFragment.newInstance(idUsuarioLogado)
+                : MenuCadCategoriaFragment.newInstance(idUsuarioLogado, categoria.getId());
 
-        fragment.setOnContaSalvaListener(nomeConta -> {
-            carregarContas();
+        fragment.setOnCategoriaSalvaListener(nomeCategoria -> {
+            carregarCategorias();
         });
 
         getSupportFragmentManager().beginTransaction()
@@ -119,17 +121,17 @@ public class TelaConta extends AppCompatActivity {
                 .commit();
     }
 
-    private void excluirConta(int contaId) {
+    private void excluirCategoria(int categoriaId) {
         new AlertDialog.Builder(this)
-                .setTitle("Excluir Conta")
-                .setMessage("Tem certeza que deseja excluir esta conta?")
+                .setTitle("Excluir Categoria")
+                .setMessage("Tem certeza que deseja excluir esta categoria?")
                 .setPositiveButton("Sim", (dialog, which) -> {
-                    boolean sucesso = ContaDAO.excluirConta(this, contaId);
+                    boolean sucesso = CategoriaDAO.excluirCategoria(this, categoriaId);
                     if (sucesso) {
-                        Toast.makeText(this, "Conta excluída com sucesso!", Toast.LENGTH_SHORT).show();
-                        carregarContas();
+                        Toast.makeText(this, "Categoria excluída com sucesso!", Toast.LENGTH_SHORT).show();
+                        carregarCategorias();
                     } else {
-                        Toast.makeText(this, "Erro ao excluir conta.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, "Erro ao excluir categoria. Verifique se ela não está em uso.", Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton("Não", null)
@@ -155,7 +157,7 @@ public class TelaConta extends AppCompatActivity {
         dialogFragment.setOnDateSetListener((year, monthOfYear) -> {
             txtMes.setText(nomesMes[monthOfYear]);
             txtAno.setText(String.valueOf(year));
-            carregarContas();
+            carregarCategorias();
         });
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");
     }
@@ -178,26 +180,26 @@ public class TelaConta extends AppCompatActivity {
         }
     }
 
-    public class ContasTelaContaAdapter extends RecyclerView.Adapter<ContasTelaContaAdapter.ContaViewHolder> {
+    public class CategoriasAdapter extends RecyclerView.Adapter<CategoriasAdapter.CategoriaViewHolder> {
 
-        private List<Conta> contas;
+        private List<Categoria> categorias;
         private Context context;
 
-        public ContasTelaContaAdapter(Context context, List<Conta> contas) {
+        public CategoriasAdapter(Context context, List<Categoria> categorias) {
             this.context = context;
-            this.contas = contas;
+            this.categorias = categorias;
         }
 
         @NonNull
         @Override
-        public ContaViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(context).inflate(R.layout.item_conta, parent, false);
-            return new ContaViewHolder(view);
+        public CategoriaViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(context).inflate(R.layout.item_categoria, parent, false);
+            return new CategoriaViewHolder(view);
         }
 
         @Override
-        public void onBindViewHolder(@NonNull ContaViewHolder holder, int position) {
-            Conta conta = contas.get(position);
+        public void onBindViewHolder(@NonNull CategoriaViewHolder holder, int position) {
+            Categoria categoria = categorias.get(position);
 
             holder.itemView.setBackgroundResource(R.drawable.background_lista_cartoes);
 
@@ -208,37 +210,32 @@ public class TelaConta extends AppCompatActivity {
             layoutParams.setMargins(0, 0, 0, (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, 12, context.getResources().getDisplayMetrics()));
             holder.itemView.setLayoutParams(layoutParams);
 
-            holder.txtNomeConta.setText(conta.getNome());
+            holder.txtNomeCategoria.setText(categoria.getNome());
 
             NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
-            holder.txtSaldoConta.setText(format.format(conta.getSaldo()));
+            holder.txtTotalDespesa.setText(format.format(categoria.getTotalDespesa()));
 
-            if (conta.getSaldo() >= 0) {
-                holder.txtSaldoConta.setTextColor(Color.parseColor("#339933")); // Verde
-            } else {
-                holder.txtSaldoConta.setTextColor(Color.parseColor("#E45757")); // Vermelho
-            }
-
-            holder.txtIniciaisConta.setText(getIniciais(conta.getNome()));
-            GradientDrawable background = (GradientDrawable) holder.viewCorConta.getBackground().mutate();
+            holder.txtIniciaisCategoria.setText(getIniciais(categoria.getNome()));
+            GradientDrawable background = (GradientDrawable) holder.viewCorCategoria.getBackground().mutate();
             int corDeFundo;
             try {
-                corDeFundo = Color.parseColor(conta.getCor());
+                corDeFundo = Color.parseColor(categoria.getCor());
             } catch (IllegalArgumentException e) {
                 corDeFundo = Color.GRAY;
             }
             background.setColor(corDeFundo);
 
             if (isCorClara(corDeFundo)) {
-                holder.txtIniciaisConta.setTextColor(Color.BLACK);
+                holder.txtIniciaisCategoria.setTextColor(Color.BLACK);
             } else {
-                holder.txtIniciaisConta.setTextColor(Color.WHITE);
+                holder.txtIniciaisCategoria.setTextColor(Color.WHITE);
             }
 
-            holder.menuConta.setVisibility(View.VISIBLE);
-            holder.menuConta.setOnClickListener(v -> {
+            holder.menuCategoria.setVisibility(View.VISIBLE);
+            holder.menuCategoria.setOnClickListener(v -> {
                 PopupMenu popup = new PopupMenu(context, v);
 
+                // Final and correct fix: This reflection code is necessary to force PopupMenu to show icons.
                 try {
                     java.lang.reflect.Field popupField = popup.getClass().getDeclaredField("mPopup");
                     popupField.setAccessible(true);
@@ -255,7 +252,7 @@ public class TelaConta extends AppCompatActivity {
                 MenuItem excluirItem = popup.getMenu().findItem(R.id.menu_excluir);
                 Drawable icon = excluirItem.getIcon();
 
-                if (conta.isEmUso()) {
+                if (categoria.isEmUso()) {
                     if (icon != null) {
                         icon.mutate().setAlpha(130);
                     }
@@ -268,13 +265,13 @@ public class TelaConta extends AppCompatActivity {
                 popup.setOnMenuItemClickListener(item -> {
                     int itemId = item.getItemId();
                     if (itemId == R.id.menu_editar) {
-                        abrirFragmentoCadastro(conta);
+                        abrirFragmentoCadastro(categoria);
                         return true;
                     } else if (itemId == R.id.menu_excluir) {
-                        if (conta.isEmUso()) {
-                            Toast.makeText(context, "Esta conta não pode ser excluída pois está em uso.", Toast.LENGTH_LONG).show();
+                        if (categoria.isEmUso()) {
+                            Toast.makeText(context, "Esta categoria não pode ser excluída pois está em uso.", Toast.LENGTH_LONG).show();
                         } else {
-                            excluirConta(conta.getId());
+                            excluirCategoria(categoria.getId());
                         }
                         return true;
                     }
@@ -286,11 +283,11 @@ public class TelaConta extends AppCompatActivity {
 
         @Override
         public int getItemCount() {
-            return contas.size();
+            return categorias.size();
         }
 
-        public void setContas(List<Conta> contas) {
-            this.contas = contas;
+        public void setCategorias(List<Categoria> categorias) {
+            this.categorias = categorias;
             notifyDataSetChanged();
         }
 
@@ -319,20 +316,20 @@ public class TelaConta extends AppCompatActivity {
             return iniciais.toString().toUpperCase();
         }
 
-        class ContaViewHolder extends RecyclerView.ViewHolder {
-            View viewCorConta;
-            TextView txtIniciaisConta;
-            TextView txtNomeConta;
-            TextView txtSaldoConta;
-            ImageView menuConta;
+        class CategoriaViewHolder extends RecyclerView.ViewHolder {
+            View viewCorCategoria;
+            TextView txtIniciaisCategoria;
+            TextView txtNomeCategoria;
+            TextView txtTotalDespesa;
+            ImageView menuCategoria;
 
-            public ContaViewHolder(@NonNull View itemView) {
+            public CategoriaViewHolder(@NonNull View itemView) {
                 super(itemView);
-                viewCorConta = itemView.findViewById(R.id.viewCorConta);
-                txtIniciaisConta = itemView.findViewById(R.id.txtIniciaisConta);
-                txtNomeConta = itemView.findViewById(R.id.txtNomeConta);
-                txtSaldoConta = itemView.findViewById(R.id.txtSaldoConta);
-                menuConta = itemView.findViewById(R.id.menu_conta);
+                viewCorCategoria = itemView.findViewById(R.id.viewCorCategoria);
+                txtIniciaisCategoria = itemView.findViewById(R.id.txtIniciaisCategoria);
+                txtNomeCategoria = itemView.findViewById(R.id.txtNomeCategoria);
+                txtTotalDespesa = itemView.findViewById(R.id.txtTotalDespesa);
+                menuCategoria = itemView.findViewById(R.id.menu_categoria);
             }
         }
     }

@@ -4,29 +4,29 @@ public class Conta {
     private int id;
     private String nome;
     private double saldo;
-    private int tipoConta;
     private String cor;
-    private int mostrarNaTelaInicial;
+    private int tipoConta; // Ex: 1-Corrente, 2-Poupança, 3-Investimento, 4-Outros
+    private boolean mostrarNaTelaInicial;
+    private boolean emUso; // Novo campo
 
-    public Conta(int id, String nome, double saldo, int tipoConta, String cor, int mostrarNaTelaInicial) {
+    // Construtor completo
+    public Conta(int id, String nome, double saldo, String cor, int tipoConta, boolean mostrarNaTelaInicial, boolean emUso) {
         this.id = id;
         this.nome = nome;
         this.saldo = saldo;
-        this.tipoConta = tipoConta;
         this.cor = cor;
+        this.tipoConta = tipoConta;
         this.mostrarNaTelaInicial = mostrarNaTelaInicial;
+        this.emUso = emUso;
     }
 
-    // Construtor para novas contas (sem id)
-    public Conta(String nome, double saldo, int tipoConta, String cor, int mostrarNaTelaInicial) {
-        this.nome = nome;
-        this.saldo = saldo;
-        this.tipoConta = tipoConta;
-        this.cor = cor;
-        this.mostrarNaTelaInicial = mostrarNaTelaInicial;
+    // Construtor simplificado para compatibilidade
+    public Conta(int id, String nome, double saldo, String cor, int tipoConta, boolean mostrarNaTelaInicial) {
+        this(id, nome, saldo, cor, tipoConta, mostrarNaTelaInicial, false);
     }
 
     // Getters e Setters
+
     public int getId() {
         return id;
     }
@@ -51,14 +51,6 @@ public class Conta {
         this.saldo = saldo;
     }
 
-    public int getTipoConta() {
-        return tipoConta;
-    }
-
-    public void setTipoConta(int tipoConta) {
-        this.tipoConta = tipoConta;
-    }
-
     public String getCor() {
         return cor;
     }
@@ -67,16 +59,27 @@ public class Conta {
         this.cor = cor;
     }
 
-    public int getMostrarNaTelaInicial() {
+    public int getTipoConta() {
+        return tipoConta;
+    }
+
+    public void setTipoConta(int tipoConta) {
+        this.tipoConta = tipoConta;
+    }
+
+    public boolean isMostrarNaTelaInicial() {
         return mostrarNaTelaInicial;
     }
 
-    public void setMostrarNaTelaInicial(int mostrarNaTelaInicial) {
+    public void setMostrarNaTelaInicial(boolean mostrarNaTelaInicial) {
         this.mostrarNaTelaInicial = mostrarNaTelaInicial;
     }
 
-    @Override
-    public String toString() {
-        return nome;
+    public boolean isEmUso() {
+        return emUso;
+    }
+
+    public void setEmUso(boolean emUso) {
+        this.emUso = emUso;
     }
 }

@@ -21,7 +21,7 @@ public class ContaDAO {
             values.put("saldo", conta.getSaldo());
             values.put("tipo_conta", conta.getTipoConta());
             values.put("cor", conta.getCor());
-            values.put("mostrar_na_tela_inicial", conta.getMostrarNaTelaInicial());
+            values.put("mostrar_na_tela_inicial", conta.isMostrarNaTelaInicial());
             values.put("id_usuario", idUsuario);
 
             long result = db.insert("contas", null, values);
@@ -51,8 +51,8 @@ public class ContaDAO {
                 double saldo = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
                 int tipoConta = cursor.getInt(cursor.getColumnIndexOrThrow("tipo_conta"));
                 String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
-                int mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial"));
-                contas.add(new Conta(id, nome, saldo, tipoConta, cor, mostrarNaTelaInicial));
+                boolean mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial")) > 0;
+                contas.add(new Conta(id, nome, saldo, cor, tipoConta, mostrarNaTelaInicial));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -66,11 +66,13 @@ public class ContaDAO {
         if (idUsuario != -1) {
             MeuDbHelper dbHelper = new MeuDbHelper(ctx);
 
+            String sql = "SELECT id, nome, saldo, tipo_conta, cor, mostrar_na_tela_inicial, " +
+                    "(EXISTS (SELECT 1 FROM transacoes t WHERE t.id_conta = contas.id) OR " +
+                    " EXISTS (SELECT 1 FROM cartoes c WHERE c.id_conta = contas.id)) as em_uso " +
+                    "FROM contas WHERE id_usuario = ? ORDER BY nome COLLATE NOCASE ASC";
+
             try (SQLiteDatabase dbRead = dbHelper.getReadableDatabase();
-                 Cursor cursor = dbRead.rawQuery(
-                         "SELECT id, nome, saldo, tipo_conta, cor, mostrar_na_tela_inicial " +
-                                 "FROM contas WHERE id_usuario = ? ORDER BY nome COLLATE NOCASE ASC",
-                         new String[]{String.valueOf(idUsuario)})) {
+                 Cursor cursor = dbRead.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
 
                 while (cursor.moveToNext()) {
                     int id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
@@ -78,9 +80,10 @@ public class ContaDAO {
                     double saldo = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
                     int tipoConta = cursor.getInt(cursor.getColumnIndexOrThrow("tipo_conta"));
                     String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
-                    int mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial"));
+                    boolean mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial")) > 0;
+                    boolean emUso = cursor.getInt(cursor.getColumnIndexOrThrow("em_uso")) > 0;
 
-                    Conta conta = new Conta(id, nome, saldo, tipoConta, cor, mostrarNaTelaInicial);
+                    Conta conta = new Conta(id, nome, saldo, cor, tipoConta, mostrarNaTelaInicial, emUso);
                     contas.add(conta);
                 }
 
@@ -117,8 +120,8 @@ public class ContaDAO {
                 double saldo = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
                 int tipoConta = cursor.getInt(cursor.getColumnIndexOrThrow("tipo_conta"));
                 String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
-                int mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial"));
-                return new Conta(id, nome, saldo, tipoConta, cor, mostrarNaTelaInicial);
+                boolean mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial")) > 0;
+                return new Conta(id, nome, saldo, cor, tipoConta, mostrarNaTelaInicial);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -134,7 +137,7 @@ public class ContaDAO {
             values.put("saldo", conta.getSaldo());
             values.put("tipo_conta", conta.getTipoConta());
             values.put("cor", conta.getCor());
-            values.put("mostrar_na_tela_inicial", conta.getMostrarNaTelaInicial());
+            values.put("mostrar_na_tela_inicial", conta.isMostrarNaTelaInicial());
 
             int result = db.update("contas", values, "id = ?", new String[]{String.valueOf(conta.getId())});
             return result > 0;

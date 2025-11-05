@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="10dp">
+
+    <View
+        android:id="@+id/viewCorCategoria"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:background="@drawable/circle_background"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <TextView
+        android:id="@+id/txtIniciaisCategoria"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="@+id/viewCorCategoria"
+        app:layout_constraintEnd_toEndOf="@+id/viewCorCategoria"
+        app:layout_constraintStart_toStartOf="@+id/viewCorCategoria"
+        app:layout_constraintTop_toTopOf="@+id/viewCorCategoria"
+        tools:text="AL" />
+
+    <TextView
+        android:id="@+id/txtNomeCategoria"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="10dp"
+        android:textColor="@color/white"
+        app:layout_constraintEnd_toStartOf="@+id/txtTotalDespesa"
+        app:layout_constraintStart_toEndOf="@+id/viewCorCategoria"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        tools:text="Alimentação" />
+
+    <TextView
+        android:id="@+id/txtTotalDespesa"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/red"
+        android:textStyle="bold"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toStartOf="@+id/menu_categoria"
+        app:layout_constraintTop_toTopOf="parent"
+        tools:text="R$ 1.250,00" />
+
+    <ImageView
+        android:id="@+id/menu_categoria"
+        android:layout_width="24dp"
+        android:layout_height="14dp"
+        android:src="@drawable/ic_more_vert"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>

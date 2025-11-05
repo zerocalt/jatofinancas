@@ -45,8 +45,8 @@
 
     <ImageView
         android:id="@+id/menu_conta"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="24dp"
+        android:layout_height="14dp"
         android:layout_marginStart="8dp"
         android:src="@drawable/ic_more_vert"
         android:visibility="gone" />
