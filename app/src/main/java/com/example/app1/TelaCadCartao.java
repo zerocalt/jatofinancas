@@ -336,11 +336,11 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
 
     @Override
     public void onAddDespesaClick(int idCartao) {
-        FrameLayout container = findViewById(R.id.containerFragment); 
+        FrameLayout container = findViewById(R.id.fragmentContainerDespesa); 
         container.setVisibility(View.VISIBLE);
         MenuCadDespesaCartaoFragment despesaFragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, idCartao);
         getSupportFragmentManager().beginTransaction()
-                .replace(R.id.containerFragment, despesaFragment)
+                .replace(R.id.fragmentContainerDespesa, despesaFragment)
                 .addToBackStack(null)
                 .commit();
     }
