@@ -43,4 +43,12 @@
         android:text="R$ 1.000,00"
         android:textStyle="bold" />
 
+    <ImageView
+        android:id="@+id/menu_conta"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:src="@drawable/ic_more_vert"
+        android:visibility="gone" />
+
 </LinearLayout>

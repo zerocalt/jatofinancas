@@ -24,6 +24,9 @@ import com.skydoves.colorpickerview.ColorEnvelope;
 import com.skydoves.colorpickerview.ColorPickerDialog;
 import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener;
 
+import java.text.NumberFormat;
+import java.util.Locale;
+
 public class MenuCadContaFragment extends Fragment {
 
     private View overlayConta;
@@ -35,6 +38,8 @@ public class MenuCadContaFragment extends Fragment {
     private RadioGroup radioGroupMostrar;
 
     private int idUsuarioLogado = -1;
+    private int idContaEdicao = -1;
+    private Conta contaAtual;
 
     private OnBackPressedCallback backCallback;
 
@@ -49,9 +54,16 @@ public class MenuCadContaFragment extends Fragment {
     }
 
     public static MenuCadContaFragment newInstance(int idUsuario) {
+        return newInstance(idUsuario, -1);
+    }
+
+    public static MenuCadContaFragment newInstance(int idUsuario, int idConta) {
         MenuCadContaFragment fragment = new MenuCadContaFragment();
         Bundle args = new Bundle();
         args.putInt("id_usuario", idUsuario);
+        if (idConta != -1) {
+            args.putInt("id_conta", idConta);
+        }
         fragment.setArguments(args);
         return fragment;
     }
@@ -61,6 +73,7 @@ public class MenuCadContaFragment extends Fragment {
         super.onCreate(savedInstanceState);
         if (getArguments() != null) {
             idUsuarioLogado = getArguments().getInt("id_usuario", -1);
+            idContaEdicao = getArguments().getInt("id_conta", -1);
         }
 
         backCallback = new OnBackPressedCallback(true) {
@@ -124,7 +137,38 @@ public class MenuCadContaFragment extends Fragment {
         overlayConta.setOnClickListener(v -> fecharMenu());
         btnSalvarConta.setOnClickListener(v -> salvarConta());
 
+        if (idContaEdicao != -1) {
+            carregarDadosConta();
+        }
+
         return root;
+    }
+
+    private void carregarDadosConta() {
+        contaAtual = ContaDAO.getContaById(requireContext(), idContaEdicao);
+        if (contaAtual != null) {
+            inputNomeConta.setText(contaAtual.getNome());
+
+            NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
+            inputSaldoConta.setText(format.format(contaAtual.getSaldo()));
+
+            inputCorConta.setText(contaAtual.getCor());
+            autoCompleteTipoConta.setText(getTipoContaString(contaAtual.getTipoConta()), false);
+            if (contaAtual.getMostrarNaTelaInicial() == 1) {
+                radioGroupMostrar.check(R.id.radioMostrarSim);
+            } else {
+                radioGroupMostrar.check(R.id.radioMostrarNao);
+            }
+        }
+    }
+
+    private String getTipoContaString(int tipoConta) {
+        switch (tipoConta) {
+            case 1: return "Corrente";
+            case 2: return "Poupança";
+            case 3: return "Investimento";
+            default: return "Outros";
+        }
     }
 
     @Override
@@ -202,19 +246,26 @@ public class MenuCadContaFragment extends Fragment {
 
         int mostrar = (radioGroupMostrar.getCheckedRadioButtonId() == R.id.radioMostrarSim) ? 1 : 0;
 
-        Conta novaConta = new Conta(nome, saldo, tipoConta, cor, mostrar);
-
-        boolean sucesso = ContaDAO.inserirConta(requireContext(), novaConta, idUsuarioLogado);
+        boolean sucesso;
+        if (idContaEdicao == -1) {
+            Conta novaConta = new Conta(nome, saldo, tipoConta, cor, mostrar);
+            sucesso = ContaDAO.inserirConta(requireContext(), novaConta, idUsuarioLogado);
+        } else {
+            Conta contaAtualizada = new Conta(idContaEdicao, nome, saldo, tipoConta, cor, mostrar);
+            sucesso = ContaDAO.atualizarConta(requireContext(), contaAtualizada);
+        }
 
         if (sucesso) {
-            Snackbar.make(requireView(), "Conta salva com sucesso!", Snackbar.LENGTH_SHORT).show();
+            String message = (idContaEdicao == -1) ? "Conta salva com sucesso!" : "Conta atualizada com sucesso!";
+            Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).show();
             if (listener != null) {
                 listener.onContaSalva(nome);
             }
             limparCampos();
             fecharMenu();
         } else {
-            Snackbar.make(requireView(), "Erro ao salvar conta.", Snackbar.LENGTH_LONG).show();
+            String message = (idContaEdicao == -1) ? "Erro ao salvar conta." : "Erro ao atualizar conta.";
+            Snackbar.make(requireView(), message, Snackbar.LENGTH_LONG).show();
         }
     }
 

@@ -91,4 +91,56 @@ public class ContaDAO {
 
         return contas;
     }
+
+    public static boolean excluirConta(Context ctx, int contaId) {
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            int result = db.delete("contas", "id = ?", new String[]{String.valueOf(contaId)});
+            return result > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public static Conta getContaById(Context ctx, int contaId) {
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getReadableDatabase();
+             Cursor cursor = db.rawQuery(
+                     "SELECT id, nome, saldo, tipo_conta, cor, mostrar_na_tela_inicial " +
+                             "FROM contas WHERE id = ?",
+                     new String[]{String.valueOf(contaId)})) {
+
+            if (cursor.moveToFirst()) {
+                int id = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
+                String nome = cursor.getString(cursor.getColumnIndexOrThrow("nome"));
+                double saldo = cursor.getDouble(cursor.getColumnIndexOrThrow("saldo"));
+                int tipoConta = cursor.getInt(cursor.getColumnIndexOrThrow("tipo_conta"));
+                String cor = cursor.getString(cursor.getColumnIndexOrThrow("cor"));
+                int mostrarNaTelaInicial = cursor.getInt(cursor.getColumnIndexOrThrow("mostrar_na_tela_inicial"));
+                return new Conta(id, nome, saldo, tipoConta, cor, mostrarNaTelaInicial);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public static boolean atualizarConta(Context ctx, Conta conta) {
+        MeuDbHelper dbHelper = new MeuDbHelper(ctx);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            ContentValues values = new ContentValues();
+            values.put("nome", conta.getNome());
+            values.put("saldo", conta.getSaldo());
+            values.put("tipo_conta", conta.getTipoConta());
+            values.put("cor", conta.getCor());
+            values.put("mostrar_na_tela_inicial", conta.getMostrarNaTelaInicial());
+
+            int result = db.update("contas", values, "id = ?", new String[]{String.valueOf(conta.getId())});
+            return result > 0;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

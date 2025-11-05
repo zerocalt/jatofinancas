@@ -68,6 +68,8 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
         } else {
             holder.txtIniciaisConta.setTextColor(Color.WHITE);
         }
+        
+        holder.menuConta.setVisibility(View.GONE);
     }
 
     @Override
@@ -110,6 +112,7 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
         TextView txtIniciaisConta;
         TextView txtNomeConta;
         TextView txtSaldoConta;
+        View menuConta;
 
         public ContaViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -117,6 +120,7 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
             txtIniciaisConta = itemView.findViewById(R.id.txtIniciaisConta);
             txtNomeConta = itemView.findViewById(R.id.txtNomeConta);
             txtSaldoConta = itemView.findViewById(R.id.txtSaldoConta);
+            menuConta = itemView.findViewById(R.id.menu_conta);
         }
     }
 }
