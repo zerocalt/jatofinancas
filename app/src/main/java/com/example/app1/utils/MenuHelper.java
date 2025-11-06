@@ -1,12 +1,10 @@
 package com.example.app1.utils;
 
 import android.content.Context;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.PopupMenu;
-
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import androidx.appcompat.widget.PopupMenu;
 
 public class MenuHelper {
 
@@ -16,7 +14,7 @@ public class MenuHelper {
 
     public static class MenuItemData {
         public String title;
-        public int iconResId; // drawable
+        public int iconResId;
         public MenuItemClickListener listener;
 
         public MenuItemData(String title, int iconResId, MenuItemClickListener listener) {
@@ -27,31 +25,27 @@ public class MenuHelper {
     }
 
     public static void showMenu(Context context, View anchor, MenuItemData[] items) {
+        Log.d("MENU_DEBUG", "5. Entrou no MenuHelper.showMenu.");
         PopupMenu popup = new PopupMenu(context, anchor);
+        Log.d("MENU_DEBUG", "6. Objeto PopupMenu criado.");
 
-        // Adiciona os itens dinamicamente
+        // Força a exibição de ícones, mesmo que o tema não o faça por padrão.
+        try {
+            java.lang.reflect.Field popupField = popup.getClass().getDeclaredField("mPopup");
+            popupField.setAccessible(true);
+            Object menuPopupHelper = popupField.get(popup);
+            Class<?> helperClass = Class.forName(menuPopupHelper.getClass().getName());
+            java.lang.reflect.Method setForceIcons = helperClass.getMethod("setForceShowIcon", boolean.class);
+            setForceIcons.invoke(menuPopupHelper, true);
+        } catch (Exception e) {
+            Log.e("MENU_HELPER", "Erro ao forçar ícones", e);
+        }
+
         for (int i = 0; i < items.length; i++) {
             MenuItem item = popup.getMenu().add(0, i, i, items[i].title);
             if (items[i].iconResId != 0) {
                 item.setIcon(items[i].iconResId);
             }
-        }
-
-        // Forçar exibir ícones
-        try {
-            Field[] fields = popup.getClass().getDeclaredFields();
-            for (Field field : fields) {
-                if ("mPopup".equals(field.getName())) {
-                    field.setAccessible(true);
-                    Object menuPopupHelper = field.get(popup);
-                    Class<?> classPopupHelper = Class.forName(menuPopupHelper.getClass().getName());
-                    Method setForceIcons = classPopupHelper.getMethod("setForceShowIcon", boolean.class);
-                    setForceIcons.invoke(menuPopupHelper, true);
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         popup.setOnMenuItemClickListener(item -> {
@@ -61,7 +55,8 @@ public class MenuHelper {
             }
             return true;
         });
-
+        
+        Log.d("MENU_DEBUG", "7. Chamando popup.show()...");
         popup.show();
     }
 }

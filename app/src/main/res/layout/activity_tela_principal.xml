@@ -120,6 +120,7 @@
 
                 <!-- Receitas -->
                 <LinearLayout
+                    android:id="@+id/btnResumoReceitas"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"
@@ -157,6 +158,7 @@
 
                 <!-- Despesas -->
                 <LinearLayout
+                    android:id="@+id/btnResumoDespesas"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_columnWeight="1"

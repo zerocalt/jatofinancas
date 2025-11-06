@@ -9,7 +9,6 @@ public class Conta {
     private boolean mostrarNaTelaInicial;
     private boolean emUso; // Novo campo
 
-    // Construtor completo
     public Conta(int id, String nome, double saldo, String cor, int tipoConta, boolean mostrarNaTelaInicial, boolean emUso) {
         this.id = id;
         this.nome = nome;
@@ -20,9 +19,13 @@ public class Conta {
         this.emUso = emUso;
     }
 
-    // Construtor simplificado para compatibilidade
     public Conta(int id, String nome, double saldo, String cor, int tipoConta, boolean mostrarNaTelaInicial) {
         this(id, nome, saldo, cor, tipoConta, mostrarNaTelaInicial, false);
+    }
+
+    @Override
+    public String toString() {
+        return this.nome; // Faz o Spinner mostrar o nome da conta
     }
 
     // Getters e Setters

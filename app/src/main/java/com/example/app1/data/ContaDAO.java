@@ -94,6 +94,10 @@ public class ContaDAO {
 
         return contas;
     }
+    
+    public static List<Conta> getContas(Context ctx, int idUsuario) {
+        return carregarListaContas(ctx, idUsuario);
+    }
 
     public static boolean excluirConta(Context ctx, int contaId) {
         MeuDbHelper dbHelper = new MeuDbHelper(ctx);

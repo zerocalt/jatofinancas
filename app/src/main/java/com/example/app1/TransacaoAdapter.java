@@ -25,7 +25,8 @@ public class TransacaoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
     private final OnTransacaoListener listener;
 
     public interface OnTransacaoListener {
-        void onTransacaoClick(TelaTransacoes.TransacaoItem item);
+        // CORREÇÃO: Adicionado o parâmetro View
+        void onTransacaoClick(TelaTransacoes.TransacaoItem item, View anchorView);
     }
 
     public static class HeaderData {
@@ -101,7 +102,6 @@ public class TransacaoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             } else { // Date Header
                 total.setVisibility(View.GONE);
 
-                // Tamanho menor e cor cinza
                 title.setTextSize(13);
                 title.setTextColor(Color.GRAY);
                 title.setTypeface(null, Typeface.BOLD);
@@ -158,7 +158,8 @@ public class TransacaoAdapter extends RecyclerView.Adapter<RecyclerView.ViewHold
             tipoLabel.setText(label);
             tipoLabel.setVisibility(label.isEmpty() ? View.GONE : View.VISIBLE);
 
-            itemView.setOnClickListener(v -> listener.onTransacaoClick(item));
+            // CORREÇÃO: Passando a view clicada (itemView) como a âncora.
+            itemView.setOnClickListener(v -> listener.onTransacaoClick(item, v));
         }
     }
 }
