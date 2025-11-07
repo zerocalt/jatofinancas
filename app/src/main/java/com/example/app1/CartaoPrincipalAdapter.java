@@ -18,10 +18,16 @@ public class CartaoPrincipalAdapter extends RecyclerView.Adapter<CartaoPrincipal
 
     private List<CartaoFatura> cartoes;
     private Context context;
+    private OnCartaoClickListener listener;
 
-    public CartaoPrincipalAdapter(Context context, List<CartaoFatura> cartoes) {
+    public interface OnCartaoClickListener {
+        void onCartaoClick(int idCartao);
+    }
+
+    public CartaoPrincipalAdapter(Context context, List<CartaoFatura> cartoes, OnCartaoClickListener listener) {
         this.context = context;
         this.cartoes = cartoes;
+        this.listener = listener;
     }
 
     @NonNull
@@ -41,7 +47,6 @@ public class CartaoPrincipalAdapter extends RecyclerView.Adapter<CartaoPrincipal
         NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
         holder.txtValorFatura.setText(format.format(cartaoFatura.getValorFatura()));
 
-        // Define a imagem da bandeira (de forma case-insensitive)
         int bandeiraResId = 0;
         String bandeira = cartao.getBandeira();
         if (bandeira != null && !bandeira.isEmpty()) {
@@ -52,8 +57,14 @@ public class CartaoPrincipalAdapter extends RecyclerView.Adapter<CartaoPrincipal
         if (bandeiraResId != 0) {
             holder.imgBandeiraCartao.setImageResource(bandeiraResId);
         } else {
-            holder.imgBandeiraCartao.setImageResource(R.drawable.ic_credit_card); // Imagem padrão
+            holder.imgBandeiraCartao.setImageResource(R.drawable.ic_credit_card); 
         }
+
+        holder.itemView.setOnClickListener(v -> {
+            if(listener != null) {
+                listener.onCartaoClick(cartao.getId());
+            }
+        });
     }
 
     @Override

@@ -23,6 +23,9 @@
             android:name=".TelaCategorias"
             android:exported="false" />
         <activity
+            android:name=".TelaGraficos"
+            android:exported="false" />
+        <activity
             android:name=".TelaFaturaCartao"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

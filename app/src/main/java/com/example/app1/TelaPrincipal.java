@@ -40,7 +40,7 @@ import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class TelaPrincipal extends AppCompatActivity {
+public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalAdapter.OnCartaoClickListener {
     private TextView txtMes, txtAno;
     private TextView saldoContas, receitasMes, despesasMes, valorReceitasPendentes, valorDespesasPendentes, txtTotalContas, txtTotalCartao;
     private LinearLayout btnResumoReceitas, btnResumoDespesas, receitasPendentes, despesasPendentes, alertasPendentes, totalContasLayout, layoutContas, layoutCartoes, totalCartaoLayout;
@@ -99,7 +99,7 @@ public class TelaPrincipal extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        carregarDadosAsync(); // CORREÇÃO: Carrega os dados sempre que a tela fica visível.
+        carregarDadosAsync();
     }
 
     private void bindViews() {
@@ -135,7 +135,7 @@ public class TelaPrincipal extends AppCompatActivity {
         recyclerContas.setAdapter(contasAdapter);
 
         recyclerCartao.setLayoutManager(new LinearLayoutManager(this));
-        cartaoAdapter = new CartaoPrincipalAdapter(this, new ArrayList<>());
+        cartaoAdapter = new CartaoPrincipalAdapter(this, new ArrayList<>(), this);
         recyclerCartao.setAdapter(cartaoAdapter);
     }
     
@@ -144,6 +144,14 @@ public class TelaPrincipal extends AppCompatActivity {
         btnResumoDespesas.setOnClickListener(v -> abrirTransacoesComFiltro("despesa", null));
         receitasPendentes.setOnClickListener(v -> abrirTransacoesComFiltro("receita", "pendente"));
         despesasPendentes.setOnClickListener(v -> abrirTransacoesComFiltro("despesa", "pendente"));
+    }
+
+    @Override
+    public void onCartaoClick(int idCartao) {
+        Intent intent = new Intent(this, TelaFaturaCartao.class);
+        intent.putExtra("id_cartao", idCartao);
+        intent.putExtra("id_usuario", idUsuarioLogado);
+        startActivity(intent);
     }
 
     private void abrirTransacoesComFiltro(String tipo, String status) {

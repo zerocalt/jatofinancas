@@ -42,7 +42,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapter.OnTransacaoListener {
 
-    private TextView txtMes, txtAno, txtNenhumaTransacao;
+    private TextView txtMes, txtAno, txtNenhumaTransacao, textTransacoes;
     private int idUsuarioLogado = -1;
     private String filtroTipo = null; // "receita" ou "despesa"
     private String filtroStatus = null; // "pago" ou "pendente"
@@ -131,6 +131,8 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         txtMes.setText(nomesMes[agora.get(Calendar.MONTH)]);
         txtAno.setText(String.valueOf(agora.get(Calendar.YEAR)));
 
+        atualizarTituloDaTela();
+
         Bundle args = new Bundle();
         args.putInt("botaoInativo", BottomMenuFragment.TRANSACOES);
         getSupportFragmentManager().beginTransaction().replace(R.id.menu_container, BottomMenuFragment.class, args).commit();
@@ -146,6 +148,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         totalPendente = findViewById(R.id.totalPendente);
         totalPago = findViewById(R.id.totalPago);
         recyclerTransacoes = findViewById(R.id.recycler_transacoes);
+        textTransacoes = findViewById(R.id.textTransacoes);
     }
 
     private void setupRecyclerView() {
@@ -167,9 +170,28 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         dialogFragment.setOnDateSetListener((year, monthOfYear) -> {
             txtMes.setText(nomesMes[monthOfYear]);
             txtAno.setText(String.valueOf(year));
+            atualizarTituloDaTela();
             carregarTransacoesAsync();
         });
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");
+    }
+
+    private void atualizarTituloDaTela() {
+        String mes = txtMes.getText().toString();
+        String titulo;
+
+        if ("pendente".equals(filtroStatus)) {
+            titulo = "receita".equals(filtroTipo) ? "Receitas Pendentes" : "Despesas Pendentes";
+        } else {
+            if ("receita".equals(filtroTipo)) {
+                titulo = "Receitas de " + mes;
+            } else if ("despesa".equals(filtroTipo)) {
+                titulo = "Despesas de " + mes;
+            } else {
+                titulo = "Transações de " + mes;
+            }
+        }
+        textTransacoes.setText(titulo);
     }
 
     public void carregarTransacoesAsync() {

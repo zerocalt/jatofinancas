@@ -77,16 +77,14 @@ public class BottomMenuFragment extends Fragment {
         MenuHelper.MenuItemData[] menuItems = new MenuHelper.MenuItemData[]{
                 new MenuHelper.MenuItemData("Categorias", R.drawable.ic_category, () -> navigateTo(TelaCategorias.class)),
                 new MenuHelper.MenuItemData("Contas", R.drawable.ic_account_balance, () -> navigateTo(TelaConta.class)),
-                new MenuHelper.MenuItemData("Gráficos", R.drawable.ic_credit_card, () -> {
-                    // Ação para Gráficos
-                }),
-                new MenuHelper.MenuItemData("Relatórios", R.drawable.ic_credit_card, () -> {
+                new MenuHelper.MenuItemData("Gráficos", R.drawable.ic_bar_chart_5px, () -> navigateTo(TelaGraficos.class)),
+                new MenuHelper.MenuItemData("Relatórios", R.drawable.ic_chrome_reader_mode, () -> {
                     // Ação para Relatórios
                 }),
-                new MenuHelper.MenuItemData("Sobre", R.drawable.ic_credit_card, () -> {
+                new MenuHelper.MenuItemData("Sobre", R.drawable.ic_feedback, () -> {
                     // Ação para Sobre
                 }),
-                new MenuHelper.MenuItemData("Encerrar Sessão", R.drawable.ic_credit_card, this::fazerLogout)
+                new MenuHelper.MenuItemData("Encerrar Sessão", R.drawable.ic_logout, this::fazerLogout)
         };
 
         MenuHelper.showMenu(getContext(), view, menuItems);
@@ -149,7 +147,7 @@ public class BottomMenuFragment extends Fragment {
     private void navigateTo(Class<?> cls) {
         Intent intent = new Intent(getActivity(), cls);
         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-        if (cls == TelaTransacoes.class) { 
+        if (cls == TelaTransacoes.class || cls == TelaGraficos.class) { // Adicionado TelaGraficos
             intent.putExtra("id_usuario", getIdUsuarioLogado());
         }
         startActivity(intent);
