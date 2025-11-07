@@ -81,9 +81,7 @@ public class BottomMenuFragment extends Fragment {
                 new MenuHelper.MenuItemData("Relatórios", R.drawable.ic_chrome_reader_mode, () -> {
                     // Ação para Relatórios
                 }),
-                new MenuHelper.MenuItemData("Sobre", R.drawable.ic_feedback, () -> {
-                    // Ação para Sobre
-                }),
+                new MenuHelper.MenuItemData("Sobre", R.drawable.ic_feedback, () -> navigateTo(TelaSobre.class)),
                 new MenuHelper.MenuItemData("Encerrar Sessão", R.drawable.ic_logout, this::fazerLogout)
         };
 
