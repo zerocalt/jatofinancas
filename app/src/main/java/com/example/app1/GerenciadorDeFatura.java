@@ -49,7 +49,7 @@ public class GerenciadorDeFatura {
 
                     Map<String, List<DespesaOrfa>> faturasParaProcessar = new HashMap<>();
 
-                    String queryParcelas = "SELECT p.id, p.valor, tc.data_compra " +
+                    String queryParcelas = "SELECT p.id, p.valor, p.data_vencimento " +
                             "FROM parcelas_cartao p " +
                             "JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id " +
                             "WHERE tc.id_cartao = ? AND p.id_fatura IS NULL";

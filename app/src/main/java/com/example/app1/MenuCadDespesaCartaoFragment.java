@@ -337,6 +337,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
 
+        boolean precisaProcessarFaturas = false;
+
         try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase()) {
             db.beginTransaction();
             try {
@@ -350,7 +352,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
                 if (idTransacao != -1) {
                     gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
-                    GerenciadorDeFatura.processarFaturasPendentes(requireContext());
+                    // Não chamar GerenciadorDeFatura aqui: só marcar flag para chamar após o commit
+                    precisaProcessarFaturas = true;
                 }
 
                 db.setTransactionSuccessful();
@@ -365,6 +368,18 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         } catch (Exception e) {
             Log.e("SalvarDespesa", "Erro ao abrir DB", e);
         }
+
+        // Chamando fora da transação — agora outras conexões enxergarão os inserts
+        if (precisaProcessarFaturas) {
+            new Thread(() -> {
+                try {
+                    GerenciadorDeFatura.processarFaturasPendentes(requireContext());
+                } catch (Exception e) {
+                    Log.e("SalvarDespesa", "Erro ao processar faturas após salvar", e);
+                }
+            }).start();
+        }
+
         btnSalvarDespesaCartao.setEnabled(true);
     }
 
@@ -377,6 +392,8 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         }
 
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
+
+        boolean precisaProcessarFaturas = false;
 
         try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase()) {
             db.beginTransaction();
@@ -391,9 +408,11 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
                 gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
 
                 db.setTransactionSuccessful();
-                GerenciadorDeFatura.processarFaturasPendentes(requireContext()); 
                 Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
                 fecharMenu(true);
+
+                // marcar flag para processar depois do endTransaction
+                precisaProcessarFaturas = true;
 
             } catch (Exception e) {
                 Log.e("AtualizarDespesa", "Erro durante transação de atualização", e);
@@ -403,9 +422,21 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         } catch (Exception e) {
             Log.e("AtualizarDespesa", "Erro ao abrir DB", e);
         }
+
+        // Chamando fora da transação
+        if (precisaProcessarFaturas) {
+            new Thread(() -> {
+                try {
+                    GerenciadorDeFatura.processarFaturasPendentes(requireContext());
+                } catch (Exception e) {
+                    Log.e("AtualizarDespesa", "Erro ao processar faturas após atualizar", e);
+                }
+            }).start();
+        }
+
         btnSalvarDespesaCartao.setEnabled(true);
     }
-    
+
     private void gerarParcelas(SQLiteDatabase db, long idTransacao, double valorTotal, int qtdParcelas, String dataISO) {
        try {
             double valorParcela = valorTotal / qtdParcelas;
