@@ -155,8 +155,17 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:lineSpacingExtra="4dp"
-                        android:text="O Jato Finanças é um aplicativo desenvolvido para facilitar o controle financeiro pessoal. Ele permite registrar e acompanhar despesas, receitas, cartões de crédito e despesas fixas, oferecendo uma visão clara e organizada das finanças do usuário."
-                        android:textAlignment="center"
+                        android:justificationMode="inter_word"
+                        android:text="O Jato Finanças é seu assistente financeiro pessoal completo. Com ele, você pode:
+
+\n\n• Registrar e categorizar todas as suas despesas e receitas de forma simples e intuitiva.
+
+\n• Acompanhar seus cartões de crédito para manter os gastos sob controle.
+
+\n• Gerenciar suas despesas fixas para nunca perder um vencimento.
+
+\n\nTenha uma visão clara e organizada de suas finanças, tudo em um só lugar, para tomar decisões financeiras mais inteligentes."
+                        android:textAlignment="viewStart"
                         android:textColor="@android:color/white"
                         android:textSize="15sp" />
 
@@ -164,5 +173,11 @@
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </ScrollView>
+
+    <FrameLayout
+        android:id="@+id/menu_container"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
