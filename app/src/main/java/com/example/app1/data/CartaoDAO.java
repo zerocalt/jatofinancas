@@ -8,11 +8,14 @@ import android.util.Log;
 
 import com.example.app1.Cartao;
 import com.example.app1.CartaoFatura;
+import com.example.app1.GerenciadorDeFatura;
 import com.example.app1.MeuDbHelper;
 import com.example.app1.TelaCadCartao;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
@@ -111,28 +114,45 @@ public class CartaoDAO {
 
     public static double calcularFaturaParcial(Context context, int idCartao, int diaFechamento) {
         double totalFatura = 0;
-        Calendar hoje = Calendar.getInstance();
-        Calendar inicioFatura = Calendar.getInstance();
 
-        if (hoje.get(Calendar.DAY_OF_MONTH) > diaFechamento) {
-            inicioFatura.set(hoje.get(Calendar.YEAR), hoje.get(Calendar.MONTH), diaFechamento);
-        } else {
-            inicioFatura.add(Calendar.MONTH, -1);
-            inicioFatura.set(Calendar.DAY_OF_MONTH, diaFechamento);
-        }
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String hojeFormatado = sdf.format(new Date());
+        String chaveFatura = GerenciadorDeFatura.getChaveFatura(hojeFormatado, diaFechamento);
 
-        String dataInicioFormatada = new java.text.SimpleDateFormat("yyyy-MM-dd").format(inicioFatura.getTime());
+        if (chaveFatura.isEmpty()) return 0;
+
+        String[] parts = chaveFatura.split("-");
+        int ano = Integer.parseInt(parts[0]);
+        int mes = Integer.parseInt(parts[1]);
 
         MeuDbHelper dbHelper = new MeuDbHelper(context);
         try (SQLiteDatabase db = dbHelper.getReadableDatabase()) {
-            String query = "SELECT SUM(p.valor) as total FROM parcelas_cartao p JOIN transacoes_cartao t ON p.id_transacao_cartao = t.id WHERE t.id_cartao = ? AND p.data_vencimento > ? AND p.paga = 0";
-            try (Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(idCartao), dataInicioFormatada})) {
+            String query = "SELECT valor_total FROM faturas WHERE id_cartao = ? AND ano = ? AND mes = ? AND status = 0";
+            try (Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(idCartao), String.valueOf(ano), String.valueOf(mes)})) {
                 if (cursor.moveToFirst()) {
-                    totalFatura = cursor.getDouble(cursor.getColumnIndexOrThrow("total"));
+                    return cursor.getDouble(0);
+                } else {
+                    // Se não encontrar fatura, calcula na mão (fallback)
+                    Calendar inicio = Calendar.getInstance();
+                    Calendar fim = Calendar.getInstance();
+
+                    inicio.set(ano, mes -1, diaFechamento > 0 ? diaFechamento + 1 : 1);
+                    if (diaFechamento > 0) inicio.add(Calendar.MONTH, -1);
+                    fim.set(ano, mes-1, diaFechamento > 0 ? diaFechamento : inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
+
+                    String dataInicio = sdf.format(inicio.getTime());
+                    String dataFim = sdf.format(fim.getTime());
+
+                    String fallbackQuery = "SELECT SUM(p.valor) as total FROM parcelas_cartao p JOIN transacoes_cartao t ON p.id_transacao_cartao = t.id WHERE t.id_cartao = ? AND p.data_vencimento BETWEEN ? AND ? AND p.paga = 0";
+                    try(Cursor fallbackCursor = db.rawQuery(fallbackQuery, new String[]{String.valueOf(idCartao), dataInicio, dataFim})){
+                        if (fallbackCursor.moveToFirst()) {
+                            return fallbackCursor.getDouble(0);
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
-            Log.e("CartaoDAO", "Erro ao calcular fatura parcial", e);
+            Log.e("CartaoDAO", "Erro ao buscar valor da fatura parcial", e);
         }
 
         return totalFatura;

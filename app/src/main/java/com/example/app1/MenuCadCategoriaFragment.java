@@ -151,6 +151,7 @@ public class MenuCadCategoriaFragment extends Fragment {
         if (isAdded()) {
             slidingMenuCategoria.animate().translationY(slidingMenuCategoria.getHeight()).setDuration(300).withEndAction(() -> {
                 if (isAdded()) {
+                    overlayCategoria.setVisibility(View.GONE);
                     getParentFragmentManager().beginTransaction().remove(this).commit();
                 }
             }).start();

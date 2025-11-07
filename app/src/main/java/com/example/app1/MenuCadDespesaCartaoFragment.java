@@ -155,7 +155,13 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         }
 
         autoCompleteCartao.setOnItemClickListener((parent, view, position, id) -> idCartao = ((Cartao) parent.getItemAtPosition(position)).getId());
-        autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> tilCategoriaDespesa.setError(null));
+        autoCompleteCategoria.setOnItemClickListener((parent, view, position, id) -> {
+            Categoria categoria = (Categoria) parent.getItemAtPosition(position);
+            if(categoria != null) {
+                autoCompleteCategoria.setText(categoria.getNome(), false);
+            }
+            tilCategoriaDespesa.setError(null);
+        });
 
         inputValorDespesa.addTextChangedListener(new MascaraMonetaria(inputValorDespesa));
 
@@ -255,8 +261,12 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
     }
 
     public void fecharMenu(boolean despesaSalva) {
+        if (!isAdded()) return;
+
         InputMethodManager imm = (InputMethodManager) requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE);
-        if (getView() != null) imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+        if (getView() != null) {
+            imm.hideSoftInputFromWindow(getView().getWindowToken(), 0);
+        }
 
         if (despesaSalva) {
             Bundle result = new Bundle();
@@ -268,11 +278,13 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
                 .translationY(slidingMenuDespesaCartao.getHeight())
                 .setDuration(300)
                 .withEndAction(() -> {
-                    if (getParentFragmentManager() != null) {
-                        getParentFragmentManager().popBackStack();
+                    if (isAdded()) {
+                        overlayDespesaCartao.setVisibility(View.GONE);
+                        getParentFragmentManager().beginTransaction().remove(this).commit();
                     }
                 }).start();
     }
+
     private boolean validarCampos(ContentContainer C) {
         C.nome = inputNomeDespesaCartao.getText().toString().trim();
         C.categoriaTexto = autoCompleteCategoria.getText().toString().trim();
@@ -303,7 +315,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
         String parcelaSelecionada = autoCompleteParcelas.getText().toString();
         C.quantidadeParcelas = 1;
         if (!parcelaSelecionada.isEmpty()) {
-            try { C.quantidadeParcelas = Integer.parseInt(parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim()); } catch (Exception e) { /* usa 1 */ }
+            try { C.quantidadeParcelas = Integer.parseInt( parcelaSelecionada.substring(0, parcelaSelecionada.indexOf('x')).trim()); } catch (Exception e) { /* usa 1 */ }
         }
 
         C.categoria = CategoriaDAO.buscarCategoriaPorNome(requireContext(), idUsuarioLogado, C.categoriaTexto);
@@ -322,7 +334,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
             btnSalvarDespesaCartao.setEnabled(true);
             return;
         }
-        
+
         com.google.android.material.materialswitch.MaterialSwitch switchDespesaFixa = requireView().findViewById(R.id.switchDespesaFixa);
 
         try (SQLiteDatabase db = new MeuDbHelper(requireContext()).getWritableDatabase()) {
@@ -335,9 +347,10 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
                 valores.put("observacao", inputObservacao.getText().toString().trim());
 
                 long idTransacao = db.insert("transacoes_cartao", null, valores);
-                
+
                 if (idTransacao != -1) {
                     gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
+                    GerenciadorDeFatura.processarFaturasPendentes(requireContext());
                 }
 
                 db.setTransactionSuccessful();
@@ -374,10 +387,11 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
 
                 db.update("transacoes_cartao", valores, "id = ?", new String[]{String.valueOf(idTransacao)});
                 db.delete("parcelas_cartao", "id_transacao_cartao = ?", new String[]{String.valueOf(idTransacao)});
-                
+
                 gerarParcelas(db, idTransacao, C.valor, C.quantidadeParcelas, C.dataISO);
 
                 db.setTransactionSuccessful();
+                GerenciadorDeFatura.processarFaturasPendentes(requireContext()); 
                 Snackbar.make(requireView(), "Despesa atualizada com sucesso!", Snackbar.LENGTH_LONG).show();
                 fecharMenu(true);
 
@@ -397,7 +411,20 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
             double valorParcela = valorTotal / qtdParcelas;
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
             Calendar cal = Calendar.getInstance();
-            cal.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).parse(dataISO));
+            cal.setTime(sdf.parse(dataISO));
+            
+            // Pega o dia de fechamento do cartão para calcular vencimentos
+            int diaFechamento = 0;
+            try (Cursor c = db.rawQuery("SELECT data_fechamento_fatura FROM cartoes WHERE id = ?", new String[]{String.valueOf(idCartao)})) {
+                if (c.moveToFirst()) {
+                    diaFechamento = c.getInt(0);
+                }
+            }
+
+            // A primeira parcela vence no próximo mês, a menos que a compra seja feita no dia do fechamento
+            if (cal.get(Calendar.DAY_OF_MONTH) > diaFechamento) {
+                cal.add(Calendar.MONTH, 1);
+            }
 
             for (int i = 1; i <= qtdParcelas; i++) {
                 ContentValues pVal = new ContentValues();
@@ -408,7 +435,7 @@ public class MenuCadDespesaCartaoFragment extends Fragment implements MenuCadCat
                 pVal.putNull("id_fatura");
                 pVal.put("data_vencimento", sdf.format(cal.getTime()));
                 db.insert("parcelas_cartao", null, pVal);
-                cal.add(Calendar.MONTH, 1);
+                cal.add(Calendar.MONTH, 1); // Próxima parcela no mês seguinte
             }
         } catch (ParseException e) {
             Log.e("GerarParcelas", "Erro de parse na data ao gerar parcelas. Data: " + dataISO, e);

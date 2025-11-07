@@ -199,11 +199,8 @@ public class MenuCadContaFragment extends Fragment {
         if (isAdded()) {
             slidingMenuConta.animate().translationY(slidingMenuConta.getHeight()).setDuration(300).withEndAction(() -> {
                 if (isAdded()) {
+                    overlayConta.setVisibility(View.GONE);
                     getParentFragmentManager().beginTransaction().remove(this).commit();
-                    View container = requireActivity().findViewById(R.id.fragmentContainerConta);
-                    if (container != null) {
-                        container.setVisibility(View.GONE);
-                    }
                 }
             }).start();
         }

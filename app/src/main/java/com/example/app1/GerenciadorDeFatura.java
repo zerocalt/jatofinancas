@@ -10,6 +10,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -41,34 +42,32 @@ public class GerenciadorDeFatura {
                 while (cursorCartoes.moveToNext()) {
                     int idCartao = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("id"));
                     int diaVencimento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_vencimento_fatura"));
-                    int diaFechamento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_fechamento_fatura"));
+                    int diaFechamento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_fechamento_fatura")); // diaFechamento não é usado na nova lógica, mas mantido para contexto
                     Log.d(TAG, "Processando Cartão ID: " + idCartao);
 
                     Map<String, List<DespesaOrfa>> faturasParaProcessar = new HashMap<>();
 
-                    // 1. Buscar transações órfãs (à vista)
-                    String queryTransacoes = "SELECT id, valor, data_compra FROM transacoes_cartao WHERE id_cartao = ? AND id_fatura IS NULL AND (parcelas <= 1 OR parcelas IS NULL)";
-                    try (Cursor cTrans = db.rawQuery(queryTransacoes, new String[]{String.valueOf(idCartao)})) {
-                        while (cTrans.moveToNext()) {
-                            int id = cTrans.getInt(0);
-                            double valor = cTrans.getDouble(1);
-                            String data = cTrans.getString(2);
-                            String chaveFatura = getChaveFatura(data, diaFechamento);
-                            if (chaveFatura.isEmpty()) continue;
-                            faturasParaProcessar.computeIfAbsent(chaveFatura, k -> new ArrayList<>()).add(new DespesaOrfa(id, valor, "transacao"));
-                        }
-                    }
+                    String queryParcelas = "SELECT p.id, p.valor, p.data_vencimento FROM parcelas_cartao p " +
+                                           "JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id " +
+                                           "WHERE tc.id_cartao = ? AND p.id_fatura IS NULL";
 
-                    // 2. Buscar parcelas órfãs
-                    String queryParcelas = "SELECT p.id, p.valor, p.data_vencimento FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id WHERE tc.id_cartao = ? AND p.id_fatura IS NULL";
                     try (Cursor cParc = db.rawQuery(queryParcelas, new String[]{String.valueOf(idCartao)})) {
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
+                        SimpleDateFormat chaveSdf = new SimpleDateFormat("yyyy-MM", Locale.ROOT);
+
                         while (cParc.moveToNext()) {
-                            int id = cParc.getInt(0);
-                            double valor = cParc.getDouble(1);
-                            String data = cParc.getString(2);
-                            String chaveFatura = getChaveFatura(data, diaFechamento);
-                            if (chaveFatura.isEmpty()) continue;
-                            faturasParaProcessar.computeIfAbsent(chaveFatura, k -> new ArrayList<>()).add(new DespesaOrfa(id, valor, "parcela"));
+                            int idParcela = cParc.getInt(0);
+                            double valorParcela = cParc.getDouble(1);
+                            String dataVencimentoParcelaStr = cParc.getString(2);
+
+                            try {
+                                Date dataVencimento = sdf.parse(dataVencimentoParcelaStr);
+                                String chaveFatura = chaveSdf.format(dataVencimento);
+
+                                faturasParaProcessar.computeIfAbsent(chaveFatura, k -> new ArrayList<>()).add(new DespesaOrfa(idParcela, valorParcela, "parcela"));
+                            } catch (ParseException e) {
+                                Log.e(TAG, "Data de vencimento inválida para parcela ID " + idParcela, e);
+                            }
                         }
                     }
 
@@ -86,7 +85,7 @@ public class GerenciadorDeFatura {
                             List<DespesaOrfa> despesas = entry.getValue();
 
                             long idFatura = -1;
-                            int statusFatura = -1; 
+                            int statusFatura = -1;
 
                             String queryFatura = "SELECT id, status FROM faturas WHERE id_cartao = ? AND mes = ? AND ano = ?";
                             try (Cursor cf = db.rawQuery(queryFatura, new String[]{String.valueOf(idCartao), String.valueOf(mes), String.valueOf(ano)})) {
@@ -96,32 +95,25 @@ public class GerenciadorDeFatura {
                                 }
                             }
 
-                            if (statusFatura == 1) {
-                                Log.w(TAG, "Fatura " + mes + "/" + ano + " está paga. Marcando " + despesas.size() + " despesas como não alocáveis.");
-                                for (DespesaOrfa despesa : despesas) {
-                                    ContentValues cv = new ContentValues();
-                                    cv.put("id_fatura", -1);
-                                    String tabela = despesa.tipo.equals("parcela") ? "parcelas_cartao" : "transacoes_cartao";
-                                    db.update(tabela, cv, "id = ?", new String[]{String.valueOf(despesa.id)});
-                                }
+                            if (statusFatura == 1) { // Fatura já está paga
+                                Log.w(TAG, "Fatura " + mes + "/" + ano + " está paga. Ignorando " + despesas.size() + " despesas.");
                             } else {
-                                double valorTotalOrfas = 0;
-                                for (DespesaOrfa d : despesas) valorTotalOrfas += d.valor;
+                                double valorTotalOrfas = despesas.stream().mapToDouble(d -> d.valor).sum();
 
                                 if (idFatura != -1) { // Fatura existe e está aberta
                                     Log.d(TAG, "Fatura " + mes + "/" + ano + " (ID:" + idFatura + ") aberta. Adicionando R$" + valorTotalOrfas);
                                     db.execSQL("UPDATE faturas SET valor_total = valor_total + ? WHERE id = ?", new Object[]{valorTotalOrfas, idFatura});
-                                } else { // Fatura não existe, CRIAR!
+                                } else { // Fatura não existe, precisa ser criada
                                     Log.d(TAG, "Fatura " + mes + "/" + ano + " não existe. Criando com valor R$" + valorTotalOrfas);
                                     ContentValues fv = new ContentValues();
                                     fv.put("id_cartao", idCartao);
                                     fv.put("mes", mes);
                                     fv.put("ano", ano);
                                     fv.put("valor_total", valorTotalOrfas);
-                                    fv.put("status", 0);
+                                    fv.put("status", 0); // Fatura aberta
 
                                     Calendar calVenc = Calendar.getInstance();
-                                    calVenc.set(ano, mes - 1, diaVencimento > 28 ? 28 : diaVencimento); // Evitar dias inválidos
+                                    calVenc.set(ano, mes - 1, diaVencimento);
                                     fv.put("data_vencimento", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).format(calVenc.getTime()));
 
                                     idFatura = db.insert("faturas", null, fv);
@@ -131,10 +123,9 @@ public class GerenciadorDeFatura {
                                     for (DespesaOrfa despesa : despesas) {
                                         ContentValues cv = new ContentValues();
                                         cv.put("id_fatura", idFatura);
-                                        String tabela = despesa.tipo.equals("parcela") ? "parcelas_cartao" : "transacoes_cartao";
-                                        db.update(tabela, cv, "id = ?", new String[]{String.valueOf(despesa.id)});
+                                        db.update("parcelas_cartao", cv, "id = ?", new String[]{String.valueOf(despesa.id)});
                                     }
-                                    Log.d(TAG, despesas.size() + " despesas vinculadas à fatura ID: " + idFatura);
+                                    Log.d(TAG, despesas.size() + " parcelas vinculadas à fatura ID: " + idFatura);
                                 }
                             }
                         }
@@ -150,27 +141,27 @@ public class GerenciadorDeFatura {
         Log.i(TAG, "Processamento de faturas finalizado.");
     }
 
-    private static String getChaveFatura(String dataDespesa, int diaFechamento) {
+    public static String getChaveFatura(String dataDespesa, int diaFechamento) {
         Calendar calDespesa = Calendar.getInstance();
         try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT);
-            calDespesa.setTime(sdf.parse(dataDespesa));
-        } catch (ParseException e) {
-            try {
-                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-                calDespesa.setTime(sdf.parse(dataDespesa));
-            } catch (ParseException ex) {
-                Log.e(TAG, "Data inválida: " + dataDespesa);
-                return "";
+            if (dataDespesa.length() > 10) {
+                calDespesa.setTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).parse(dataDespesa));
+            } else {
+                calDespesa.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).parse(dataDespesa));
             }
+        } catch (ParseException ex) {
+            Log.e(TAG, "Formato de data inválido fornecido: " + dataDespesa, ex);
+            return "";
         }
 
         Calendar calFatura = (Calendar) calDespesa.clone();
-
         if (calDespesa.get(Calendar.DAY_OF_MONTH) > diaFechamento) {
             calFatura.add(Calendar.MONTH, 1);
         }
 
-        return calFatura.get(Calendar.YEAR) + "-" + String.format(Locale.ROOT, "%02d", calFatura.get(Calendar.MONTH) + 1);
+        int anoFatura = calFatura.get(Calendar.YEAR);
+        int mesFatura = calFatura.get(Calendar.MONTH) + 1;
+
+        return anoFatura + "-" + String.format(Locale.ROOT, "%02d", mesFatura);
     }
 }

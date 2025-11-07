@@ -141,8 +141,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         ((TextInputEditText) findViewById(R.id.inputCor)).setOnClickListener(v -> {
             new ColorPickerDialog.Builder(this)
                 .setTitle("Escolha uma cor")
-                .setPositiveButton("Selecionar",
-                    (ColorEnvelopeListener) (envelope, fromUser) -> {
+                .setPositiveButton("Selecionar", (ColorEnvelopeListener) (envelope, fromUser) -> {
                         TextInputEditText inputCor = findViewById(R.id.inputCor);
                         inputCor.setText("#" + envelope.getHexCode());
                     })
