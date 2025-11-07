@@ -3,6 +3,7 @@ package com.example.app1;
 import android.content.Context;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -109,7 +110,15 @@ public class CartaoAdapter extends RecyclerView.Adapter<CartaoAdapter.CartaoView
             // Cor do cartão
             if (itemView.getBackground() instanceof GradientDrawable) {
                 GradientDrawable fundo = (GradientDrawable) itemView.getBackground().mutate();
-                fundo.setColor(Color.parseColor(cartao.ativo == 1 ? cartao.cor : "#CCCCCC"));
+                String cor = cartao.ativo == 1 ? cartao.cor : "#CCCCCC";
+                if (TextUtils.isEmpty(cor)) {
+                    cor = "#2F4F99"; // Cor padrão
+                }
+                try {
+                    fundo.setColor(Color.parseColor(cor));
+                } catch (IllegalArgumentException e) {
+                    fundo.setColor(Color.parseColor("#2F4F99")); // Cor padrão em caso de erro
+                }
             }
 
             // Visibilidade para cartões inativos

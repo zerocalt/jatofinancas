@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.sqlite.SQLiteDatabase;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -36,6 +37,9 @@ import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
 import com.google.android.material.textfield.TextInputEditText;
+import com.skydoves.colorpickerview.ColorPickerDialog;
+import com.skydoves.colorpickerview.listeners.ColorEnvelopeListener;
+
 
 import java.io.IOException;
 import java.security.GeneralSecurityException;
@@ -135,7 +139,19 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         });
 
         ((TextInputEditText) findViewById(R.id.inputCor)).setOnClickListener(v -> {
-            // Color picker logic
+            new ColorPickerDialog.Builder(this)
+                .setTitle("Escolha uma cor")
+                .setPositiveButton("Selecionar",
+                    (ColorEnvelopeListener) (envelope, fromUser) -> {
+                        TextInputEditText inputCor = findViewById(R.id.inputCor);
+                        inputCor.setText("#" + envelope.getHexCode());
+                    })
+                .setNegativeButton("Cancelar",
+                    (dialogInterface, i) -> dialogInterface.dismiss())
+                .attachAlphaSlideBar(true) 
+                .attachBrightnessSlideBar(true) 
+                .setBottomSpace(12) 
+                .show();
         });
 
         ((TextInputEditText) findViewById(R.id.inputLimite)).addTextChangedListener(new MascaraMonetaria(findViewById(R.id.inputLimite)));
