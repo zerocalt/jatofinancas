@@ -182,9 +182,11 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             String query;
             String[] selectionArgs;
 
+            Log.d("idFatura", "idFatura recebido: " + idFatura);
+
             if (idFatura != -1) {
                 // MODO 1: Carregar despesas de uma fatura específica
-                query = "SELECT t.data_compra AS data, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
+                query = "SELECT t.data_compra, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
                         "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas, p.data_vencimento " +
                         "FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
                         "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +

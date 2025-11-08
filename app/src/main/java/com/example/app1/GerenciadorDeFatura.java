@@ -12,9 +12,11 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class GerenciadorDeFatura {
 
@@ -45,46 +47,51 @@ public class GerenciadorDeFatura {
                     int idCartao = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("id"));
                     int diaVencimento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_vencimento_fatura"));
                     int diaFechamento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_fechamento_fatura"));
+
                     Log.i(TAG, "→ Processando cartão ID: " + idCartao + " (fechamento dia " + diaFechamento + ")");
 
+                    // Map para armazenar faturas afetadas
                     Map<String, List<DespesaOrfa>> faturasParaProcessar = new HashMap<>();
 
-                    String queryParcelas = "SELECT p.id, p.valor, p.data_vencimento " +
-                            "FROM parcelas_cartao p " +
-                            "JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id " +
-                            "WHERE tc.id_cartao = ? AND p.id_fatura IS NULL";
+                    // --- Buscar transações únicas órfãs ---
+                    String queryTransacoes = "SELECT id, valor, data_compra " +
+                            "FROM transacoes_cartao " +
+                            "WHERE id_cartao = ? AND id_fatura IS NULL AND parcelas = 1";
+                    try (Cursor cTrans = db.rawQuery(queryTransacoes, new String[]{String.valueOf(idCartao)})) {
+                        while (cTrans.moveToNext()) {
+                            int idTrans = cTrans.getInt(0);
+                            double valorTrans = cTrans.getDouble(1);
+                            String data = cTrans.getString(2);
 
-                    try (Cursor cParc = db.rawQuery(queryParcelas, new String[]{String.valueOf(idCartao)})) {
-                        while (cParc.moveToNext()) {
-                            int idParcela = cParc.getInt(0);
-                            double valorParcela = cParc.getDouble(1);
-                            String dataTransacao = cParc.getString(2);
-
-                            String chaveFatura = getChaveFatura(dataTransacao, diaFechamento);
+                            String chaveFatura = getChaveFatura(data, diaFechamento);
                             if (!chaveFatura.isEmpty()) {
-                                faturasParaProcessar.computeIfAbsent(chaveFatura, k -> new ArrayList<>())
-                                        .add(new DespesaOrfa(idParcela, valorParcela, "parcela"));
+                                faturasParaProcessar
+                                        .computeIfAbsent(chaveFatura, k -> new ArrayList<>())
+                                        .add(new DespesaOrfa(idTrans, valorTrans, "transacao"));
                             }
                         }
                     }
 
                     if (faturasParaProcessar.isEmpty()) {
-                        Log.d(TAG, "Nenhuma parcela órfã encontrada para o cartão ID " + idCartao);
+                        Log.d(TAG, "Nenhuma transação órfã encontrada para o cartão ID " + idCartao);
                         continue;
                     }
 
                     db.beginTransaction();
                     try {
+                        Set<Long> faturasAfetadas = new HashSet<>();
+
                         for (Map.Entry<String, List<DespesaOrfa>> entry : faturasParaProcessar.entrySet()) {
                             String chave = entry.getKey();
                             String[] parts = chave.split("-");
                             int ano = Integer.parseInt(parts[0]);
                             int mes = Integer.parseInt(parts[1]);
-                            List<DespesaOrfa> despesas = entry.getValue();
+                            List<DespesaOrfa> transacoes = entry.getValue();
 
                             long idFatura = -1;
                             int statusFatura = -1;
 
+                            // Verifica se fatura já existe
                             String queryFatura = "SELECT id, status FROM faturas WHERE id_cartao = ? AND mes = ? AND ano = ?";
                             try (Cursor cf = db.rawQuery(queryFatura, new String[]{String.valueOf(idCartao), String.valueOf(mes), String.valueOf(ano)})) {
                                 if (cf.moveToNext()) {
@@ -94,22 +101,17 @@ public class GerenciadorDeFatura {
                             }
 
                             if (statusFatura == 1) {
-                                Log.w(TAG, "⚠ Fatura " + chave + " já está paga. Ignorando " + despesas.size() + " despesas.");
+                                Log.w(TAG, "⚠ Fatura " + chave + " já está paga. Ignorando " + transacoes.size() + " transações.");
                                 continue;
                             }
 
-                            double valorTotalOrfas = despesas.stream().mapToDouble(d -> d.valor).sum();
-
-                            if (idFatura != -1) {
-                                Log.d(TAG, "Fatura existente " + chave + " (ID:" + idFatura + ") → adicionando R$" + valorTotalOrfas);
-                                db.execSQL("UPDATE faturas SET valor_total = valor_total + ? WHERE id = ?", new Object[]{valorTotalOrfas, idFatura});
-                            } else {
-                                Log.d(TAG, "Criando nova fatura " + chave + " com valor R$" + valorTotalOrfas);
+                            // Cria fatura se não existir
+                            if (idFatura == -1) {
                                 ContentValues fv = new ContentValues();
                                 fv.put("id_cartao", idCartao);
                                 fv.put("mes", mes);
                                 fv.put("ano", ano);
-                                fv.put("valor_total", valorTotalOrfas);
+                                fv.put("valor_total", 0);
                                 fv.put("status", 0);
 
                                 Calendar calVenc = Calendar.getInstance();
@@ -120,17 +122,21 @@ public class GerenciadorDeFatura {
                             }
 
                             if (idFatura != -1) {
-                                for (DespesaOrfa despesa : despesas) {
+                                // Vincula as transações órfãs à fatura
+                                for (DespesaOrfa despesa : transacoes) {
                                     ContentValues cv = new ContentValues();
                                     cv.put("id_fatura", idFatura);
-                                    db.update("parcelas_cartao", cv, "id = ?", new String[]{String.valueOf(despesa.id)});
+                                    db.update("transacoes_cartao", cv, "id = ?", new String[]{String.valueOf(despesa.id)});
                                 }
-                                Log.d(TAG, despesas.size() + " parcelas vinculadas à fatura ID: " + idFatura);
-
-                                // Recalcular total final
-                                recalcularValorTotalFatura(db, idFatura);
+                                faturasAfetadas.add(idFatura);
                             }
                         }
+
+                        // Recalcula o total de todas as faturas afetadas
+                        for (Long idFatura : faturasAfetadas) {
+                            recalcularValorTotalFatura(db, idFatura);
+                        }
+
                         db.setTransactionSuccessful();
                     } finally {
                         db.endTransaction();
@@ -139,7 +145,7 @@ public class GerenciadorDeFatura {
             }
 
         } catch (Exception e) {
-            Log.e(TAG, "❌ Erro grave ao processar faturas pendentes", e);
+            Log.e(TAG, "❌ Erro ao processar faturas pendentes", e);
         }
 
         long duracao = System.currentTimeMillis() - inicio;
@@ -147,15 +153,24 @@ public class GerenciadorDeFatura {
     }
 
     public static void recalcularValorTotalFatura(SQLiteDatabase db, long idFatura) {
-        try (Cursor c = db.rawQuery(
-                "SELECT SUM(p.valor) FROM parcelas_cartao p WHERE p.id_fatura = ?",
-                new String[]{String.valueOf(idFatura)})) {
-
-            if (c.moveToFirst()) {
-                double total = c.getDouble(0);
-                db.execSQL("UPDATE faturas SET valor_total = ? WHERE id = ?", new Object[]{total, idFatura});
-                Log.d(TAG, "✔ Valor total recalculado da fatura ID " + idFatura + ": R$" + total);
+        try {
+            double totalParcelas = 0;
+            try (Cursor c = db.rawQuery("SELECT SUM(valor) FROM parcelas_cartao WHERE id_fatura = ?", new String[]{String.valueOf(idFatura)})) {
+                if (c.moveToFirst()) {
+                    totalParcelas = c.getDouble(0);
+                }
             }
+
+            double totalTransacoesUnicas = 0;
+            try (Cursor c = db.rawQuery("SELECT SUM(valor) FROM transacoes_cartao WHERE id_fatura = ? AND parcelas = 1", new String[]{String.valueOf(idFatura)})) {
+                if (c.moveToFirst()) {
+                    totalTransacoesUnicas = c.getDouble(0);
+                }
+            }
+
+            double total = totalParcelas + totalTransacoesUnicas;
+            db.execSQL("UPDATE faturas SET valor_total = ? WHERE id = ?", new Object[]{total, idFatura});
+            Log.d(TAG, "✔ Valor total recalculado da fatura ID " + idFatura + ": R$" + total);
         } catch (Exception e) {
             Log.e(TAG, "Erro ao recalcular valor da fatura ID " + idFatura, e);
         }
@@ -164,26 +179,25 @@ public class GerenciadorDeFatura {
     public static String getChaveFatura(String dataDespesa, int diaFechamento) {
         Calendar calDespesa = Calendar.getInstance();
         try {
-            if (dataDespesa.length() > 10) {
-                calDespesa.setTime(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT).parse(dataDespesa));
-            } else {
-                calDespesa.setTime(new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).parse(dataDespesa));
-            }
+            SimpleDateFormat sdf = dataDespesa.length() > 10 ? new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.ROOT) : new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+            calDespesa.setTime(sdf.parse(dataDespesa));
         } catch (ParseException ex) {
             Log.e(TAG, "Formato de data inválido: " + dataDespesa, ex);
             return "";
         }
 
-        Calendar calFatura = (Calendar) calDespesa.clone();
+        Calendar calVencimentoFatura = (Calendar) calDespesa.clone();
 
+        // A fatura vence no mês seguinte ao fechamento.
+        // Se a compra for depois do fechamento, o ciclo de faturamento também é do mês seguinte.
         if (calDespesa.get(Calendar.DAY_OF_MONTH) > diaFechamento) {
-            calFatura.add(Calendar.MONTH, 1);
+            calVencimentoFatura.add(Calendar.MONTH, 1); // Joga para o ciclo de faturamento seguinte
         }
 
-        calFatura.add(Calendar.MONTH, 1);
+        calVencimentoFatura.add(Calendar.MONTH, 1); // Adiciona 1 mês para obter o mês de vencimento
 
-        int anoFatura = calFatura.get(Calendar.YEAR);
-        int mesFatura = calFatura.get(Calendar.MONTH) + 1;
+        int anoFatura = calVencimentoFatura.get(Calendar.YEAR);
+        int mesFatura = calVencimentoFatura.get(Calendar.MONTH) + 1; // Calendar.MONTH é 0-based
 
         return anoFatura + "-" + String.format(Locale.ROOT, "%02d", mesFatura);
     }

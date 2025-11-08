@@ -139,6 +139,14 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(MainActivity.this, TelaCadastroUsuario.class);
             startActivity(intent);
         });
+
+        //abrir o esqueceu a senha
+        TextView esqSenha = findViewById(R.id.esqSenha);
+        esqSenha.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ExportDatabaseActivity.class);
+            startActivity(intent);
+        });
+
     }
 
     private void verificarLoginSalvo() {
