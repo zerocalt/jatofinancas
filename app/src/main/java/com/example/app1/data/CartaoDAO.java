@@ -116,47 +116,53 @@ public class CartaoDAO {
         double totalFatura = 0;
 
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        String hojeFormatado = sdf.format(new Date());
-        String chaveFatura = GerenciadorDeFatura.getChaveFatura(hojeFormatado, diaFechamento);
+        Calendar agora = Calendar.getInstance();
+        String hojeFormatado = sdf.format(agora.getTime());
 
+        String chaveFatura = GerenciadorDeFatura.getChaveFatura(hojeFormatado, diaFechamento);
         if (chaveFatura.isEmpty()) return 0;
 
         String[] parts = chaveFatura.split("-");
         int ano = Integer.parseInt(parts[0]);
         int mes = Integer.parseInt(parts[1]);
 
-        MeuDbHelper dbHelper = new MeuDbHelper(context);
-        try (SQLiteDatabase db = dbHelper.getReadableDatabase()) {
-            String query = "SELECT valor_total FROM faturas WHERE id_cartao = ? AND ano = ? AND mes = ? AND status = 0";
-            try (Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(idCartao), String.valueOf(ano), String.valueOf(mes)})) {
-                if (cursor.moveToFirst()) {
-                    return cursor.getDouble(0);
-                } else {
-                    // Se não encontrar fatura, calcula na mão (fallback)
-                    Calendar inicio = Calendar.getInstance();
-                    Calendar fim = Calendar.getInstance();
+        try (MeuDbHelper dbHelper = new MeuDbHelper(context);
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-                    inicio.set(ano, mes -1, diaFechamento > 0 ? diaFechamento + 1 : 1);
-                    if (diaFechamento > 0) inicio.add(Calendar.MONTH, -1);
-                    fim.set(ano, mes-1, diaFechamento > 0 ? diaFechamento : inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
+            Calendar inicio = Calendar.getInstance();
+            Calendar fim = Calendar.getInstance();
 
-                    String dataInicio = sdf.format(inicio.getTime());
-                    String dataFim = sdf.format(fim.getTime());
+            if (diaFechamento > 0) {
+                inicio.set(ano, mes - 1, diaFechamento + 1);
+                inicio.add(Calendar.MONTH, -1);
+                fim.set(ano, mes - 1, diaFechamento);
+            } else {
+                inicio.set(ano, mes - 1, 1);
+                fim.set(ano, mes - 1, inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
+            }
 
-                    String fallbackQuery = "SELECT SUM(p.valor) as total FROM parcelas_cartao p JOIN transacoes_cartao t ON p.id_transacao_cartao = t.id WHERE t.id_cartao = ? AND p.data_vencimento BETWEEN ? AND ? AND p.paga = 0";
-                    try(Cursor fallbackCursor = db.rawQuery(fallbackQuery, new String[]{String.valueOf(idCartao), dataInicio, dataFim})){
-                        if (fallbackCursor.moveToFirst()) {
-                            return fallbackCursor.getDouble(0);
-                        }
-                    }
+            String dataInicio = sdf.format(inicio.getTime());
+            String dataFim = sdf.format(fim.getTime());
+
+            String query = "SELECT COALESCE(p.valor, t.valor) AS valor_parcela " +
+                    "FROM transacoes_cartao t " +
+                    "LEFT JOIN parcelas_cartao p ON t.id = p.id_transacao_cartao " +
+                    "AND COALESCE(p.data_vencimento, t.data_compra) BETWEEN ? AND ? " +
+                    "WHERE t.id_cartao = ?";
+
+            try (Cursor cur = db.rawQuery(query, new String[]{dataInicio, dataFim, String.valueOf(idCartao)})) {
+                while (cur.moveToNext()) {
+                    totalFatura += cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
                 }
             }
+
         } catch (Exception e) {
-            Log.e("CartaoDAO", "Erro ao buscar valor da fatura parcial", e);
+            Log.e("CartaoDAO", "Erro ao calcular fatura parcial", e);
         }
 
         return totalFatura;
     }
+
 
     public static List<Cartao> buscarCartoesAtivosPorUsuario(Context context, int idUsuario) {
         List<Cartao> cartoes = new ArrayList<>();
@@ -229,12 +235,7 @@ public class CartaoDAO {
                         String dataInicio = sdf.format(inicio.getTime());
                         String dataFim = sdf.format(fim.getTime());
 
-                        String fallbackQuery = "SELECT COALESCE(SUM(p.valor),0) FROM parcelas_cartao p JOIN transacoes_cartao t ON p.id_transacao_cartao = t.id WHERE t.id_cartao = ? AND p.data_vencimento BETWEEN ? AND ?";
-                        try (Cursor c2 = db.rawQuery(fallbackQuery, new String[]{String.valueOf(idCartao), dataInicio, dataFim})) {
-                            if (c2.moveToFirst()) {
-                                valorFatura = c2.getDouble(0);
-                            }
-                        }
+                        valorFatura = calcularFaturaParcial(context, idCartao, diaFechamento);
                     }
 
                     listaCartaoFatura.add(new CartaoFatura(cartao, valorFatura));
