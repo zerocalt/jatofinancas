@@ -182,34 +182,66 @@ public class CartaoDAO {
     public static List<CartaoFatura> getCartoesComFatura(Context context, int idUsuario, int ano, int mes) {
         List<CartaoFatura> listaCartaoFatura = new ArrayList<>();
         MeuDbHelper dbHelper = new MeuDbHelper(context);
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
+        try (SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-        String queryCartoes = "SELECT id, nome, bandeira, cor, data_vencimento_fatura FROM cartoes WHERE id_usuario = ? AND ativo = 1 ORDER BY nome ASC";
-        try (Cursor cursorCartoes = db.rawQuery(queryCartoes, new String[]{String.valueOf(idUsuario)})) {
-            while (cursorCartoes.moveToNext()) {
-                int idCartao = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("id"));
-                String nome = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("nome"));
-                String bandeira = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("bandeira"));
-                String cor = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("cor"));
-                int diaVencimento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_vencimento_fatura"));
+            String queryCartoes = "SELECT id, nome, bandeira, cor, data_vencimento_fatura, data_fechamento_fatura " +
+                    "FROM cartoes WHERE id_usuario = ? AND ativo = 1 ORDER BY nome ASC";
 
-                Cartao cartao = new Cartao(idCartao, nome);
-                cartao.setBandeira(bandeira);
-                cartao.setCor(cor);
-                cartao.setDataVencimentoFatura(diaVencimento);
+            try (Cursor cursorCartoes = db.rawQuery(queryCartoes, new String[]{String.valueOf(idUsuario)})) {
+                while (cursorCartoes.moveToNext()) {
+                    int idCartao = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("id"));
+                    String nome = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("nome"));
+                    String bandeira = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("bandeira"));
+                    String cor = cursorCartoes.getString(cursorCartoes.getColumnIndexOrThrow("cor"));
+                    int diaVencimento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_vencimento_fatura"));
+                    int diaFechamento = cursorCartoes.getInt(cursorCartoes.getColumnIndexOrThrow("data_fechamento_fatura"));
 
-                // Calcular o valor da fatura para o mês e ano especificados
-                String mesAnoFatura = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
-                double valorFatura = 0;
-                String queryFatura = "SELECT SUM(valor_total) FROM faturas WHERE id_cartao = ? AND substr(data_vencimento, 1, 7) = ?";
-                try (Cursor cursorFatura = db.rawQuery(queryFatura, new String[]{String.valueOf(idCartao), mesAnoFatura})) {
-                    if (cursorFatura.moveToFirst()) {
-                        valorFatura = cursorFatura.getDouble(0);
+                    Cartao cartao = new Cartao(idCartao, nome);
+                    cartao.setBandeira(bandeira);
+                    cartao.setCor(cor);
+                    cartao.setDataVencimentoFatura(diaVencimento);
+
+                    double valorFatura = 0;
+
+                    // mes aqui é 0-based (0..11). Monta YYYY-MM para comparar substr(data_vencimento,1,7)
+                    String mesAnoFatura = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
+
+                    // 1) tenta encontrar fatura registrada (vencendo no mês selecionado)
+                    String queryFatura = "SELECT COALESCE(SUM(valor_total),0) FROM faturas WHERE id_cartao = ? AND substr(data_vencimento, 1, 7) = ?";
+                    try (Cursor cursorFatura = db.rawQuery(queryFatura, new String[]{String.valueOf(idCartao), mesAnoFatura})) {
+                        if (cursorFatura.moveToFirst()) {
+                            valorFatura = cursorFatura.getDouble(0);
+                        }
                     }
-                }
 
-                listaCartaoFatura.add(new CartaoFatura(cartao, valorFatura));
+                    // 2) se não encontrou, fallback: soma parcelas com data_vencimento dentro do intervalo que gera a fatura que vence no mês selecionado
+                    if (valorFatura == 0) {
+                        Calendar inicio = Calendar.getInstance();
+                        Calendar fim = Calendar.getInstance();
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+
+                        // intervalo de compras que compõem a fatura que VENCE no mês selecionado:
+                        // início = diaFechamento+1 do mês anterior, fim = diaVencimento do mês selecionado (ou diaFechamento do mês selecionado dependendo da sua regra)
+                        // Aqui usamos a mesma lógica comum: compras entre (ano, mes-1, diaFechamento+1) e (ano, mes, diaFechamento)
+                        inicio.set(ano, mes - 1, diaFechamento > 0 ? (diaFechamento + 1) : 1);
+                        fim.set(ano, mes, diaFechamento > 0 ? diaFechamento : fim.getActualMaximum(Calendar.DAY_OF_MONTH));
+
+                        String dataInicio = sdf.format(inicio.getTime());
+                        String dataFim = sdf.format(fim.getTime());
+
+                        String fallbackQuery = "SELECT COALESCE(SUM(p.valor),0) FROM parcelas_cartao p JOIN transacoes_cartao t ON p.id_transacao_cartao = t.id WHERE t.id_cartao = ? AND p.data_vencimento BETWEEN ? AND ?";
+                        try (Cursor c2 = db.rawQuery(fallbackQuery, new String[]{String.valueOf(idCartao), dataInicio, dataFim})) {
+                            if (c2.moveToFirst()) {
+                                valorFatura = c2.getDouble(0);
+                            }
+                        }
+                    }
+
+                    listaCartaoFatura.add(new CartaoFatura(cartao, valorFatura));
+                }
             }
+        } catch (Exception e) {
+            Log.e("CartaoDAO", "Erro ao buscar cartões com fatura", e);
         }
         return listaCartaoFatura;
     }

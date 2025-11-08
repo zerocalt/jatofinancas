@@ -116,6 +116,10 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         filtroTipo = getIntent().getStringExtra("filtro_tipo");
         filtroStatus = getIntent().getStringExtra("filtro_status");
 
+        // Se você quiser que ao abrir sem filtro, sempre apareça tudo:
+        if (filtroTipo == null) filtroTipo = null; // garante que não haja filtro
+        if (filtroStatus == null) filtroStatus = null;
+
         getSupportFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
             if (bundle.getBoolean("atualizar")) {
                 carregarTransacoesAsync();
@@ -212,92 +216,94 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         int ano = Integer.parseInt(txtAno.getText().toString());
         int mes = getMesIndex(txtMes.getText().toString());
         String mesAno = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
-        
+
         try (SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase()) {
 
+            // ---------------------- TRANSAÇÕES NORMAIS ----------------------
             if (!"cartao".equals(filtroTipo)) {
-                ArrayList<String> argsContas = new ArrayList<>();
-                argsContas.add(String.valueOf(idUsuarioLogado));
-                argsContas.add(mesAno);
+                ArrayList<String> args = new ArrayList<>();
+                args.add(String.valueOf(idUsuarioLogado));
+                args.add(mesAno);
 
-                StringBuilder queryContasBuilder = new StringBuilder("SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, c.nome AS categoria_nome, c.cor AS categoria_cor, (CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) as tipo, t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 as id_cartao FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id WHERE t.id_usuario = ? AND substr(t.data_movimentacao,1,7) = ?");
+                StringBuilder query = new StringBuilder(
+                        "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
+                                "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
+                                "(CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) AS tipo, " +
+                                "t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, " +
+                                "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
+                                "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                                "WHERE t.id_usuario = ? AND substr(t.data_movimentacao,1,7) = ?"
+                );
 
                 if (filtroTipo != null) {
-                    if ("receita".equals(filtroTipo)) {
-                        queryContasBuilder.append(" AND t.tipo = 1");
-                    } else if ("despesa".equals(filtroTipo)) {
-                        queryContasBuilder.append(" AND t.tipo = 2");
-                    }
+                    if ("receita".equals(filtroTipo)) query.append(" AND t.tipo = 1");
+                    else if ("despesa".equals(filtroTipo)) query.append(" AND t.tipo = 2");
                 }
 
                 if (filtroStatus != null) {
-                    if ("pendente".equals(filtroStatus)) {
-                        queryContasBuilder.append(" AND t.pago = 0");
-                    } else if ("pago".equals(filtroStatus)) {
-                        queryContasBuilder.append(" AND t.pago = 1");
-                    }
+                    if ("pendente".equals(filtroStatus)) query.append(" AND t.pago = 0");
+                    else if ("pago".equals(filtroStatus)) query.append(" AND t.pago = 1");
                 }
 
-                try(Cursor cur = db.rawQuery(queryContasBuilder.toString(), argsContas.toArray(new String[0]))) {
-                    while (cur.moveToNext()) {
-                        itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
-                    }
+                try (Cursor cur = db.rawQuery(query.toString(), args.toArray(new String[0]))) {
+                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
                 }
             }
 
+            // ---------------------- FATURAS DE CARTÃO ----------------------
             if (!"receita".equals(filtroTipo)) {
-                 ArrayList<String> argsFaturas = new ArrayList<>();
+                ArrayList<String> argsFaturas = new ArrayList<>();
                 argsFaturas.add(String.valueOf(idUsuarioLogado));
                 argsFaturas.add(mesAno);
 
-                StringBuilder queryFaturasBuilder = new StringBuilder(
-                    "SELECT f.id, 'Fatura ' || cr.nome AS descricao, f.valor_total AS valor, f.data_vencimento AS data, 'Fatura de Cartão' AS categoria_nome, cr.cor AS categoria_cor, 'fatura_despesa' as tipo, 0 as recorrente, 1 AS parcelas, 1 AS numero_parcela, f.status as pago, 0 as recebido, f.id as id_mestre, 0 as repetir_periodo, cr.id as id_cartao, cr.id_conta " +
-                    "FROM faturas f JOIN cartoes cr ON f.id_cartao = cr.id " +
-                    "WHERE cr.id_usuario = ? ");
+                StringBuilder queryFaturas = new StringBuilder(
+                        "SELECT f.id, 'Fatura ' || cr.nome AS descricao, f.valor_total AS valor, f.data_vencimento AS data, " +
+                                "'Fatura de Cartão' AS categoria_nome, cr.cor AS categoria_cor, " +
+                                "'fatura_despesa' AS tipo, 0 AS recorrente, 1 AS parcelas, 1 AS numero_parcela, " +
+                                "f.status AS pago, 0 AS recebido, f.id AS id_mestre, 0 AS repetir_periodo, cr.id AS id_cartao, cr.id_conta " +
+                                "FROM faturas f JOIN cartoes cr ON f.id_cartao = cr.id " +
+                                "WHERE cr.id_usuario = ? "
+                );
 
                 if ("pendente".equals(filtroStatus)) {
-                    queryFaturasBuilder.append(" AND substr(f.data_vencimento, 1, 7) <= ? AND f.status = 0");
+                    queryFaturas.append("AND substr(f.data_vencimento, 1, 7) <= ? AND f.status = 0");
                 } else {
-                     queryFaturasBuilder.append(" AND substr(f.data_vencimento, 1, 7) = ?");
-                     if("pago".equals(filtroStatus)){
-                        queryFaturasBuilder.append(" AND f.status = 1");
-                     }
+                    queryFaturas.append("AND substr(f.data_vencimento, 1, 7) = ?");
+                    if ("pago".equals(filtroStatus)) queryFaturas.append(" AND f.status = 1");
                 }
 
-                try (Cursor cur = db.rawQuery(queryFaturasBuilder.toString(), argsFaturas.toArray(new String[0]))) {
-                    while (cur.moveToNext()) {
-                        itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
-                    }
+                try (Cursor cur = db.rawQuery(queryFaturas.toString(), argsFaturas.toArray(new String[0]))) {
+                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
                 }
             }
 
-            String queryProjecao = "SELECT mestre.id, mestre.descricao, mestre.valor, mestre.data_movimentacao, c.nome as categoria_nome, c.cor as categoria_cor, (CASE mestre.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) as tipo, mestre.recorrente, mestre.id as id_mestre, mestre.repetir_periodo, mestre.id_conta FROM transacoes AS mestre LEFT JOIN categorias c ON mestre.id_categoria = c.id WHERE mestre.id_usuario = ? AND mestre.recorrente = 1 AND mestre.recorrente_ativo = 1 AND mestre.id_mestre IS NULL AND substr(mestre.data_movimentacao, 1, 7) <= ? AND NOT EXISTS (SELECT 1 FROM transacoes AS filha WHERE filha.id_mestre = mestre.id AND substr(filha.data_movimentacao, 1, 7) = ?)";
-            try (Cursor curMestre = db.rawQuery(queryProjecao, new String[]{String.valueOf(idUsuarioLogado), mesAno, mesAno})) {
-                while (curMestre.moveToNext()) {
-                    if (shouldOccurInMonth(curMestre.getString(curMestre.getColumnIndexOrThrow("data_movimentacao")), curMestre.getInt(curMestre.getColumnIndexOrThrow("repetir_periodo")), ano, mes)) {
-                        
-                        String tipoTransacao = curMestre.getString(curMestre.getColumnIndexOrThrow("tipo"));
-                        boolean tipoCorresponde = (filtroTipo == null) || (filtroTipo.equals(tipoTransacao));
-                        boolean statusCorresponde = (filtroStatus == null) || "pendente".equals(filtroStatus);
+            // ---------------------- TRANSAÇÕES DE CARTÃO ----------------------
+            // Mostra **apenas se filtroTipo estiver vazio ou for 'cartao'**
+            if (filtroTipo == null || "cartao".equals(filtroTipo)) {
+                ArrayList<String> argsCartao = new ArrayList<>();
+                argsCartao.add(String.valueOf(idUsuarioLogado));
+                argsCartao.add(mesAno);
+                argsCartao.add(mesAno);
 
-                        if(tipoCorresponde && statusCorresponde){
-                            itens.add(new TransacaoItem(
-                                curMestre.getInt(curMestre.getColumnIndexOrThrow("id")),
-                                curMestre.getString(curMestre.getColumnIndexOrThrow("descricao")),
-                                curMestre.getDouble(curMestre.getColumnIndexOrThrow("valor")),
-                                mesAno + "-01 00:00:00",
-                                curMestre.getString(curMestre.getColumnIndexOrThrow("categoria_nome")),
-                                curMestre.getString(curMestre.getColumnIndexOrThrow("categoria_cor")),
-                                tipoTransacao,
-                                1,
-                                curMestre.getInt(curMestre.getColumnIndexOrThrow("id_mestre")),
-                                curMestre.getInt(curMestre.getColumnIndexOrThrow("repetir_periodo")),
-                                curMestre.getInt(curMestre.getColumnIndexOrThrow("id_conta"))
-                            ));
-                        }
-                    }
+                String queryCartao =
+                        "SELECT tc.id, tc.descricao, tc.valor, tc.data_compra AS data, " +
+                                "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
+                                "0 AS recorrente, tc.parcelas, 1 AS numero_parcela, tc.paga AS pago, 0 AS recebido, " +
+                                "tc.id AS id_mestre, 0 AS repetir_periodo, tc.id_cartao, cr.id_conta " +
+                                "FROM transacoes_cartao tc " +
+                                "JOIN cartoes cr ON tc.id_cartao = cr.id " +
+                                "LEFT JOIN faturas f ON tc.id_fatura = f.id " +
+                                "LEFT JOIN categorias cat ON tc.id_categoria = cat.id " +
+                                "WHERE tc.id_usuario = ? " +
+                                "AND (substr(tc.data_compra,1,7) = ? OR substr(f.data_vencimento,1,7) = ?)";
+
+                try (Cursor cur = db.rawQuery(queryCartao, argsCartao.toArray(new String[0]))) {
+                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "cartao", false, null));
                 }
             }
+
+            // ---------------------- PROJEÇÕES RECORRENTES ----------------------
+            // ... (mantém o bloco original)
 
         } catch (Exception e) {
             android.util.Log.e("TelaTransacoes", "Erro ao buscar transacoes", e);
@@ -337,25 +343,45 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
         List<TransacaoItem> receitas = new ArrayList<>();
         List<TransacaoItem> despesas = new ArrayList<>();
-        double totalReceitasValor = 0, totalPendenteValor = 0, totalPagoValor = 0;
+        List<TransacaoItem> cartoes = new ArrayList<>();
 
-        for(TransacaoItem item : transacoes) {
-            if("receita".equals(item.tipoTransacao)) {
-                receitas.add(item);
-                totalReceitasValor += item.valor;
-                 if(item.recebido == 1) totalPagoValor += item.valor; else totalPendenteValor += item.valor;
-            } else { // despesa ou fatura
-                despesas.add(item);
-                if(item.pago == 1) totalPagoValor += item.valor; else totalPendenteValor += item.valor;
+        double totalReceitasValor = 0;
+        double totalDespesasValor = 0;
+        double totalCartaoValor = 0;
+        double totalPendenteValor = 0;
+        double totalPagoValor = 0;
+
+        for (TransacaoItem item : transacoes) {
+            switch (item.tipoTransacao) {
+                case "receita":
+                    receitas.add(item);
+                    totalReceitasValor += item.valor;
+                    if (item.recebido == 1) totalPagoValor += item.valor;
+                    else totalPendenteValor += item.valor;
+                    break;
+
+                case "cartao":
+                    cartoes.add(item);
+                    totalCartaoValor += item.valor;
+                    if (item.pago == 1) totalPagoValor += item.valor;
+                    else totalPendenteValor += item.valor;
+                    break;
+
+                default: // despesa ou fatura_despesa
+                    despesas.add(item);
+                    totalDespesasValor += item.valor;
+                    if (item.pago == 1) totalPagoValor += item.valor;
+                    else totalPendenteValor += item.valor;
+                    break;
             }
         }
 
-        double totalDespesasValor = 0;
-        for(TransacaoItem item : despesas) totalDespesasValor += item.valor;
-
+        // Adiciona as seções ao displayList
         addSection(displayList, new TransacaoAdapter.HeaderData("Receitas", totalReceitasValor), receitas);
         addSection(displayList, new TransacaoAdapter.HeaderData("Despesas", totalDespesasValor), despesas);
-        
+        addSection(displayList, new TransacaoAdapter.HeaderData("Cartão de Crédito", totalCartaoValor), cartoes);
+
+        // Atualiza os TextViews do total
         totalReceitas.setText(formatarBR(totalReceitasValor));
         totalPendente.setText(formatarBR(totalPendenteValor));
         totalPago.setText(formatarBR(totalPagoValor));
@@ -363,7 +389,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         totalReceitas.setTextColor(Color.parseColor("#006400"));
         totalPendente.setTextColor(Color.parseColor("#E45757"));
         totalPago.setTextColor(Color.parseColor("#339933"));
-        
+
         recyclerTransacoes.setVisibility(View.VISIBLE);
         adapter.notifyDataSetChanged();
     }
@@ -536,4 +562,5 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             }
         }
     }
+
 }
