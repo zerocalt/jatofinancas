@@ -182,18 +182,24 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             String query;
             String[] selectionArgs;
 
-            Log.d("idFatura", "idFatura recebido: " + idFatura);
-
             if (idFatura != -1) {
-                // MODO 1: Carregar despesas de uma fatura específica
-                query = "SELECT t.data_compra, p.valor AS valor_parcela, t.descricao, t.id_categoria, cat.nome AS categoria_nome, " +
-                        "cat.cor, t.id AS id_transacao_cartao, t.recorrente, p.numero_parcela, t.parcelas, p.data_vencimento " +
-                        "FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON t.id = p.id_transacao_cartao " +
-                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE p.id_fatura = ? ORDER BY t.data_compra DESC";
-                selectionArgs = new String[]{String.valueOf(idFatura)};
+                // MODO Fatura específica
+                query = "SELECT t.id AS id_transacao_cartao, t.descricao, t.valor, t.data_compra, " +
+                        "t.recorrente, t.parcelas, p.numero_parcela, p.valor AS valor_parcela, p.data_vencimento, " +
+                        "c.nome AS categoria_nome, c.cor AS categoria_cor " +
+                        "FROM transacoes_cartao t " +
+                        "LEFT JOIN parcelas_cartao p ON t.id = p.id_transacao_cartao AND p.id_fatura = ? " +
+                        "LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                        "WHERE (t.parcelas > 1 AND p.id_fatura = ?) " +
+                        "   OR (t.parcelas = 1 AND date(t.data_compra) BETWEEN " +
+                        "(SELECT data_inicio FROM faturas WHERE id = ?) AND " +
+                        "(SELECT data_fim FROM faturas WHERE id = ?)) " +
+                        "ORDER BY COALESCE(p.data_vencimento, t.data_compra) DESC";
 
-                // Atualiza header
+                selectionArgs = new String[]{String.valueOf(idFatura), String.valueOf(idFatura),
+                        String.valueOf(idFatura), String.valueOf(idFatura)};
+
+                // Atualiza valor da fatura
                 try (Cursor faturaCursor = db.rawQuery("SELECT valor_total, mes, ano FROM faturas WHERE id = ?",
                         new String[]{String.valueOf(idFatura)})) {
                     if (faturaCursor.moveToFirst()) {
@@ -209,7 +215,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                 valorFatura.setText(formatarBR(totalFatura));
 
             } else {
-                // MODO 2: Carregar despesas por período (corrigido)
+                // MODO mês/ano selecionado
                 Calendar inicio = Calendar.getInstance();
                 Calendar fim = Calendar.getInstance();
                 int mes = Arrays.asList(new String[]{"Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho",
@@ -227,15 +233,18 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                 String dataInicio = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(inicio.getTime());
                 String dataFim = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(fim.getTime());
 
-                query = "SELECT t.id AS id_transacao_cartao, t.id_cartao, t.id_usuario, t.descricao, t.valor, t.recorrente, t.parcelas, t.data_compra, " +
-                        "p.numero_parcela, p.valor AS valor_parcela, p.data_vencimento, cat.nome AS categoria_nome, cat.cor, t.id_categoria " +
+                query = "SELECT t.id AS id_transacao_cartao, t.descricao, t.valor, t.data_compra, " +
+                        "t.recorrente, t.parcelas, p.numero_parcela, p.valor AS valor_parcela, p.data_vencimento, " +
+                        "c.nome AS categoria_nome, c.cor AS categoria_cor " +
                         "FROM transacoes_cartao t " +
                         "LEFT JOIN parcelas_cartao p ON t.id = p.id_transacao_cartao AND " +
-                        "COALESCE(p.data_vencimento, t.data_compra) BETWEEN ? AND ? " +
-                        "LEFT JOIN categorias cat ON cat.id = t.id_categoria " +
-                        "WHERE t.id_cartao = ? " +
+                        "date(p.data_vencimento) BETWEEN ? AND ? " +
+                        "LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                        "WHERE (t.parcelas > 1 AND date(p.data_vencimento) BETWEEN ? AND ?) " +
+                        "   OR (t.parcelas = 1 AND date(t.data_compra) BETWEEN ? AND ?) " +
                         "ORDER BY COALESCE(p.data_vencimento, t.data_compra) DESC";
-                selectionArgs = new String[]{dataInicio, dataFim, String.valueOf(idCartao)};
+
+                selectionArgs = new String[]{dataInicio, dataFim, dataInicio, dataFim, dataInicio, dataFim};
             }
 
             Cursor cur = db.rawQuery(query, selectionArgs);
@@ -261,12 +270,9 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                         cur.getDouble(cur.getColumnIndexOrThrow("valor")) :
                         cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
 
-                if(idFatura == -1){
-                    totalFatura += valorParcela;
-                }
+                if (idFatura == -1) totalFatura += valorParcela;
 
                 View item = inflater.inflate(R.layout.item_despesa_fatura, blocoDespesas, false);
-
                 String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
                 ((TextView) item.findViewById(R.id.tituloDespesa)).setText(cur.getString(cur.getColumnIndexOrThrow("descricao")));
                 ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
@@ -275,7 +281,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                 TextView inicialCat = item.findViewById(R.id.txtIconCategoria);
                 inicialCat.setText(categoria != null && !categoria.isEmpty() ? categoria.substring(0, 1) : "?");
                 if (inicialCat.getBackground() instanceof GradientDrawable) {
-                    String corCategoria = cur.getString(cur.getColumnIndexOrThrow("cor"));
+                    String corCategoria = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
                     if (corCategoria != null) ((GradientDrawable) inicialCat.getBackground()).setColor(Color.parseColor(corCategoria));
                 }
 
@@ -296,9 +302,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             }
             cur.close();
 
-            if(idFatura == -1){
-                valorFatura.setText(formatarBR(totalFatura));
-            }
+            if (idFatura == -1) valorFatura.setText(formatarBR(totalFatura));
 
         } catch (Exception e) {
             Log.e(TAG, "Erro ao carregar fatura", e);
