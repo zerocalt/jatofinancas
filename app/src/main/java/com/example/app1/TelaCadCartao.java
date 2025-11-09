@@ -143,7 +143,9 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
                 .setTitle("Escolha uma cor")
                 .setPositiveButton("Selecionar", (ColorEnvelopeListener) (envelope, fromUser) -> {
                         TextInputEditText inputCor = findViewById(R.id.inputCor);
-                        inputCor.setText("#" + envelope.getHexCode());
+                        String hex = "#" + envelope.getHexCode();
+                        inputCor.setText(hex);
+                        inputCor.setTextColor(envelope.getColor());
                     })
                 .setNegativeButton("Cancelar",
                     (dialogInterface, i) -> dialogInterface.dismiss())

@@ -1,5 +1,6 @@
 package com.example.app1;
 
+import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -520,7 +521,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             return;
         }
         else if ("cartao".equals(item.tipoTransacao)) {
-            sucesso = TransacoesCartaoDAO.excluirTransacao(this, item.id) == 0;
+            sucesso = TransacoesCartaoDAO.excluirTransacao(this, item.id);
         } else {
             sucesso = TransacoesDAO.excluirTransacao(this, item.id, item.tipoTransacao);
         }
@@ -562,5 +563,26 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             }
         }
     }
+
+    public static int excluirTransacao(Context context, int idTransacao) {
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        int linhasAfetadas = 0;
+        try {
+            // Exclui primeiro as parcelas relacionadas
+            db.delete("parcelas_cartao", "id_transacao = ?", new String[]{String.valueOf(idTransacao)});
+
+            // Depois exclui a transação principal
+            linhasAfetadas = db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(idTransacao)});
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            db.close();
+        }
+
+        return linhasAfetadas;
+    }
+
 
 }

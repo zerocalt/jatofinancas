@@ -183,59 +183,50 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                         "id_usuario INTEGER NOT NULL, " +
                         "id_cartao INTEGER NOT NULL, " +
-                        "id_fatura INTEGER, " +
                         "descricao TEXT NOT NULL, " +
-                        "valor REAL NOT NULL, " +
-                        "paga INTEGER DEFAULT 0, " + // 0 = não paga, 1 = paga
+                        "valor_total REAL NOT NULL, " +
+                        "qtd_parcelas INTEGER DEFAULT 1, " +
+                        "fixa INTEGER DEFAULT 0, " +
                         "id_categoria INTEGER, " +
                         "data_compra DATETIME NOT NULL, " +
-                        "parcelas INTEGER DEFAULT 1, " +
                         "observacao TEXT, " +
-                        "recorrente INTEGER DEFAULT 0, " +
+                        "sincronizado INTEGER DEFAULT 0, " +
+                        "status INTEGER DEFAULT 1, " +  // "status" = 1=ativa, 2=cancelada, 0=finalizada"
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
                         "FOREIGN KEY (id_usuario) REFERENCES usuarios(id), " +
                         "FOREIGN KEY (id_cartao) REFERENCES cartoes(id), " +
-                        "FOREIGN KEY (id_fatura) REFERENCES faturas(id), " +
                         "FOREIGN KEY (id_categoria) REFERENCES categorias(id)" +
                         ")"
         );
         db.execSQL("CREATE INDEX IF NOT EXISTS idx_transacoes_cartao_id_cartao ON transacoes_cartao(id_cartao)");
 
-        // Tabela despesas_recorrentes_cartao: despesas recorrentes associadas a cartões
-        db.execSQL(
-                "CREATE TABLE IF NOT EXISTS despesas_recorrentes_cartao (" +
-                        "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "id_transacao_cartao INTEGER NOT NULL, " +
-                        "valor REAL NOT NULL, " +
-                        "paga INTEGER DEFAULT 1, " + // 0 = não paga, 1 = paga
-                        "data_inicial DATETIME NOT NULL, " +
-                        "data_final DATETIME, " +
-                        "id_mestre INTEGER, " +                               // para informar de qual transação é recorrente
-                        "recorrente_ativo INTEGER DEFAULT 0, " +             // Indicador se a recorrência está ativa (0 = não, 1 = sim)
-                        "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                        "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id)" +
-                        ")"
-        );
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_despesas_recorrentes_id_transacao ON despesas_recorrentes_cartao(id_transacao_cartao)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_drc_id_mestre ON despesas_recorrentes_cartao(id_mestre)");
-
         // Tabela parcelas_cartao: parcelas das compras feitas no cartão
         db.execSQL(
                 "CREATE TABLE IF NOT EXISTS parcelas_cartao (" +
                         "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
-                        "id_transacao_cartao INTEGER NOT NULL, " +
-                        "numero_parcela INTEGER NOT NULL, " +
+                        "id_transacao INTEGER, " +                 // referência (NULL se avulsa)
+                        "id_usuario INTEGER NOT NULL, " +
+                        "id_cartao INTEGER NOT NULL, " +
+                        "descricao TEXT NOT NULL, " +
                         "valor REAL NOT NULL, " +
-                        "id_fatura INTEGER, " +
+                        "num_parcela INTEGER DEFAULT 1, " +
+                        "total_parcelas INTEGER DEFAULT 1, " +
+                        "data_compra DATETIME NOT NULL, " +
                         "data_vencimento DATETIME NOT NULL, " +
-                        "paga INTEGER DEFAULT 0, " +
                         "data_pagamento DATETIME, " +
+                        "fixa INTEGER DEFAULT 0, " +                  // 1 = é fixa (gerada automaticamente)
+                        "paga INTEGER DEFAULT 0, " +                    // 1 = já paga
+                        "id_fatura INTEGER, " +                        // relacionamento com fatura
+                        "id_categoria INTEGER, " +
+                        "observacao TEXT, " +
+                        "sincronizado INTEGER DEFAULT 0, " +
                         "data_hora_cadastro DATETIME DEFAULT CURRENT_TIMESTAMP, " +
-                        "FOREIGN KEY (id_transacao_cartao) REFERENCES transacoes_cartao(id), " +
-                        "FOREIGN KEY (id_fatura) REFERENCES faturas(id)" +
+                        "FOREIGN KEY (id_transacao) REFERENCES transacoes_cartao(id), " +
+                        "FOREIGN KEY (id_fatura) REFERENCES faturas(id), " +
+                        "FOREIGN KEY (id_categoria) REFERENCES categorias(id)" +
                         ")"
         );
-        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_id_transacao ON parcelas_cartao(id_transacao_cartao)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_parcelas_cartao_id_transacao ON parcelas_cartao(id_transacao)");
     }
 
     @Override
