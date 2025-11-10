@@ -49,16 +49,8 @@ public class Cartao {
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
 
-    public double getLimite() { return limite; }
-    public void setLimite(double limite) { this.limite = limite; }
-
-    public int getDataVencimentoFatura() { return dataVencimentoFatura; }
     public void setDataVencimentoFatura(int dataVencimentoFatura) { this.dataVencimentoFatura = dataVencimentoFatura; }
 
-    public int getDataFechamentoFatura() { return dataFechamentoFatura; }
-    public void setDataFechamentoFatura(int dataFechamentoFatura) { this.dataFechamentoFatura = dataFechamentoFatura; }
-
-    public String getCor() { return cor; }
     public void setCor(String cor) { this.cor = cor; }
 
     public String getBandeira() { return bandeira; }

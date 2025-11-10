@@ -46,14 +46,24 @@ public class CategoriaDAO {
 
     public static List<Categoria> listarCategoriasComDespesas(Context context, int idUsuario, String mesAno) {
         List<Categoria> categorias = new ArrayList<>();
+
         String sql = "SELECT c.id, c.nome, c.cor, " +
-                "(SELECT IFNULL(SUM(t.valor), 0) FROM transacoes t WHERE t.id_categoria = c.id AND t.id_usuario = ? AND substr(t.data_movimentacao, 1, 7) = ? AND t.tipo = 2) + " +
-                "(SELECT IFNULL(SUM(p.valor), 0) FROM parcelas_cartao p JOIN transacoes_cartao tc ON p.id_transacao_cartao = tc.id WHERE tc.id_categoria = c.id AND tc.id_usuario = ? AND substr(p.data_vencimento, 1, 7) = ?) AS total_despesa, " +
-                "EXISTS (SELECT 1 FROM transacoes t WHERE t.id_categoria = c.id) OR EXISTS (SELECT 1 FROM transacoes_cartao tc WHERE tc.id_categoria = c.id) as em_uso " +
-                "FROM categorias c WHERE c.id_usuario = ? ORDER BY c.nome COLLATE NOCASE ASC";
+                "(SELECT IFNULL(SUM(t.valor), 0) FROM transacoes t " +
+                " WHERE t.id_categoria = c.id AND t.id_usuario = ? AND substr(t.data_movimentacao, 1, 7) = ? AND t.tipo = 2) + " +
+                "(SELECT IFNULL(SUM(p.valor), 0) FROM parcelas_cartao p " +
+                " JOIN transacoes_cartao tc ON p.id_transacao = tc.id " +
+                " WHERE tc.id_categoria = c.id AND tc.id_usuario = ? AND substr(p.data_vencimento, 1, 7) = ?) AS total_despesa, " +
+                "EXISTS (SELECT 1 FROM transacoes t WHERE t.id_categoria = c.id) OR " +
+                "EXISTS (SELECT 1 FROM transacoes_cartao tc WHERE tc.id_categoria = c.id) AS em_uso " +
+                "FROM categorias c WHERE c.id_usuario = ? " +
+                "ORDER BY c.nome COLLATE NOCASE ASC";
 
         try (SQLiteDatabase db = new MeuDbHelper(context).getReadableDatabase();
-             Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario), mesAno, String.valueOf(idUsuario), mesAno, String.valueOf(idUsuario)})) {
+             Cursor cursor = db.rawQuery(sql, new String[]{
+                     String.valueOf(idUsuario), mesAno,
+                     String.valueOf(idUsuario), mesAno,
+                     String.valueOf(idUsuario)
+             })) {
 
             if (cursor.moveToFirst()) {
                 do {
@@ -68,6 +78,7 @@ public class CategoriaDAO {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
         return categorias;
     }
 

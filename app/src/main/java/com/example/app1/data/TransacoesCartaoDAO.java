@@ -154,45 +154,6 @@ public class TransacoesCartaoDAO {
         return sucesso;
     }
 
-    public static List<ContentValues> buscarTransacoesPorUsuario(Context context, int idUsuario, int idCartao) {
-        List<ContentValues> transacoes = new ArrayList<>();
-        MeuDbHelper dbHelper = new MeuDbHelper(context);
-        SQLiteDatabase db = dbHelper.getReadableDatabase();
-
-        try (Cursor c = db.rawQuery("SELECT * FROM transacoes_cartao WHERE id_usuario = ? AND id_cartao = ? AND status = 1 ORDER BY data_compra DESC",
-                new String[]{String.valueOf(idUsuario), String.valueOf(idCartao)})) {
-
-            while (c.moveToNext()) {
-                ContentValues cv = new ContentValues();
-                for (int i = 0; i < c.getColumnCount(); i++) {
-                    int type = c.getType(i);
-                    switch (type) {
-                        case Cursor.FIELD_TYPE_INTEGER:
-                            cv.put(c.getColumnName(i), c.getInt(i));
-                            break;
-                        case Cursor.FIELD_TYPE_STRING:
-                            cv.put(c.getColumnName(i), c.getString(i));
-                            break;
-                        case Cursor.FIELD_TYPE_FLOAT:
-                            cv.put(c.getColumnName(i), c.getDouble(i));
-                            break;
-                        case Cursor.FIELD_TYPE_NULL:
-                        default:
-                            cv.putNull(c.getColumnName(i));
-                    }
-                }
-                transacoes.add(cv);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Erro ao buscar transações", e);
-        } finally {
-            db.close();
-            dbHelper.close();
-        }
-
-        return transacoes;
-    }
-
     // ---------------------- MÉTODOS AUXILIARES ----------------------
 
     public static void gerarParcelasEFaturas(SQLiteDatabase db,
