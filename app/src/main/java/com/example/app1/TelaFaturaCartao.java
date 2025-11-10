@@ -25,6 +25,7 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.app1.data.CartaoDAO;
 import com.example.app1.interfaces.BottomMenuListener;
 import com.example.app1.utils.MenuHelper;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
@@ -63,12 +64,39 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
 
         idCartao = getIntent().getIntExtra("id_cartao", -1);
         idUsuarioLogado = getIntent().getIntExtra("id_usuario", -1);
-        idFatura = getIntent().getIntExtra("id_fatura", -1); // NOVO
+        idFatura = getIntent().getIntExtra("id_fatura", -1);
 
         if (idCartao == -1 || idUsuarioLogado == -1) {
             Toast.makeText(this, "Erro: ID do cartão ou usuário inválido.", Toast.LENGTH_LONG).show();
             finish();
             return;
+        }
+
+        bindViews();
+
+        // Se nenhuma fatura específica foi passada, inicializa mês e ano atuais
+        if (idFatura == -1) {
+            setupInitialDate();
+        } else {
+            // Fatura específica: tenta pegar o mês e ano da fatura
+            try (MeuDbHelper dbHelper = new MeuDbHelper(this);
+                 SQLiteDatabase db = dbHelper.getReadableDatabase();
+                 Cursor cur = db.rawQuery("SELECT mes, ano FROM faturas WHERE id = ?", new String[]{String.valueOf(idFatura)})) {
+                if (cur.moveToFirst()) {
+                    int mes = cur.getInt(cur.getColumnIndexOrThrow("mes"));
+                    int ano = cur.getInt(cur.getColumnIndexOrThrow("ano"));
+                    String[] nomesMes = {"Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+                            "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"};
+                    txtMes.setText(nomesMes[mes-1]);
+                    txtAno.setText(String.valueOf(ano));
+                } else {
+                    // fallback para data atual caso não encontre fatura
+                    setupInitialDate();
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                setupInitialDate();
+            }
         }
 
         getSupportFragmentManager().setFragmentResultListener("despesaSalvaRequest", this, (requestKey, bundle) -> {
@@ -77,16 +105,12 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             }
         });
 
-        bindViews();
-        
-        if (idFatura == -1) {
-            setupInitialDate(); // Usa data atual se nenhuma fatura específica foi passada
-        }
-
         setupListeners();
-
         getSupportFragmentManager().beginTransaction().replace(R.id.menu_container, new BottomMenuFragment()).commit();
         carregarCabecalhoCartao();
+
+        // Agora seguro: txtMes e txtAno já têm valores válidos
+        carregarFatura();
     }
 
     @Override
@@ -172,137 +196,103 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
 
     public void carregarFatura() {
         blocoDespesas.removeAllViews();
-        double totalFatura = 0;
         boolean temDespesas = false;
         String ultimoDia = "";
+
+        int mes = Arrays.asList("Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho",
+                "Agosto","Setembro","Outubro","Novembro","Dezembro").indexOf(txtMes.getText().toString()) + 1;
+        int ano = Integer.parseInt(txtAno.getText().toString());
+
+        // Calcula total da fatura usando o método reutilizável
+        double totalFatura = CartaoDAO.calcularFatura(this, idCartao, mes, ano);
+        valorFatura.setText(formatarBR(totalFatura));
 
         try (MeuDbHelper dbHelper = new MeuDbHelper(this);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            String query;
-            String[] selectionArgs;
+            // Obtem fatura do mês/ano
+            Cursor faturaCursor = db.rawQuery(
+                    "SELECT id, data_vencimento FROM faturas WHERE id_cartao = ? AND mes = ? AND ano = ?",
+                    new String[]{String.valueOf(idCartao), String.valueOf(mes), String.valueOf(ano)}
+            );
 
-            if (idFatura != -1) {
-                // MODO Fatura específica
-                query = "SELECT t.id AS id_transacao_cartao, t.descricao, t.valor, t.data_compra, " +
-                        "t.recorrente, t.parcelas, p.numero_parcela, p.valor AS valor_parcela, p.data_vencimento, " +
-                        "c.nome AS categoria_nome, c.cor AS categoria_cor " +
-                        "FROM transacoes_cartao t " +
-                        "LEFT JOIN parcelas_cartao p ON t.id = p.id_transacao_cartao AND p.id_fatura = ? " +
-                        "LEFT JOIN categorias c ON t.id_categoria = c.id " +
-                        "WHERE (t.parcelas > 1 AND p.id_fatura = ?) " +
-                        "   OR (t.parcelas = 1 AND date(t.data_compra) BETWEEN " +
-                        "(SELECT data_inicio FROM faturas WHERE id = ?) AND " +
-                        "(SELECT data_fim FROM faturas WHERE id = ?)) " +
-                        "ORDER BY COALESCE(p.data_vencimento, t.data_compra) DESC";
+            if (!faturaCursor.moveToFirst()) {
+                faturaCursor.close();
+                TextView aviso = new TextView(this);
+                aviso.setText("Nenhuma despesa encontrada para esta fatura");
+                blocoDespesas.addView(aviso);
+                return;
+            }
 
-                selectionArgs = new String[]{String.valueOf(idFatura), String.valueOf(idFatura),
-                        String.valueOf(idFatura), String.valueOf(idFatura)};
+            int idFatura = faturaCursor.getInt(faturaCursor.getColumnIndexOrThrow("id"));
+            faturaCursor.close();
 
-                // Atualiza valor da fatura
-                try (Cursor faturaCursor = db.rawQuery("SELECT valor_total, mes, ano FROM faturas WHERE id = ?",
-                        new String[]{String.valueOf(idFatura)})) {
-                    if (faturaCursor.moveToFirst()) {
-                        totalFatura = faturaCursor.getDouble(faturaCursor.getColumnIndexOrThrow("valor_total"));
-                        int mesFatura = faturaCursor.getInt(faturaCursor.getColumnIndexOrThrow("mes"));
-                        int anoFatura = faturaCursor.getInt(faturaCursor.getColumnIndexOrThrow("ano"));
-                        String[] nomesMes = {"Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho",
-                                "Agosto","Setembro","Outubro","Novembro","Dezembro"};
-                        txtMes.setText(nomesMes[mesFatura - 1]);
-                        txtAno.setText(String.valueOf(anoFatura));
+            // Busca parcelas relacionadas à fatura
+            String query = "SELECT p.id AS id_parcela, p.id_transacao, p.descricao AS descricao_parcela, " +
+                    "p.valor AS valor_parcela, p.num_parcela, p.total_parcelas, p.data_vencimento, p.fixa, " +
+                    "t.descricao AS descricao_transacao, t.valor_total AS valor_transacao, " +
+                    "c.nome AS categoria_nome, c.cor AS categoria_cor " +
+                    "FROM parcelas_cartao p " +
+                    "LEFT JOIN transacoes_cartao t ON p.id_transacao = t.id " +
+                    "LEFT JOIN categorias c ON p.id_categoria = c.id " +
+                    "WHERE p.id_fatura = ? " +
+                    "ORDER BY p.data_vencimento DESC";
+
+            try (Cursor cur = db.rawQuery(query, new String[]{String.valueOf(idFatura)})) {
+                LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
+
+                while (cur.moveToNext()) {
+                    temDespesas = true;
+
+                    String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data_vencimento"));
+                    String dataFormatada = formatarDataBR(dataRegistro);
+
+                    if (!dataFormatada.equals(ultimoDia)) {
+                        TextView dataLabel = new TextView(this);
+                        dataLabel.setText(dataFormatada);
+                        dataLabel.setTypeface(Typeface.DEFAULT_BOLD);
+                        dataLabel.setTextColor(Color.GRAY);
+                        dataLabel.setTextSize(13f);
+                        dataLabel.setPadding(4, 16, 4, 8);
+                        blocoDespesas.addView(dataLabel);
+                        ultimoDia = dataFormatada;
                     }
+
+                    double valorParcela = cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
+
+                    View item = inflater.inflate(R.layout.item_despesa_fatura, blocoDespesas, false);
+                    String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
+                    ((TextView) item.findViewById(R.id.tituloDespesa))
+                            .setText(cur.getString(cur.getColumnIndexOrThrow("descricao_parcela")));
+                    ((TextView) item.findViewById(R.id.tituloCategoria))
+                            .setText(categoria != null ? categoria : "Outros");
+                    ((TextView) item.findViewById(R.id.valorDespesa))
+                            .setText(formatarBR(valorParcela));
+
+                    TextView inicialCat = item.findViewById(R.id.txtIconCategoria);
+                    inicialCat.setText(categoria != null && !categoria.isEmpty() ? categoria.substring(0, 1) : "?");
+                    if (inicialCat.getBackground() instanceof GradientDrawable) {
+                        String corCategoria = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
+                        if (corCategoria != null) ((GradientDrawable) inicialCat.getBackground())
+                                .setColor(Color.parseColor(corCategoria));
+                    }
+
+                    int recorrente = cur.getInt(cur.getColumnIndexOrThrow("fixa"));
+                    Integer numeroParcela = cur.isNull(cur.getColumnIndexOrThrow("num_parcela")) ?
+                            null : cur.getInt(cur.getColumnIndexOrThrow("num_parcela"));
+                    int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("total_parcelas"));
+                    String tipoLabel = "";
+                    if (numeroParcela != null && totalParcelas > 1) tipoLabel = " (" + numeroParcela + "/" + totalParcelas + ")";
+                    else if (recorrente == 1) tipoLabel = " (fixa)";
+                    TextView labelTipo = item.findViewById(R.id.labelTipoDespesa);
+                    labelTipo.setText(tipoLabel);
+                    labelTipo.setVisibility(tipoLabel.isEmpty() ? View.GONE : View.VISIBLE);
+
+                    int idTransacaoCartao = cur.getInt(cur.getColumnIndexOrThrow("id_transacao"));
+                    item.setOnClickListener(v -> mostrarMenuDespesa(item, idTransacaoCartao, recorrente, numeroParcela, totalParcelas));
+                    blocoDespesas.addView(item);
                 }
-                valorFatura.setText(formatarBR(totalFatura));
-
-            } else {
-                // MODO mês/ano selecionado
-                Calendar inicio = Calendar.getInstance();
-                Calendar fim = Calendar.getInstance();
-                int mes = Arrays.asList(new String[]{"Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho",
-                        "Agosto","Setembro","Outubro","Novembro","Dezembro"}).indexOf(txtMes.getText().toString());
-                int ano = Integer.parseInt(txtAno.getText().toString());
-
-                if (dataFechamento > 0) {
-                    inicio.set(ano, mes - 1, dataFechamento + 1);
-                    fim.set(ano, mes, dataFechamento);
-                } else {
-                    inicio.set(ano, mes, 1);
-                    fim.set(ano, mes, inicio.getActualMaximum(Calendar.DAY_OF_MONTH));
-                }
-
-                String dataInicio = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(inicio.getTime());
-                String dataFim = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(fim.getTime());
-
-                query = "SELECT t.id AS id_transacao_cartao, t.descricao, t.valor, t.data_compra, " +
-                        "t.recorrente, t.parcelas, p.numero_parcela, p.valor AS valor_parcela, p.data_vencimento, " +
-                        "c.nome AS categoria_nome, c.cor AS categoria_cor " +
-                        "FROM transacoes_cartao t " +
-                        "LEFT JOIN parcelas_cartao p ON t.id = p.id_transacao_cartao AND " +
-                        "date(p.data_vencimento) BETWEEN ? AND ? " +
-                        "LEFT JOIN categorias c ON t.id_categoria = c.id " +
-                        "WHERE (t.parcelas > 1 AND date(p.data_vencimento) BETWEEN ? AND ?) " +
-                        "   OR (t.parcelas = 1 AND date(t.data_compra) BETWEEN ? AND ?) " +
-                        "ORDER BY COALESCE(p.data_vencimento, t.data_compra) DESC";
-
-                selectionArgs = new String[]{dataInicio, dataFim, dataInicio, dataFim, dataInicio, dataFim};
             }
-
-            Cursor cur = db.rawQuery(query, selectionArgs);
-            LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
-
-            while (cur.moveToNext()) {
-                temDespesas = true;
-                String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data_compra"));
-                String dataFormatada = formatarDataBR(dataRegistro);
-
-                if (!dataFormatada.equals(ultimoDia)) {
-                    TextView dataLabel = new TextView(this);
-                    dataLabel.setText(dataFormatada);
-                    dataLabel.setTypeface(Typeface.DEFAULT_BOLD);
-                    dataLabel.setTextColor(Color.GRAY);
-                    dataLabel.setTextSize(13f);
-                    dataLabel.setPadding(4, 16, 4, 8);
-                    blocoDespesas.addView(dataLabel);
-                    ultimoDia = dataFormatada;
-                }
-
-                double valorParcela = cur.isNull(cur.getColumnIndexOrThrow("valor_parcela")) ?
-                        cur.getDouble(cur.getColumnIndexOrThrow("valor")) :
-                        cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
-
-                if (idFatura == -1) totalFatura += valorParcela;
-
-                View item = inflater.inflate(R.layout.item_despesa_fatura, blocoDespesas, false);
-                String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
-                ((TextView) item.findViewById(R.id.tituloDespesa)).setText(cur.getString(cur.getColumnIndexOrThrow("descricao")));
-                ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
-                ((TextView) item.findViewById(R.id.valorDespesa)).setText(formatarBR(valorParcela));
-
-                TextView inicialCat = item.findViewById(R.id.txtIconCategoria);
-                inicialCat.setText(categoria != null && !categoria.isEmpty() ? categoria.substring(0, 1) : "?");
-                if (inicialCat.getBackground() instanceof GradientDrawable) {
-                    String corCategoria = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
-                    if (corCategoria != null) ((GradientDrawable) inicialCat.getBackground()).setColor(Color.parseColor(corCategoria));
-                }
-
-                int recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
-                Integer numeroParcela = cur.isNull(cur.getColumnIndexOrThrow("numero_parcela")) ?
-                        null : cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
-                int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
-                String tipoLabel = "";
-                if (numeroParcela != null && totalParcelas > 1) tipoLabel = " (" + numeroParcela + "/" + totalParcelas + ")";
-                else if (recorrente == 1) tipoLabel = " (fixa)";
-                TextView labelTipo = item.findViewById(R.id.labelTipoDespesa);
-                labelTipo.setText(tipoLabel);
-                labelTipo.setVisibility(tipoLabel.isEmpty() ? View.GONE : View.VISIBLE);
-
-                int idTransacaoCartao = cur.getInt(cur.getColumnIndexOrThrow("id_transacao_cartao"));
-                item.setOnClickListener(v -> mostrarMenuDespesa(item, idTransacaoCartao, recorrente, numeroParcela, totalParcelas));
-                blocoDespesas.addView(item);
-            }
-            cur.close();
-
-            if (idFatura == -1) valorFatura.setText(formatarBR(totalFatura));
 
         } catch (Exception e) {
             Log.e(TAG, "Erro ao carregar fatura", e);
@@ -314,6 +304,7 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             blocoDespesas.addView(aviso);
         }
     }
+
 
     private String formatarBR(double valor) {
         return NumberFormat.getCurrencyInstance(new Locale("pt", "BR")).format(valor);

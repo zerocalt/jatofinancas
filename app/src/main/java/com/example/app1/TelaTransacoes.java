@@ -62,20 +62,20 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         public TransacaoItem(@NonNull Cursor cur, String tipo, boolean isProjecao, String dataOverride) {
             this.id = cur.getInt(cur.getColumnIndexOrThrow("id"));
             this.descricao = cur.getString(cur.getColumnIndexOrThrow("descricao"));
-            this.valor = cur.getDouble(cur.getColumnIndexOrThrow("valor"));
+            this.valor = cur.getDouble(cur.getColumnIndexOrThrow("valor")); // já mapeado no SELECT
             this.data = (dataOverride != null) ? dataOverride : cur.getString(cur.getColumnIndexOrThrow("data"));
-            this.categoriaNome = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
-            this.categoriaCor = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
+            this.categoriaNome = getColumnStringSafe(cur, "categoria_nome");
+            this.categoriaCor = getColumnStringSafe(cur, "categoria_cor");
             this.tipoTransacao = tipo;
-            this.recorrente = cur.getInt(cur.getColumnIndexOrThrow("recorrente"));
-            this.parcelas = cur.getInt(cur.getColumnIndexOrThrow("parcelas"));
-            this.numeroParcela = cur.getInt(cur.getColumnIndexOrThrow("numero_parcela"));
-            this.idMestre = cur.getInt(cur.getColumnIndexOrThrow("id_mestre"));
+            this.recorrente = getColumnIntSafe(cur, "recorrente");
+            this.parcelas = getColumnIntSafe(cur, "parcelas");
+            this.numeroParcela = getColumnIntSafe(cur, "numero_parcela");
+            this.idMestre = getColumnIntSafe(cur, "id_mestre");
             this.isProjecao = isProjecao;
-            this.pago = isProjecao ? 0 : cur.getInt(cur.getColumnIndexOrThrow("pago"));
-            this.recebido = isProjecao ? 0 : cur.getInt(cur.getColumnIndexOrThrow("recebido"));
-            this.idCartao = cur.getColumnIndex("id_cartao") != -1 ? cur.getInt(cur.getColumnIndexOrThrow("id_cartao")) : -1;
-            this.idConta = cur.getColumnIndex("id_conta") != -1 ? cur.getInt(cur.getColumnIndexOrThrow("id_conta")) : -1;
+            this.pago = isProjecao ? 0 : getColumnIntSafe(cur, "pago");
+            this.recebido = isProjecao ? 0 : getColumnIntSafe(cur, "recebido");
+            this.idCartao = getColumnIntSafe(cur, "id_cartao");
+            this.idConta = getColumnIntSafe(cur, "id_conta");
         }
 
         public TransacaoItem(int id, String descricao, double valor, String data, String categoriaNome, String categoriaCor, String tipo, int recorrente, int idMestre, int repetir_periodo, int idConta) {
@@ -100,6 +100,17 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         @Override
         public int compareTo(TransacaoItem other) {
             return other.data.compareTo(this.data);
+        }
+
+        // ---------------------- MÉTODOS AUXILIARES ----------------------
+        private static int getColumnIntSafe(Cursor cur, String columnName) {
+            int index = cur.getColumnIndex(columnName);
+            return (index != -1) ? cur.getInt(index) : 0;
+        }
+
+        private static String getColumnStringSafe(Cursor cur, String columnName) {
+            int index = cur.getColumnIndex(columnName);
+            return (index != -1) ? cur.getString(index) : "";
         }
     }
 
@@ -251,60 +262,54 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                 }
             }
 
-            // ---------------------- FATURAS DE CARTÃO ----------------------
-            if (!"receita".equals(filtroTipo)) {
-                ArrayList<String> argsFaturas = new ArrayList<>();
-                argsFaturas.add(String.valueOf(idUsuarioLogado));
-                argsFaturas.add(mesAno);
-
-                StringBuilder queryFaturas = new StringBuilder(
-                        "SELECT f.id, 'Fatura ' || cr.nome AS descricao, f.valor_total AS valor, f.data_vencimento AS data, " +
-                                "'Fatura de Cartão' AS categoria_nome, cr.cor AS categoria_cor, " +
-                                "'fatura_despesa' AS tipo, 0 AS recorrente, 1 AS parcelas, 1 AS numero_parcela, " +
-                                "f.status AS pago, 0 AS recebido, f.id AS id_mestre, 0 AS repetir_periodo, cr.id AS id_cartao, cr.id_conta " +
-                                "FROM faturas f JOIN cartoes cr ON f.id_cartao = cr.id " +
-                                "WHERE cr.id_usuario = ? "
-                );
-
-                if ("pendente".equals(filtroStatus)) {
-                    queryFaturas.append("AND substr(f.data_vencimento, 1, 7) <= ? AND f.status = 0");
-                } else {
-                    queryFaturas.append("AND substr(f.data_vencimento, 1, 7) = ?");
-                    if ("pago".equals(filtroStatus)) queryFaturas.append(" AND f.status = 1");
-                }
-
-                try (Cursor cur = db.rawQuery(queryFaturas.toString(), argsFaturas.toArray(new String[0]))) {
-                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
-                }
-            }
-
-            // ---------------------- TRANSAÇÕES DE CARTÃO ----------------------
-            // Mostra **apenas se filtroTipo estiver vazio ou for 'cartao'**
+            // ---------------------- COMPRAS DE CARTÃO ----------------------
             if (filtroTipo == null || "cartao".equals(filtroTipo)) {
                 ArrayList<String> argsCartao = new ArrayList<>();
                 argsCartao.add(String.valueOf(idUsuarioLogado));
                 argsCartao.add(mesAno);
-                argsCartao.add(mesAno);
 
                 String queryCartao =
-                        "SELECT tc.id, tc.descricao, tc.valor, tc.data_compra AS data, " +
+                        "SELECT tc.id, tc.descricao, tc.valor_total AS valor, tc.data_compra AS data, " +
                                 "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
-                                "0 AS recorrente, tc.parcelas, 1 AS numero_parcela, tc.paga AS pago, 0 AS recebido, " +
+                                "0 AS recorrente, tc.qtd_parcelas AS parcelas, 1 AS numero_parcela, tc.status AS pago, 0 AS recebido, " +
                                 "tc.id AS id_mestre, 0 AS repetir_periodo, tc.id_cartao, cr.id_conta " +
                                 "FROM transacoes_cartao tc " +
                                 "JOIN cartoes cr ON tc.id_cartao = cr.id " +
-                                "LEFT JOIN faturas f ON tc.id_fatura = f.id " +
                                 "LEFT JOIN categorias cat ON tc.id_categoria = cat.id " +
                                 "WHERE tc.id_usuario = ? " +
-                                "AND (substr(tc.data_compra,1,7) = ? OR substr(f.data_vencimento,1,7) = ?)";
+                                "AND substr(tc.data_compra,1,7) = ?";
 
                 try (Cursor cur = db.rawQuery(queryCartao, argsCartao.toArray(new String[0]))) {
                     while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "cartao", false, null));
                 }
             }
 
+            // ---------------------- FATURAS DE CARTÃO ----------------------
+            if (!"receita".equals(filtroTipo)) {
+                ArrayList<String> argsFaturas = new ArrayList<>();
+                argsFaturas.add(String.valueOf(idUsuarioLogado));
+                argsFaturas.add(mesAno);
+
+                String queryFaturas =
+                        "SELECT f.id, 'Fatura ' || cr.nome AS descricao, f.valor_total AS valor, f.data_vencimento AS data, " +
+                                "'Fatura de Cartão' AS categoria_nome, cr.cor AS categoria_cor, " +
+                                "'fatura_despesa' AS tipo, 0 AS recorrente, 1 AS parcelas, 1 AS numero_parcela, " +
+                                "f.status AS pago, 0 AS recebido, f.id AS id_mestre, 0 AS repetir_periodo, cr.id AS id_cartao, cr.id_conta " +
+                                "FROM faturas f " +
+                                "JOIN cartoes cr ON f.id_cartao = cr.id " +
+                                "WHERE cr.id_usuario = ? AND substr(f.data_vencimento,1,7) = ?";
+
+                if ("pendente".equals(filtroStatus)) queryFaturas += " AND f.status = 0";
+                else if ("pago".equals(filtroStatus)) queryFaturas += " AND f.status = 1";
+
+                try (Cursor cur = db.rawQuery(queryFaturas, argsFaturas.toArray(new String[0]))) {
+                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
+                }
+            }
+
             // ---------------------- PROJEÇÕES RECORRENTES ----------------------
-            // ... (mantém o bloco original)
+            // Mantém seu bloco atual para transações recorrentes
+            // ...
 
         } catch (Exception e) {
             android.util.Log.e("TelaTransacoes", "Erro ao buscar transacoes", e);
@@ -313,6 +318,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         Collections.sort(itens);
         return itens;
     }
+
 
     private boolean shouldOccurInMonth(String dataInicioStr, int repetirPeriodo, int anoSelecionado, int mesSelecionado) {
         if (dataInicioStr == null || dataInicioStr.length() < 7) return false;
