@@ -198,57 +198,38 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
         blocoDespesas.removeAllViews();
         boolean temDespesas = false;
         String ultimoDia = "";
+        double totalFaturaCalculado = 0.0;
 
         int mes = Arrays.asList("Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho",
                 "Agosto","Setembro","Outubro","Novembro","Dezembro").indexOf(txtMes.getText().toString()) + 1;
         int ano = Integer.parseInt(txtAno.getText().toString());
 
-        // Calcula total da fatura usando o método reutilizável
-        double totalFatura = CartaoDAO.calcularFatura(this, idCartao, mes, ano);
-        valorFatura.setText(formatarBR(totalFatura));
-
         try (MeuDbHelper dbHelper = new MeuDbHelper(this);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // Obtem fatura do mês/ano
-            Cursor faturaCursor = db.rawQuery(
-                    "SELECT id FROM faturas WHERE id_cartao = ? AND mes = ? AND ano = ?",
-                    new String[]{String.valueOf(idCartao), String.valueOf(mes), String.valueOf(ano)}
-            );
-
-            if (!faturaCursor.moveToFirst()) {
-                faturaCursor.close();
-                TextView aviso = new TextView(this);
-                aviso.setText("Nenhuma despesa encontrada para esta fatura");
-                blocoDespesas.addView(aviso);
-                return;
-            }
-
-            int idFatura = faturaCursor.getInt(faturaCursor.getColumnIndexOrThrow("id"));
-            faturaCursor.close();
-
-            // Busca parcelas relacionadas à fatura, agrupando por data da compra
             String query = "SELECT p.id AS id_parcela, p.id_transacao, p.descricao AS descricao_parcela, " +
                     "p.valor AS valor_parcela, p.num_parcela, p.total_parcelas, p.data_vencimento, p.fixa, " +
                     "t.descricao AS descricao_transacao, t.valor_total AS valor_transacao, t.data_compra AS data_compra, " +
                     "c.nome AS categoria_nome, c.cor AS categoria_cor " +
                     "FROM parcelas_cartao p " +
+                    "JOIN faturas f ON p.id_fatura = f.id " +
                     "LEFT JOIN transacoes_cartao t ON p.id_transacao = t.id " +
                     "LEFT JOIN categorias c ON p.id_categoria = c.id " +
-                    "WHERE p.id_fatura = ? " +
+                    "WHERE f.id_cartao = ? AND f.mes = ? AND f.ano = ? " +
                     "ORDER BY t.data_compra DESC, p.id DESC";
 
-            try (Cursor cur = db.rawQuery(query, new String[]{String.valueOf(idFatura)})) {
+            try (Cursor cur = db.rawQuery(query, new String[]{String.valueOf(idCartao), String.valueOf(mes), String.valueOf(ano)})) {
                 LayoutInflater inflater = (LayoutInflater) getSystemService(Context.LAYOUT_INFLATER_SERVICE);
 
                 while (cur.moveToNext()) {
                     temDespesas = true;
 
-                    // Usar a data da compra da despesa
+                    double valorParcela = cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
+                    totalFaturaCalculado += valorParcela;
+
                     String dataRegistro = cur.getString(cur.getColumnIndexOrThrow("data_compra"));
                     String dataFormatada = formatarDataBR(dataRegistro);
 
-                    // Cabeçalho de data (aparece uma vez por dia)
                     if (!dataFormatada.equals(ultimoDia)) {
                         TextView dataLabel = new TextView(this);
                         dataLabel.setText(dataFormatada);
@@ -260,8 +241,6 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                         ultimoDia = dataFormatada;
                     }
 
-                    // Valores e dados da despesa
-                    double valorParcela = cur.getDouble(cur.getColumnIndexOrThrow("valor_parcela"));
                     String descricao = cur.getString(cur.getColumnIndexOrThrow("descricao_parcela"));
                     String categoria = cur.getString(cur.getColumnIndexOrThrow("categoria_nome"));
                     String corCategoria = cur.getString(cur.getColumnIndexOrThrow("categoria_cor"));
@@ -269,11 +248,10 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                     Integer numeroParcela = cur.isNull(cur.getColumnIndexOrThrow("num_parcela")) ?
                             null : cur.getInt(cur.getColumnIndexOrThrow("num_parcela"));
                     int totalParcelas = cur.getInt(cur.getColumnIndexOrThrow("total_parcelas"));
-
-                    // Infla item da despesa
+                    
                     View item = inflater.inflate(R.layout.item_despesa_fatura, blocoDespesas, false);
 
-                    ((TextView) item.findViewById(R.id.tituloDespesa)).setText(descricao); // título sem parcelas
+                    ((TextView) item.findViewById(R.id.tituloDespesa)).setText(descricao);
                     ((TextView) item.findViewById(R.id.tituloCategoria)).setText(categoria != null ? categoria : "Outros");
                     ((TextView) item.findViewById(R.id.valorDespesa)).setText(formatarBR(valorParcela));
 
@@ -283,7 +261,6 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                         ((GradientDrawable) inicialCat.getBackground()).setColor(Color.parseColor(corCategoria));
                     }
 
-                    // Label de tipo (parcelas ou fixa)
                     TextView labelTipo = item.findViewById(R.id.labelTipoDespesa);
                     String tipoLabel = "";
                     if (numeroParcela != null && totalParcelas > 1) tipoLabel = " (" + numeroParcela + "/" + totalParcelas + ")";
@@ -297,10 +274,11 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
                     blocoDespesas.addView(item);
                 }
             }
-
         } catch (Exception e) {
             Log.e(TAG, "Erro ao carregar fatura", e);
         }
+
+        valorFatura.setText(formatarBR(totalFaturaCalculado));
 
         if (!temDespesas) {
             TextView aviso = new TextView(this);

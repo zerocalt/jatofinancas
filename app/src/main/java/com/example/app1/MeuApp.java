@@ -12,12 +12,12 @@ public class MeuApp extends Application {
 
         // Inicia o processo de auditoria e geração de faturas em uma thread separada
         // executa sempre que abre
-        /*
+
         new Thread(() -> {
-            GerenciadorDeFatura.processarFaturasPendentes(getApplicationContext());
+            GerenciadorDeFatura.verificarELancarDespesasFixas(getApplicationContext());
         }).start();
 
-         */
+
 
         //executa 1x por dia
         /*

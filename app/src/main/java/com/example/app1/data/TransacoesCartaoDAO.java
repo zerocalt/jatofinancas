@@ -211,48 +211,53 @@ public class TransacoesCartaoDAO {
 
     private static long localizarOuCriarFatura(SQLiteDatabase db, int idCartao, Date dataCompra,
                                                int diaFechamento, int diaVencimento) {
-        Calendar compra = Calendar.getInstance();
-        compra.setTime(dataCompra);
+        // Calendário para a data da compra
+        Calendar calCompra = Calendar.getInstance();
+        calCompra.setTime(dataCompra);
 
-        Calendar lastFechamento = (Calendar) compra.clone();
-        lastFechamento.set(Calendar.DAY_OF_MONTH, diaFechamento);
-        lastFechamento.add(Calendar.MONTH, -1);
+        // Calendário para determinar o mês/ano da fatura
+        Calendar calFatura = (Calendar) calCompra.clone();
 
-        Calendar proxFechamento = (Calendar) lastFechamento.clone();
-        proxFechamento.add(Calendar.MONTH, 1);
-
-        int mesFatura = proxFechamento.get(Calendar.MONTH) + 1;
-        int anoFatura = proxFechamento.get(Calendar.YEAR);
-
-        int mesVencimento = mesFatura + 1;
-        int anoVencimento = anoFatura;
-        if (mesVencimento > 12) {
-            mesVencimento = 1;
-            anoVencimento += 1;
+        // Se o dia da compra for maior que o dia de fechamento, a compra entra na fatura do mês seguinte
+        if (calCompra.get(Calendar.DAY_OF_MONTH) > diaFechamento) {
+            calFatura.add(Calendar.MONTH, 1);
         }
-        Calendar venc = Calendar.getInstance();
-        venc.set(Calendar.YEAR, anoVencimento);
-        venc.set(Calendar.MONTH, mesVencimento - 1);
-        venc.set(Calendar.DAY_OF_MONTH, diaVencimento);
 
+        // Obtém o mês e o ano da fatura
+        int mesFatura = calFatura.get(Calendar.MONTH) + 1; // +1 porque Calendar.MONTH é 0-based
+        int anoFatura = calFatura.get(Calendar.YEAR);
+
+        // Tenta localizar a fatura existente
         try (Cursor c = db.rawQuery(
                 "SELECT id FROM faturas WHERE id_cartao = ? AND mes = ? AND ano = ?",
                 new String[]{String.valueOf(idCartao), String.valueOf(mesFatura), String.valueOf(anoFatura)})) {
             if (c.moveToFirst()) {
-                return c.getLong(0);
+                return c.getLong(c.getColumnIndexOrThrow("id"));
             }
+        }
+
+        // Se não existir, cria uma nova fatura
+        // Primeiro, calcula a data de vencimento
+        Calendar calVencimento = Calendar.getInstance();
+        calVencimento.set(Calendar.YEAR, anoFatura);
+        calVencimento.set(Calendar.MONTH, mesFatura - 1); // Mês da fatura (0-based)
+        calVencimento.set(Calendar.DAY_OF_MONTH, diaVencimento);
+
+        // Se o dia de vencimento é no início do mês (menor que o dia de fechamento),
+        // o vencimento ocorre no mês seguinte ao da fatura.
+        if (diaVencimento < diaFechamento) {
+            calVencimento.add(Calendar.MONTH, 1);
         }
 
         ContentValues fVals = new ContentValues();
         fVals.put("id_cartao", idCartao);
         fVals.put("mes", mesFatura);
         fVals.put("ano", anoFatura);
-        fVals.put("data_vencimento", new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(venc.getTime()));
+        fVals.put("data_vencimento", new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(calVencimento.getTime()));
         fVals.put("valor_total", 0);
-        fVals.put("status", 0);
+        fVals.put("status", 0); // Status inicial (ex: pendente)
 
-        long id = db.insert("faturas", null, fVals);
-        return id;
+        return db.insert("faturas", null, fVals);
     }
 
     private static int[] obterDiasCartao(SQLiteDatabase db, int idCartao, Date dataCompra) {
