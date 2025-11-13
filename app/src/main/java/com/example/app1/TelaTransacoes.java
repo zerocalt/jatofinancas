@@ -78,25 +78,6 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             this.idConta = getColumnIntSafe(cur, "id_conta");
         }
 
-        public TransacaoItem(int id, String descricao, double valor, String data, String categoriaNome, String categoriaCor, String tipo, int recorrente, int idMestre, int repetir_periodo, int idConta) {
-            this.id = id;
-            this.descricao = descricao;
-            this.valor = valor;
-            this.data = data;
-            this.categoriaNome = categoriaNome;
-            this.categoriaCor = categoriaCor;
-            this.tipoTransacao = tipo;
-            this.recorrente = recorrente;
-            this.parcelas = 1;
-            this.numeroParcela = 1;
-            this.idMestre = idMestre;
-            this.isProjecao = true;
-            this.pago = 0;
-            this.recebido = 0;
-            this.idCartao = -1;
-            this.idConta = idConta;
-        }
-
         @Override
         public int compareTo(TransacaoItem other) {
             return other.data.compareTo(this.data);
@@ -229,13 +210,20 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         int mes = getMesIndex(txtMes.getText().toString());
         String mesAno = String.format(Locale.ROOT, "%04d-%02d", ano, mes + 1);
 
+        // Calcula último dia do mês selecionado (para o filtro de pendentes)
+        Calendar cal = Calendar.getInstance();
+        cal.set(Calendar.YEAR, ano);
+        cal.set(Calendar.MONTH, mes);
+        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH));
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String dataLimite = sdf.format(cal.getTime());
+
         try (SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase()) {
 
             // ---------------------- TRANSAÇÕES NORMAIS ----------------------
             if (!"cartao".equals(filtroTipo)) {
                 ArrayList<String> args = new ArrayList<>();
                 args.add(String.valueOf(idUsuarioLogado));
-                args.add(mesAno);
 
                 StringBuilder query = new StringBuilder(
                         "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
@@ -244,7 +232,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                                 "t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, " +
                                 "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
                                 "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
-                                "WHERE t.id_usuario = ? AND substr(t.data_movimentacao,1,7) = ?"
+                                "WHERE t.id_usuario = ? "
                 );
 
                 if (filtroTipo != null) {
@@ -253,12 +241,25 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                 }
 
                 if (filtroStatus != null) {
-                    if ("pendente".equals(filtroStatus)) query.append(" AND t.pago = 0");
-                    else if ("pago".equals(filtroStatus)) query.append(" AND t.pago = 1");
+                    if ("pendente".equals(filtroStatus)) {
+                        query.append(" AND t.pago = 0 AND date(t.data_movimentacao) <= date(?)");
+                        args.add(dataLimite);
+                    } else if ("pago".equals(filtroStatus)) {
+                        query.append(" AND t.pago = 1 AND substr(t.data_movimentacao,1,7) = ?");
+                        args.add(mesAno);
+                    } else {
+                        query.append(" AND substr(t.data_movimentacao,1,7) = ?");
+                        args.add(mesAno);
+                    }
+                } else {
+                    query.append(" AND substr(t.data_movimentacao,1,7) = ?");
+                    args.add(mesAno);
                 }
 
                 try (Cursor cur = db.rawQuery(query.toString(), args.toArray(new String[0]))) {
-                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
+                    while (cur.moveToNext()) {
+                        itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
+                    }
                 }
             }
 
@@ -266,9 +267,8 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             if (filtroTipo == null || "cartao".equals(filtroTipo)) {
                 ArrayList<String> argsCartao = new ArrayList<>();
                 argsCartao.add(String.valueOf(idUsuarioLogado));
-                argsCartao.add(mesAno);
 
-                String queryCartao =
+                StringBuilder queryCartao = new StringBuilder(
                         "SELECT tc.id, tc.descricao, tc.valor_total AS valor, tc.data_compra AS data, " +
                                 "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
                                 "0 AS recorrente, tc.qtd_parcelas AS parcelas, 1 AS numero_parcela, tc.status AS pago, 0 AS recebido, " +
@@ -276,11 +276,24 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                                 "FROM transacoes_cartao tc " +
                                 "JOIN cartoes cr ON tc.id_cartao = cr.id " +
                                 "LEFT JOIN categorias cat ON tc.id_categoria = cat.id " +
-                                "WHERE tc.id_usuario = ? " +
-                                "AND substr(tc.data_compra,1,7) = ?";
+                                "WHERE tc.id_usuario = ? "
+                );
 
-                try (Cursor cur = db.rawQuery(queryCartao, argsCartao.toArray(new String[0]))) {
-                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "cartao", false, null));
+                if ("pendente".equals(filtroStatus)) {
+                    queryCartao.append(" AND tc.status = 0 AND date(tc.data_compra) <= date(?)");
+                    argsCartao.add(dataLimite);
+                } else if ("pago".equals(filtroStatus)) {
+                    queryCartao.append(" AND tc.status = 1 AND substr(tc.data_compra,1,7) = ?");
+                    argsCartao.add(mesAno);
+                } else {
+                    queryCartao.append(" AND substr(tc.data_compra,1,7) = ?");
+                    argsCartao.add(mesAno);
+                }
+
+                try (Cursor cur = db.rawQuery(queryCartao.toString(), argsCartao.toArray(new String[0]))) {
+                    while (cur.moveToNext()) {
+                        itens.add(new TransacaoItem(cur, "cartao", false, null));
+                    }
                 }
             }
 
@@ -288,28 +301,34 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             if (!"receita".equals(filtroTipo)) {
                 ArrayList<String> argsFaturas = new ArrayList<>();
                 argsFaturas.add(String.valueOf(idUsuarioLogado));
-                argsFaturas.add(mesAno);
 
-                String queryFaturas =
+                StringBuilder queryFaturas = new StringBuilder(
                         "SELECT f.id, 'Fatura ' || cr.nome AS descricao, f.valor_total AS valor, f.data_vencimento AS data, " +
                                 "'Fatura de Cartão' AS categoria_nome, cr.cor AS categoria_cor, " +
                                 "'fatura_despesa' AS tipo, 0 AS recorrente, 1 AS parcelas, 1 AS numero_parcela, " +
                                 "f.status AS pago, 0 AS recebido, f.id AS id_mestre, 0 AS repetir_periodo, cr.id AS id_cartao, cr.id_conta " +
                                 "FROM faturas f " +
                                 "JOIN cartoes cr ON f.id_cartao = cr.id " +
-                                "WHERE cr.id_usuario = ? AND substr(f.data_vencimento,1,7) = ?";
+                                "WHERE cr.id_usuario = ? "
+                );
 
-                if ("pendente".equals(filtroStatus)) queryFaturas += " AND f.status = 0";
-                else if ("pago".equals(filtroStatus)) queryFaturas += " AND f.status = 1";
+                if ("pendente".equals(filtroStatus)) {
+                    queryFaturas.append(" AND f.status = 0 AND date(f.data_vencimento) <= date(?)");
+                    argsFaturas.add(dataLimite);
+                } else if ("pago".equals(filtroStatus)) {
+                    queryFaturas.append(" AND f.status = 1 AND substr(f.data_vencimento,1,7) = ?");
+                    argsFaturas.add(mesAno);
+                } else {
+                    queryFaturas.append(" AND substr(f.data_vencimento,1,7) = ?");
+                    argsFaturas.add(mesAno);
+                }
 
-                try (Cursor cur = db.rawQuery(queryFaturas, argsFaturas.toArray(new String[0]))) {
-                    while (cur.moveToNext()) itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
+                try (Cursor cur = db.rawQuery(queryFaturas.toString(), argsFaturas.toArray(new String[0]))) {
+                    while (cur.moveToNext()) {
+                        itens.add(new TransacaoItem(cur, "fatura_despesa", false, null));
+                    }
                 }
             }
-
-            // ---------------------- PROJEÇÕES RECORRENTES ----------------------
-            // Mantém seu bloco atual para transações recorrentes
-            // ...
 
         } catch (Exception e) {
             android.util.Log.e("TelaTransacoes", "Erro ao buscar transacoes", e);
@@ -317,28 +336,6 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
         Collections.sort(itens);
         return itens;
-    }
-
-
-    private boolean shouldOccurInMonth(String dataInicioStr, int repetirPeriodo, int anoSelecionado, int mesSelecionado) {
-        if (dataInicioStr == null || dataInicioStr.length() < 7) return false;
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-            Date dataInicio = sdf.parse(dataInicioStr.substring(0, 10));
-            Calendar calInicio = Calendar.getInstance();
-            calInicio.setTime(dataInicio);
-
-            int anosDiff = anoSelecionado - calInicio.get(Calendar.YEAR);
-            int mesesDiff = anosDiff * 12 + (mesSelecionado - (calInicio.get(Calendar.MONTH)));
-
-            if (mesesDiff < 0) return false;
-            if (repetirPeriodo <= 0) return true;
-
-            return mesesDiff % repetirPeriodo == 0;
-        } catch (ParseException e) {
-            android.util.Log.e("TelaTransacoes", "Erro em shouldOccurInMonth", e);
-            return false;
-        }
     }
 
     private void processarEExibirTransacoes(List<TransacaoItem> transacoes) {
@@ -569,26 +566,5 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             }
         }
     }
-
-    public static int excluirTransacao(Context context, int idTransacao) {
-        MeuDbHelper dbHelper = new MeuDbHelper(context);
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-
-        int linhasAfetadas = 0;
-        try {
-            // Exclui primeiro as parcelas relacionadas
-            db.delete("parcelas_cartao", "id_transacao = ?", new String[]{String.valueOf(idTransacao)});
-
-            // Depois exclui a transação principal
-            linhasAfetadas = db.delete("transacoes_cartao", "id = ?", new String[]{String.valueOf(idTransacao)});
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally {
-            db.close();
-        }
-
-        return linhasAfetadas;
-    }
-
 
 }
