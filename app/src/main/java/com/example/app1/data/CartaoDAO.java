@@ -189,34 +189,18 @@ public class CartaoDAO {
 
                     double valorFatura = 0;
 
-                    // Calcula intervalo de compras que compõem a fatura que vence no mês seguinte
-                    Calendar inicio = Calendar.getInstance();
-                    Calendar fim = Calendar.getInstance();
-                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                    // Calcula o mês e o ano da fatura (mês seguinte ao selecionado)
+                    int mesFatura = mes + 1;
+                    int anoFatura = ano;
 
-                    // Ajusta mês anterior corretamente (cuidado com Janeiro)
-                    int mesAnterior = mes - 1;
-                    int anoAnterior = ano;
-                    if (mesAnterior < 0) {
-                        mesAnterior = 11;
-                        anoAnterior -= 1;
+                    // Se passou de dezembro, volta para janeiro e incrementa o ano
+                    if (mesFatura > 12) {
+                        mesFatura = 1;
+                        anoFatura++;
                     }
 
-                    inicio.set(anoAnterior, mesAnterior, diaFechamento + 1);
-                    fim.set(ano, mes, diaFechamento > 0 ? diaFechamento : fim.getActualMaximum(Calendar.DAY_OF_MONTH));
-
-                    String dataInicio = sdf.format(inicio.getTime());
-                    String dataFim = sdf.format(fim.getTime());
-
-                    // Soma o valor das parcelas/transações dentro do intervalo
-                    String queryValor = "SELECT COALESCE(SUM(valor_total),0) FROM transacoes_cartao " +
-                            "WHERE id_cartao = ? AND data_compra BETWEEN ? AND ?";
-                    try (Cursor curValor = db.rawQuery(queryValor, new String[]{
-                            String.valueOf(idCartao), dataInicio, dataFim})) {
-                        if (curValor.moveToFirst()) {
-                            valorFatura = curValor.getDouble(0);
-                        }
-                    }
+                    // Agora chama o cálculo com o mês e ano corretos
+                    valorFatura = calcularFatura(context, idCartao, mesFatura, anoFatura);
 
                     listaCartaoFatura.add(new CartaoFatura(cartao, valorFatura));
                 }
