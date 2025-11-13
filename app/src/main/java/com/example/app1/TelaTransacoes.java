@@ -264,31 +264,40 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
             }
 
             // ---------------------- COMPRAS DE CARTÃO ----------------------
+            // ---------------------- PARCELAS DE CARTÃO ----------------------
             if (filtroTipo == null || "cartao".equals(filtroTipo)) {
                 ArrayList<String> argsCartao = new ArrayList<>();
                 argsCartao.add(String.valueOf(idUsuarioLogado));
 
                 StringBuilder queryCartao = new StringBuilder(
-                        "SELECT tc.id, tc.descricao, tc.valor_total AS valor, tc.data_compra AS data, " +
+                        "SELECT pc.id, pc.descricao, pc.valor AS valor, pc.data_compra AS data, " +
                                 "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
-                                "0 AS recorrente, tc.qtd_parcelas AS parcelas, 1 AS numero_parcela, tc.status AS pago, 0 AS recebido, " +
-                                "tc.id AS id_mestre, 0 AS repetir_periodo, tc.id_cartao, cr.id_conta " +
-                                "FROM transacoes_cartao tc " +
-                                "JOIN cartoes cr ON tc.id_cartao = cr.id " +
-                                "LEFT JOIN categorias cat ON tc.id_categoria = cat.id " +
-                                "WHERE tc.id_usuario = ? "
+                                "pc.fixa AS recorrente, pc.total_parcelas AS parcelas, pc.num_parcela AS numero_parcela, " +
+                                "pc.paga AS pago, 0 AS recebido, " +
+                                "pc.id_transacao AS id_mestre, 0 AS repetir_periodo, " +
+                                "pc.id_cartao, c.id_conta " +
+                                "FROM parcelas_cartao pc " +
+                                "JOIN cartoes c ON pc.id_cartao = c.id " +
+                                "LEFT JOIN categorias cat ON pc.id_categoria = cat.id " +
+                                "WHERE pc.id_usuario = ? "
                 );
 
+                // ====== Filtros de status e data (usando data_compra) ======
                 if ("pendente".equals(filtroStatus)) {
-                    queryCartao.append(" AND tc.status = 0 AND date(tc.data_compra) <= date(?)");
-                    argsCartao.add(dataLimite);
+                    // parcelas não pagas cadastradas até o último dia do mês selecionado
+                    queryCartao.append("AND pc.paga = 0 AND date(pc.data_compra) <= date(?) ");
+                    argsCartao.add(dataLimite); // dataLimite já calculada: último dia do mês selecionado
                 } else if ("pago".equals(filtroStatus)) {
-                    queryCartao.append(" AND tc.status = 1 AND substr(tc.data_compra,1,7) = ?");
-                    argsCartao.add(mesAno);
+                    // parcelas pagas que foram cadastradas no mês selecionado
+                    queryCartao.append("AND pc.paga = 1 AND substr(pc.data_compra,1,7) = ? ");
+                    argsCartao.add(mesAno); // mesAno = "YYYY-MM"
                 } else {
-                    queryCartao.append(" AND substr(tc.data_compra,1,7) = ?");
+                    // padrão: todas as parcelas cuja data_compra está no mês selecionado
+                    queryCartao.append("AND substr(pc.data_compra,1,7) = ? ");
                     argsCartao.add(mesAno);
                 }
+
+                queryCartao.append("ORDER BY date(pc.data_compra) DESC");
 
                 try (Cursor cur = db.rawQuery(queryCartao.toString(), argsCartao.toArray(new String[0]))) {
                     while (cur.moveToNext()) {
