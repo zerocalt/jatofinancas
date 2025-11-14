@@ -151,9 +151,10 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
 
             @Override
             public void onExibirTransacoes(Conta conta) {
-                Intent intent = new Intent(this, TelaTransacoes.class);
-                intent.putExtra("id_conta", conta.getId()); // ou outro identificador
-                this.startActivity(intent);
+                Intent intent = new Intent(TelaPrincipal.this, TelaTransacoes.class);
+                intent.putExtra("conta_id", conta.getId()); // ou outro identificador
+                intent.putExtra("id_usuario", idUsuarioLogado);
+                startActivity(intent);
             }
 
         });

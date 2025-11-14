@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
@@ -49,6 +50,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
     private TextView txtMes, txtAno, txtNenhumaTransacao, textTransacoes;
     private int idUsuarioLogado = -1;
+    private int idContaFiltro = -1;
     private String filtroTipo = null; // "receita" ou "despesa"
     private String filtroStatus = null; // "pago" ou "pendente"
 
@@ -112,6 +114,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         idUsuarioLogado = getIntent().getIntExtra("id_usuario", -1);
         filtroTipo = getIntent().getStringExtra("filtro_tipo");
         filtroStatus = getIntent().getStringExtra("filtro_status");
+        idContaFiltro = getIntent().getIntExtra("conta_id", -1);
 
         // Se você quiser que ao abrir sem filtro, sempre apareça tudo:
         if (filtroTipo == null) filtroTipo = null; // garante que não haja filtro
@@ -260,6 +263,10 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                     query.append(" AND substr(t.data_movimentacao,1,7) = ?");
                     args.add(mesAno);
                 }
+                if (idContaFiltro != -1) {
+                    query.append(" AND t.id_conta = ?");
+                    args.add(String.valueOf(idContaFiltro));
+                }
 
                 try (Cursor cur = db.rawQuery(query.toString(), args.toArray(new String[0]))) {
                     while (cur.moveToNext()) {
@@ -270,43 +277,45 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
             // ---------------------- COMPRAS DE CARTÃO ----------------------
             // ---------------------- PARCELAS DE CARTÃO ----------------------
-            if (filtroTipo == null || "cartao".equals(filtroTipo)) {
-                ArrayList<String> argsCartao = new ArrayList<>();
-                argsCartao.add(String.valueOf(idUsuarioLogado));
+            if (idContaFiltro == -1) {
+                if (filtroTipo == null || "cartao".equals(filtroTipo)) {
+                    ArrayList<String> argsCartao = new ArrayList<>();
+                    argsCartao.add(String.valueOf(idUsuarioLogado));
 
-                StringBuilder queryCartao = new StringBuilder(
-                        "SELECT pc.id, pc.descricao, pc.valor AS valor, pc.data_compra AS data, " +
-                                "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
-                                "pc.fixa AS recorrente, pc.total_parcelas AS parcelas, pc.num_parcela AS numero_parcela, " +
-                                "pc.paga AS pago, 0 AS recebido, " +
-                                "pc.id_transacao AS id_mestre, 0 AS repetir_periodo, " +
-                                "pc.id_cartao, c.id_conta " +
-                                "FROM parcelas_cartao pc " +
-                                "JOIN cartoes c ON pc.id_cartao = c.id " +
-                                "LEFT JOIN categorias cat ON pc.id_categoria = cat.id " +
-                                "WHERE pc.id_usuario = ? "
-                );
+                    StringBuilder queryCartao = new StringBuilder(
+                            "SELECT pc.id, pc.descricao, pc.valor AS valor, pc.data_compra AS data, " +
+                                    "cat.nome AS categoria_nome, cat.cor AS categoria_cor, 'cartao' AS tipo, " +
+                                    "pc.fixa AS recorrente, pc.total_parcelas AS parcelas, pc.num_parcela AS numero_parcela, " +
+                                    "pc.paga AS pago, 0 AS recebido, " +
+                                    "pc.id_transacao AS id_mestre, 0 AS repetir_periodo, " +
+                                    "pc.id_cartao, c.id_conta " +
+                                    "FROM parcelas_cartao pc " +
+                                    "JOIN cartoes c ON pc.id_cartao = c.id " +
+                                    "LEFT JOIN categorias cat ON pc.id_categoria = cat.id " +
+                                    "WHERE pc.id_usuario = ? "
+                    );
 
-                // ====== Filtros de status e data (usando data_compra) ======
-                if ("pendente".equals(filtroStatus)) {
-                    // parcelas não pagas cadastradas até o último dia do mês selecionado
-                    queryCartao.append("AND pc.paga = 0 AND date(pc.data_compra) <= date(?) ");
-                    argsCartao.add(dataLimite); // dataLimite já calculada: último dia do mês selecionado
-                } else if ("pago".equals(filtroStatus)) {
-                    // parcelas pagas que foram cadastradas no mês selecionado
-                    queryCartao.append("AND pc.paga = 1 AND substr(pc.data_compra,1,7) = ? ");
-                    argsCartao.add(mesAno); // mesAno = "YYYY-MM"
-                } else {
-                    // padrão: todas as parcelas cuja data_compra está no mês selecionado
-                    queryCartao.append("AND substr(pc.data_compra,1,7) = ? ");
-                    argsCartao.add(mesAno);
-                }
+                    // ====== Filtros de status e data (usando data_compra) ======
+                    if ("pendente".equals(filtroStatus)) {
+                        // parcelas não pagas cadastradas até o último dia do mês selecionado
+                        queryCartao.append("AND pc.paga = 0 AND date(pc.data_compra) <= date(?) ");
+                        argsCartao.add(dataLimite); // dataLimite já calculada: último dia do mês selecionado
+                    } else if ("pago".equals(filtroStatus)) {
+                        // parcelas pagas que foram cadastradas no mês selecionado
+                        queryCartao.append("AND pc.paga = 1 AND substr(pc.data_compra,1,7) = ? ");
+                        argsCartao.add(mesAno); // mesAno = "YYYY-MM"
+                    } else {
+                        // padrão: todas as parcelas cuja data_compra está no mês selecionado
+                        queryCartao.append("AND substr(pc.data_compra,1,7) = ? ");
+                        argsCartao.add(mesAno);
+                    }
 
-                queryCartao.append("ORDER BY date(pc.data_compra) DESC");
+                    queryCartao.append("ORDER BY date(pc.data_compra) DESC");
 
-                try (Cursor cur = db.rawQuery(queryCartao.toString(), argsCartao.toArray(new String[0]))) {
-                    while (cur.moveToNext()) {
-                        itens.add(new TransacaoItem(cur, "cartao", false, null));
+                    try (Cursor cur = db.rawQuery(queryCartao.toString(), argsCartao.toArray(new String[0]))) {
+                        while (cur.moveToNext()) {
+                            itens.add(new TransacaoItem(cur, "cartao", false, null));
+                        }
                     }
                 }
             }
@@ -325,6 +334,11 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                                 "JOIN cartoes cr ON f.id_cartao = cr.id " +
                                 "WHERE cr.id_usuario = ? "
                 );
+
+                if (idContaFiltro != -1) {
+                    queryFaturas.append(" AND cr.id_conta = ?");
+                    argsFaturas.add(String.valueOf(idContaFiltro));
+                }
 
                 if ("pendente".equals(filtroStatus)) {
                     queryFaturas.append(" AND f.status = 0 AND date(f.data_vencimento) <= date(?)");
@@ -558,7 +572,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         intent.putExtra("id_usuario", idUsuarioLogado);
         startActivity(intent);
     }
-    
+
     private void editarTransacao(TransacaoItem item) {
         if ("cartao".equals(item.tipoTransacao)) {
            MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, item.idCartao);
