@@ -14,7 +14,9 @@ import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.constraintlayout.widget.Group;
 import androidx.core.graphics.Insets;
@@ -28,7 +30,11 @@ import androidx.security.crypto.MasterKey;
 import com.example.app1.data.CartaoDAO;
 import com.example.app1.data.ContaDAO;
 import com.example.app1.data.TransacoesDAO;
+import com.example.app1.utils.MascaraMonetaria;
+import com.example.app1.utils.PopupSaldoUtil;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -132,7 +138,25 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
 
     private void setupRecyclerViews() {
         recyclerContas.setLayoutManager(new LinearLayoutManager(this));
-        contasAdapter = new ContasAdapter(this, new ArrayList<>());
+        contasAdapter = new ContasAdapter(this, new ArrayList<>(), new ContasAdapter.OnContaClickListener() {
+            @Override
+            public void onEditarSaldo(Conta conta) {
+                PopupSaldoUtil.mostrarPopupEditarSaldo(TelaPrincipal.this, conta, new PopupSaldoUtil.OnSaldoAtualizadoListener() {
+                    @Override
+                    public void onSaldoAtualizado() {
+                        carregarDadosAsync(); // ou o método que atualiza a lista na TelaConta
+                    }
+                });
+            }
+
+            @Override
+            public void onExibirTransacoes(Conta conta) {
+                Intent intent = new Intent(this, TelaTransacoes.class);
+                intent.putExtra("id_conta", conta.getId()); // ou outro identificador
+                this.startActivity(intent);
+            }
+
+        });
         recyclerContas.setAdapter(contasAdapter);
 
         recyclerCartao.setLayoutManager(new LinearLayoutManager(this));
@@ -215,7 +239,6 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
         return resumo;
     }
 
-
     private void atualizarUIComResumo(ResumoFinanceiro resumo) {
         saldoContas.setText(formatarBR(resumo.saldoTotalContas));
         receitasMes.setText(formatarBR(resumo.totalReceitas));
@@ -267,27 +290,6 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
         }
     }
 
-    private boolean shouldOccurInMonth(String dataInicioStr, int repetirPeriodo, int anoSelecionado, int mesSelecionado) {
-        if (dataInicioStr == null || dataInicioStr.length() < 7) return false;
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
-            Date dataInicio = sdf.parse(dataInicioStr.substring(0, 10));
-            Calendar calInicio = Calendar.getInstance();
-            calInicio.setTime(dataInicio);
-
-            int anosDiff = anoSelecionado - calInicio.get(Calendar.YEAR);
-            int mesesDiff = anosDiff * 12 + (mesSelecionado - calInicio.get(Calendar.MONTH));
-
-            if (mesesDiff < 0) return false;
-            if (repetirPeriodo < 1) repetirPeriodo = 1;
-
-            return mesesDiff % repetirPeriodo == 0;
-        } catch (ParseException e) {
-            Log.e("TelaPrincipal", "Erro em shouldOccurInMonth", e);
-            return false;
-        }
-    }
-
     private int getIdUsuarioLogado() {
         try {
             MasterKey masterKey = new MasterKey.Builder(this).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build();
@@ -323,4 +325,5 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
         });
         dialogFragment.show(getSupportFragmentManager(), "MonthYearPickerDialog");
     }
+
 }

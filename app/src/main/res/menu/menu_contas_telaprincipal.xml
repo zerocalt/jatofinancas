@@ -1,0 +1,10 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/menu_alterar_saldo"
+        android:title="Alterar Saldo"
+        android:icon="@drawable/ic_local_atm" />
+    <item
+        android:id="@+id/menu_exibir_transacoes"
+        android:title="Exibir Transações"
+        android:icon="@drawable/ic_bar_chart_5px" />
+</menu>

@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
@@ -13,6 +14,8 @@ import androidx.core.content.ContextCompat;
 import androidx.core.graphics.ColorUtils;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
@@ -21,10 +24,12 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
 
     private List<Conta> contas;
     private Context context;
+    private OnContaClickListener listener;
 
-    public ContasAdapter(Context context, List<Conta> contas) {
+    public ContasAdapter(Context context, List<Conta> contas, OnContaClickListener listener) {
         this.context = context;
         this.contas = contas;
+        this.listener = listener;
     }
 
     @NonNull
@@ -69,7 +74,43 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
         } else {
             holder.txtIniciaisConta.setTextColor(Color.WHITE);
         }
-        
+
+        holder.itemView.setOnClickListener(v -> {
+            PopupMenu popupMenu = new PopupMenu(context, v);
+            popupMenu.getMenuInflater().inflate(R.menu.menu_contas_telaprincipal, popupMenu.getMenu());
+
+            // Forçar exibição dos ícones
+            try {
+                Field[] fields = popupMenu.getClass().getDeclaredFields();
+                for (Field field : fields) {
+                    if ("mPopup".equals(field.getName())) {
+                        field.setAccessible(true);
+                        Object menuPopupHelper = field.get(popupMenu);
+                        Class<?> classPopupHelper = Class.forName(menuPopupHelper.getClass().getName());
+                        Method setForceIcons = classPopupHelper.getMethod("setForceShowIcon", boolean.class);
+                        setForceIcons.invoke(menuPopupHelper, true);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            popupMenu.setOnMenuItemClickListener(menuItem -> {
+                int id = menuItem.getItemId();
+                if (id == R.id.menu_alterar_saldo) {
+                    listener.onEditarSaldo(conta);
+                    return true;
+                } else if (id == R.id.menu_exibir_transacoes) {
+                    listener.onExibirTransacoes(conta);
+                    return true;
+                }
+                return false;
+            });
+
+            popupMenu.show();
+        });
+
         holder.menuConta.setVisibility(View.GONE);
     }
 
@@ -126,4 +167,10 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
             menuConta = itemView.findViewById(R.id.menu_conta);
         }
     }
+
+    public interface OnContaClickListener {
+        void onEditarSaldo(Conta conta);
+        void onExibirTransacoes(Conta conta);
+    }
+
 }

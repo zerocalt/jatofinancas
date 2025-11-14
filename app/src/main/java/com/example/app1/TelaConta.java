@@ -36,6 +36,7 @@ import androidx.security.crypto.MasterKey;
 
 import com.example.app1.data.ContaDAO;
 import com.example.app1.utils.MascaraMonetaria;
+import com.example.app1.utils.PopupSaldoUtil;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
@@ -140,55 +141,6 @@ public class TelaConta extends AppCompatActivity {
                 .setNegativeButton("Não", null)
                 .show();
     }
-
-    private void mostrarPopupEditarSaldo(Conta conta) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Editar Saldo");
-
-        FrameLayout container = new FrameLayout(this);
-        FrameLayout.LayoutParams params = new  FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        int margin = (int) (20 * getResources().getDisplayMetrics().density);
-        params.leftMargin = margin;
-        params.rightMargin = margin;
-
-        final EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        input.addTextChangedListener(new MascaraMonetaria(input));
-
-        NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
-        input.setText(format.format(conta.getSaldo()));
-        input.setLayoutParams(params);
-        container.addView(input);
-
-        builder.setView(container);
-
-        builder.setPositiveButton("Salvar", (dialog, which) -> {
-            String saldoStr = input.getText().toString();
-            double novoSaldo = 0;
-            try {
-                if (!saldoStr.isEmpty()) {
-                    String valorLimpo = saldoStr.replace("R$", "").replaceAll("[^0-9,.]", "").replace(".", "").replace(",", ".");
-                    novoSaldo = Double.parseDouble(valorLimpo);
-                }
-            } catch (NumberFormatException e) {
-                Toast.makeText(this, "Saldo inválido.", Toast.LENGTH_LONG).show();
-                return;
-            }
-
-            boolean sucesso = ContaDAO.atualizarSaldoConta(this, conta.getId(), novoSaldo);
-            if (sucesso) {
-                Toast.makeText(this, "Saldo atualizado com sucesso!", Toast.LENGTH_SHORT).show();
-                carregarContas(); // Recarrega a lista para mostrar o novo saldo
-            } else {
-                Toast.makeText(this, "Erro ao atualizar o saldo.", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
-
-        builder.show();
-    }
-
 
     private void carregarMenu() {
         BottomMenuFragment bottomMenuFragment = new BottomMenuFragment();
@@ -328,7 +280,12 @@ public class TelaConta extends AppCompatActivity {
                         abrirFragmentoCadastro(conta);
                         return true;
                     } else if (itemId == R.id.menu_alterar_saldo) {
-                        mostrarPopupEditarSaldo(conta);
+                        PopupSaldoUtil.mostrarPopupEditarSaldo(context, conta, new PopupSaldoUtil.OnSaldoAtualizadoListener() {
+                            @Override
+                            public void onSaldoAtualizado() {
+                                carregarContas(); // ou o método que atualiza a lista na TelaConta
+                            }
+                        });
                         return true;
                     } else if (itemId == R.id.menu_excluir) {
                         if (conta.isEmUso()) {
