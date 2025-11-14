@@ -8,6 +8,7 @@ public class Conta {
     private int tipoConta; // Ex: 1-Corrente, 2-Poupança, 3-Investimento, 4-Outros
     private boolean mostrarNaTelaInicial;
     private boolean emUso; // Novo campo
+    private double saldoPrevisto;
 
     public Conta(int id, String nome, double saldo, String cor, int tipoConta, boolean mostrarNaTelaInicial, boolean emUso) {
         this.id = id;
@@ -84,5 +85,13 @@ public class Conta {
 
     public void setEmUso(boolean emUso) {
         this.emUso = emUso;
+    }
+
+    public void setSaldoPrevisto(double saldoPrevisto) {
+        this.saldoPrevisto = saldoPrevisto;
+    }
+
+    public double getSaldoPrevisto() {
+        return saldoPrevisto;
     }
 }

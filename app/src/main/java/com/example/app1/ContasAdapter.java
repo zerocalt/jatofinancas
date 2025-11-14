@@ -43,6 +43,7 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
         // Formatar saldo como moeda
         NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
         holder.txtSaldoConta.setText(format.format(conta.getSaldo()));
+        holder.txtSaldoContaPrevisao.setText("saldo previsto: " + format.format(conta.getSaldoPrevisto()));
 
         // Definir a cor do saldo
         if (conta.getSaldo() >= 0) {
@@ -112,6 +113,7 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
         TextView txtIniciaisConta;
         TextView txtNomeConta;
         TextView txtSaldoConta;
+        TextView txtSaldoContaPrevisao;
         View menuConta;
 
         public ContaViewHolder(@NonNull View itemView) {
@@ -120,6 +122,7 @@ public class ContasAdapter extends RecyclerView.Adapter<ContasAdapter.ContaViewH
             txtIniciaisConta = itemView.findViewById(R.id.txtIniciaisConta);
             txtNomeConta = itemView.findViewById(R.id.txtNomeConta);
             txtSaldoConta = itemView.findViewById(R.id.txtSaldoConta);
+            txtSaldoContaPrevisao = itemView.findViewById(R.id.txtSaldoContaPrevisao);
             menuConta = itemView.findViewById(R.id.menu_conta);
         }
     }

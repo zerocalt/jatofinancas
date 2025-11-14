@@ -266,6 +266,9 @@ public class TelaConta extends AppCompatActivity {
 
             NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
             holder.txtSaldoConta.setText(format.format(conta.getSaldo()));
+            double saldoPrevistoConta = ContaDAO.getSaldoPrevistoConta(context, idUsuarioLogado, conta.getId());
+            holder.txtSaldoContaPrevisao.setText("saldo previsto: " + format.format(saldoPrevistoConta));
+
 
             if (conta.getSaldo() >= 0) {
                 holder.txtSaldoConta.setTextColor(Color.parseColor("#339933")); // Verde
@@ -381,6 +384,7 @@ public class TelaConta extends AppCompatActivity {
             TextView txtIniciaisConta;
             TextView txtNomeConta;
             TextView txtSaldoConta;
+            TextView txtSaldoContaPrevisao;
             ImageView menuConta;
 
             public ContaViewHolder(@NonNull View itemView) {
@@ -389,6 +393,7 @@ public class TelaConta extends AppCompatActivity {
                 txtIniciaisConta = itemView.findViewById(R.id.txtIniciaisConta);
                 txtNomeConta = itemView.findViewById(R.id.txtNomeConta);
                 txtSaldoConta = itemView.findViewById(R.id.txtSaldoConta);
+                txtSaldoContaPrevisao = itemView.findViewById(R.id.txtSaldoContaPrevisao);
                 menuConta = itemView.findViewById(R.id.menu_conta);
             }
         }

@@ -192,6 +192,13 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
 
         // Contas e cartões
         resumo.contas = ContaDAO.getContasTelaInicial(this, idUsuarioLogado);
+
+        // Calcula saldo previsto em cada conta!
+        for (Conta conta : resumo.contas) {
+            double saldoPrevisto = ContaDAO.getSaldoPrevistoConta(this, idUsuarioLogado, conta.getId());
+            conta.setSaldoPrevisto(saldoPrevisto);
+        }
+
         resumo.cartoes = CartaoDAO.getCartoesComFatura(this, idUsuarioLogado, ano, mes - 1);
 
         // Saldo total das contas

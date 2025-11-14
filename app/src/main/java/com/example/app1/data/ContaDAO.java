@@ -9,8 +9,11 @@ import android.util.Log;
 import com.example.app1.Conta;
 import com.example.app1.MeuDbHelper;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class ContaDAO {
 
@@ -186,4 +189,36 @@ public class ContaDAO {
 
         return saldoTotal;
     }
+
+    public static double getSaldoPrevistoConta(Context context, int idUsuario, int idConta) {
+        double saldoAtual = 0.0;
+        double despesasPendentes = 0.0;
+
+        try (MeuDbHelper dbHelper = new MeuDbHelper(context);
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+
+            // Buscar saldo da conta específica
+            String sqlSaldo = "SELECT saldo FROM contas WHERE id = ? AND id_usuario = ?";
+            try (Cursor cursor = db.rawQuery(sqlSaldo, new String[]{String.valueOf(idConta), String.valueOf(idUsuario)})) {
+                if (cursor.moveToFirst()) {
+                    saldoAtual = cursor.getDouble(0);
+                }
+            }
+
+            // Buscar despesas pendentes dessa conta até o mês atual
+            String mesAtual = new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(new Date());
+            String sqlDespesas = "SELECT SUM(valor) FROM transacoes WHERE id_conta = ? AND id_usuario = ? AND tipo = 2 AND pago = 0 AND substr(data_movimentacao, 1, 7) <= ?";
+            try (Cursor cursor = db.rawQuery(sqlDespesas, new String[]{String.valueOf(idConta), String.valueOf(idUsuario), mesAtual})) {
+                if (cursor.moveToFirst() && !cursor.isNull(0)) {
+                    despesasPendentes = cursor.getDouble(0);
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e("ContaDAO", "Erro ao calcular saldo previsto da conta", e);
+        }
+
+        return saldoAtual - despesasPendentes;
+    }
+
 }
