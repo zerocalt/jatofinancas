@@ -229,10 +229,11 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                         "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
                                 "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
                                 "(CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) AS tipo, " +
-                                "t.recorrente, t.repetir_qtd AS parcelas, 1 AS numero_parcela, " +
+                                "t.recorrente, t.total_parcelas AS parcelas, t.numero_parcela AS numero_parcela, " +
                                 "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
                                 "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
-                                "WHERE t.id_usuario = ? "
+                                "WHERE t.id_usuario = ? " +
+                                "AND NOT (t.recorrente = 1 AND t.total_parcelas > 0 AND (t.id_mestre IS NULL OR t.id_mestre = 0))"
                 );
 
                 if (filtroTipo != null) {

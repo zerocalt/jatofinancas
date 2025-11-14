@@ -27,6 +27,7 @@ import androidx.security.crypto.MasterKey;
 
 import com.example.app1.data.CartaoDAO;
 import com.example.app1.data.ContaDAO;
+import com.example.app1.data.TransacoesDAO;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
 
 import java.text.NumberFormat;
@@ -188,70 +189,25 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
 
         int ano = Integer.parseInt(txtAno.getText().toString());
         int mes = getMesIndex(txtMes.getText().toString()) + 1;
-        String mesAnoSelecionado = String.format(Locale.ROOT, "%04d-%02d", ano, mes);
 
+        // Contas e cartões
         resumo.contas = ContaDAO.getContasTelaInicial(this, idUsuarioLogado);
         resumo.cartoes = CartaoDAO.getCartoesComFatura(this, idUsuarioLogado, ano, mes - 1);
 
-        try (MeuDbHelper dbHelper = new MeuDbHelper(this);
-             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+        // Saldo total das contas
+        resumo.saldoTotalContas = ContaDAO.getSaldoTotalContas(this, idUsuarioLogado);
 
-            try (Cursor c = db.rawQuery("SELECT SUM(saldo) FROM contas WHERE id_usuario = ? AND mostrar_na_tela_inicial = 1", new String[]{String.valueOf(idUsuarioLogado)})) {
-                if (c.moveToFirst()) resumo.saldoTotalContas = c.getDouble(0);
-            }
+        // 1️⃣ Receitas
+        resumo.totalReceitas = TransacoesDAO.getTotalReceitasMes(this, idUsuarioLogado, ano, mes);
+        resumo.receitasPendentes = TransacoesDAO.getReceitasPendentes(this, idUsuarioLogado, ano, mes);
 
-            String queryExistentes = "SELECT valor, tipo, pago, recebido FROM transacoes WHERE id_usuario = ? AND substr(data_movimentacao, 1, 7) = ?";
-            try (Cursor cur = db.rawQuery(queryExistentes, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado})) {
-                while (cur.moveToNext()) {
-                    double valor = cur.getDouble(0);
-                    int tipo = cur.getInt(1);
-                    if (tipo == 1) {
-                        resumo.totalReceitas += valor;
-                        if (cur.getInt(3) == 0) resumo.receitasPendentes += valor;
-                    } else {
-                        resumo.totalDespesas += valor;
-                        if (cur.getInt(2) == 0) resumo.despesasPendentes += valor;
-                    }
-                }
-            }
-
-            String queryProjecao = "SELECT mestre.valor, mestre.tipo, mestre.data_movimentacao, mestre.repetir_periodo FROM transacoes AS mestre WHERE mestre.id_usuario = ? AND mestre.recorrente = 1 AND mestre.recorrente_ativo = 1 AND mestre.id_mestre IS NULL AND substr(mestre.data_movimentacao, 1, 7) <= ? AND NOT EXISTS (SELECT 1 FROM transacoes AS filha WHERE filha.id_mestre = mestre.id AND substr(filha.data_movimentacao, 1, 7) = ?)";
-            try (Cursor curMestre = db.rawQuery(queryProjecao, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado, mesAnoSelecionado})) {
-                while (curMestre.moveToNext()) {
-                    if (shouldOccurInMonth(curMestre.getString(2), curMestre.getInt(3), ano, mes -1)) {
-                        double valor = curMestre.getDouble(0);
-                        int tipo = curMestre.getInt(1);
-                        if (tipo == 1) {
-                            resumo.totalReceitas += valor;
-                            resumo.receitasPendentes += valor;
-                        } else {
-                            resumo.totalDespesas += valor;
-                            resumo.despesasPendentes += valor;
-                        }
-                    }
-                }
-            }
-
-            String queryFaturasMes = "SELECT SUM(valor_total) FROM faturas f JOIN cartoes c ON f.id_cartao = c.id WHERE c.id_usuario = ? AND substr(f.data_vencimento, 1, 7) = ?";
-            try (Cursor curFaturas = db.rawQuery(queryFaturasMes, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado})) {
-                if (curFaturas.moveToFirst()) {
-                    resumo.totalDespesas += curFaturas.getDouble(0);
-                }
-            }
-
-            String queryFaturasPendentes = "SELECT SUM(valor_total) FROM faturas f JOIN cartoes c ON f.id_cartao = c.id WHERE c.id_usuario = ? AND substr(f.data_vencimento, 1, 7) <= ? AND f.status = 0";
-            try (Cursor curFaturasPendentes = db.rawQuery(queryFaturasPendentes, new String[]{String.valueOf(idUsuarioLogado), mesAnoSelecionado})) {
-                if (curFaturasPendentes.moveToFirst()) {
-                    resumo.despesasPendentes += curFaturasPendentes.getDouble(0);
-                }
-            }
-
-        } catch (Exception e) {
-            Log.e("TelaPrincipal", "Erro ao calcular resumo financeiro", e);
-        }
+        // 2️⃣ Despesas
+        resumo.totalDespesas = TransacoesDAO.getTotalDespesasMes(this, idUsuarioLogado, ano, mes);
+        resumo.despesasPendentes = TransacoesDAO.getDespesasPendentes(this, idUsuarioLogado, ano, mes);
 
         return resumo;
     }
+
 
     private void atualizarUIComResumo(ResumoFinanceiro resumo) {
         saldoContas.setText(formatarBR(resumo.saldoTotalContas));

@@ -206,6 +206,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                         switchStatus.setChecked(statusOriginal == 1);
                     }
 
+                    // Categoria
                     int idCategoria = cursor.getInt(cursor.getColumnIndexOrThrow("id_categoria"));
                     CategoriasDropdownAdapter adapterCategoria = (CategoriasDropdownAdapter) autoCompleteCategoria.getAdapter();
                     if (adapterCategoria != null) {
@@ -218,6 +219,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                         }
                     }
 
+                    // Conta
                     int idConta = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
                     ArrayAdapter<Conta> adapterConta = (ArrayAdapter<Conta>) autoCompleteConta.getAdapter();
                     if (adapterConta != null) {
@@ -231,6 +233,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                         }
                     }
 
+                    // Recorrência
                     menuRepete.setVisibility(View.VISIBLE);
                     boolean isRecorrente = cursor.getInt(cursor.getColumnIndexOrThrow("recorrente")) == 1;
 
@@ -240,10 +243,11 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                         containerRepeticao.setVisibility(View.VISIBLE);
                         containerQuantidade.setVisibility(View.VISIBLE);
 
-                        int repetirQtd = cursor.getInt(cursor.getColumnIndexOrThrow("repetir_qtd"));
-                        boolean isFixa = (repetirQtd == 0);
+                        int totalParcelas = cursor.getInt(cursor.getColumnIndexOrThrow("totalParcelas"));
+                        int numeroParcela = cursor.getInt(cursor.getColumnIndexOrThrow("numeroParcela"));
 
-                        inputQuantRep.setText(String.valueOf(repetirQtd));
+                        boolean isFixa = (totalParcelas == 0);
+                        inputQuantRep.setText(totalParcelas > 0 ? String.valueOf(totalParcelas) : "");
                         switchDespesaFixa.setChecked(isFixa);
 
                         inputQuantRep.setEnabled(!isFixa);
@@ -353,7 +357,9 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                 textInputPeriodo.setError(null);
             }
 
-            if (!despesaFixa && quantidade < MIN_VALUE) {
+            int totalParcelas = getNumberFromEditText(); // agora representa totalParcelas
+
+            if (!despesaFixa && totalParcelas < MIN_VALUE) {
                 Toast.makeText(getContext(), String.format(getString(R.string.quantidade_minima_parcelas), MIN_VALUE), Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -362,7 +368,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                 periodo = 0;
                 sucesso = TransacoesDAO.salvarTransacaoFixa(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, periodo);
             } else {
-                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, quantidade, periodo, 0);
+                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, totalParcelas, periodo, 0);
             }
         } else {
             sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);

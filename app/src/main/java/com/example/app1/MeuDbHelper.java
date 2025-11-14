@@ -106,7 +106,8 @@ public class MeuDbHelper extends SQLiteOpenHelper {
                         "id_categoria INTEGER, " +                           // Categoria da transação
                         "observacao TEXT, " +                                // Observação
                         "recorrente INTEGER DEFAULT 0, " +                   // Indicador se é recorrente
-                        "repetir_qtd INTEGER DEFAULT 0, " +                  // Quantidade de repetições
+                        "numero_parcela INTEGER DEFAULT 0, " +
+                        "total_parcelas INTEGER DEFAULT 0, " +                  // Quantidade de parcelas
                         "repetir_periodo INTEGER DEFAULT 0, " +              // Período de recorrência (ex: 0 - normal, 1 - semanal, 2 - mensal, 3 - bimestral, 4 - trimestral, 5 - semestral, 6 - anual)
                         "id_mestre INTEGER, " +                               // para informar de qual transação é recorrente
                         "recorrente_ativo INTEGER DEFAULT 0, " +             // Indicador se a recorrência está ativa (0 = não, 1 = sim)

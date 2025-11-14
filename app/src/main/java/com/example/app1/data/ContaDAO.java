@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.util.Log;
 
 import com.example.app1.Conta;
 import com.example.app1.MeuDbHelper;
@@ -163,5 +164,26 @@ public class ContaDAO {
             e.printStackTrace();
             return false;
         }
+    }
+
+    // Retorna o saldo total das contas que aparecem na tela inicial
+    public static double getSaldoTotalContas(Context context, int idUsuario) {
+        double saldoTotal = 0.0;
+
+        try (MeuDbHelper dbHelper = new MeuDbHelper(context);
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+
+            String sql = "SELECT SUM(saldo) FROM contas WHERE id_usuario = ? AND mostrar_na_tela_inicial = 1";
+            try (Cursor cursor = db.rawQuery(sql, new String[]{String.valueOf(idUsuario)})) {
+                if (cursor.moveToFirst()) {
+                    saldoTotal = cursor.getDouble(0);
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e("ContaDAO", "Erro ao calcular saldo total das contas", e);
+        }
+
+        return saldoTotal;
     }
 }
