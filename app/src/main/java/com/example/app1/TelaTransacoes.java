@@ -1,5 +1,6 @@
 package com.example.app1;
 
+import android.app.DatePickerDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
@@ -26,6 +27,9 @@ import com.example.app1.data.TransacoesCartaoDAO;
 import com.example.app1.data.TransacoesDAO;
 import com.example.app1.utils.MenuHelper;
 import com.github.dewinjm.monthyearpicker.MonthYearPickerDialogFragment;
+import com.google.android.material.textfield.MaterialAutoCompleteTextView;
+import com.google.android.material.textfield.TextInputEditText;
+import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.NumberFormat;
 import java.text.ParseException;
@@ -454,35 +458,84 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         builder.setTitle(isReceita ? "Receber Receita" : "Pagar Despesa");
 
         View view = getLayoutInflater().inflate(R.layout.dialog_pagamento, null);
-        Spinner spinnerContas = view.findViewById(R.id.spinner_contas);
-        builder.setView(view);
-        
+
+        // Referências ao TextInputLayout e MaterialAutoCompleteTextView
+        TextInputLayout menuConta = view.findViewById(R.id.menuConta);
+        MaterialAutoCompleteTextView spinnerContas = view.findViewById(R.id.spinner_contas);
+        TextInputEditText inputDataPagamento = view.findViewById(R.id.inputDataPagamento);
+
         List<Conta> contas = ContaDAO.getContas(this, idUsuarioLogado);
-        ArrayAdapter<Conta> adapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, contas);
+        ArrayAdapter<Conta> adapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, contas);
         spinnerContas.setAdapter(adapter);
 
-        int selection = -1;
-        for (int i = 0; i < contas.size(); i++) {
-            if (contas.get(i).getId() == item.idConta) {
-                selection = i;
+        // Define a conta atualmente selecionada
+        for (Conta conta : contas) {
+            if (conta.getId() == item.idConta) {
+                spinnerContas.setText(conta.toString(), false);
                 break;
             }
         }
-        if (selection != -1) {
-            spinnerContas.setSelection(selection);
-        }
+
+        // Inicializa data atual no campo no formato dd/MM/yyyy
+        final Calendar calendar = Calendar.getInstance();
+        SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", new Locale("pt", "BR"));
+        inputDataPagamento.setText(sdf.format(calendar.getTime()));
+
+        // Abre DatePickerDialog ao clicar no campo de data
+        inputDataPagamento.setOnClickListener(v -> {
+            int year = calendar.get(Calendar.YEAR);
+            int month = calendar.get(Calendar.MONTH);
+            int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+            DatePickerDialog datePickerDialog = new DatePickerDialog(this,
+                    (view1, selectedYear, selectedMonth, selectedDay) -> {
+                        calendar.set(selectedYear, selectedMonth, selectedDay);
+                        inputDataPagamento.setText(sdf.format(calendar.getTime()));
+                    }, year, month, day);
+            datePickerDialog.show();
+        });
+
+        builder.setView(view);
 
         builder.setPositiveButton(isReceita ? "Receber" : "Pagar", (dialog, which) -> {
-            Conta contaSelecionada = (Conta) spinnerContas.getSelectedItem();
-            boolean sucesso;
+            Conta contaSelecionada = null;
 
+            // Obter a conta selecionada pelo texto do MaterialAutoCompleteTextView
+            String contaSelecionadaText = spinnerContas.getText().toString();
+            for (Conta c : contas) {
+                if (c.toString().equals(contaSelecionadaText)) {
+                    contaSelecionada = c;
+                    break;
+                }
+            }
+
+            if (contaSelecionada == null) {
+                Toast.makeText(this, "Por favor, selecione uma conta válida.", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            // Converte a data de dd/MM/yyyy para yyyy-MM-dd para o banco
+            String dataPagamentoBr = inputDataPagamento.getText().toString();
+            SimpleDateFormat sdfBr = new SimpleDateFormat("dd/MM/yyyy", new Locale("pt", "BR"));
+            SimpleDateFormat sdfBanco = new SimpleDateFormat("yyyy-MM-dd", Locale.ROOT);
+            String dataPagamento;
+            try {
+                Date date = sdfBr.parse(dataPagamentoBr);
+                dataPagamento = sdfBanco.format(date);
+            } catch (ParseException e) {
+                dataPagamento = sdfBanco.format(new Date()); // fallback para data atual
+            }
+
+            boolean sucesso;
             if (item.isProjecao) {
-                String mesAno = String.format(Locale.ROOT, "%04d-%02d", Integer.parseInt(txtAno.getText().toString()), getMesIndex(txtMes.getText().toString()) + 1);
-                sucesso = TransacoesDAO.pagarTransacaoRecorrente(this, item.id, contaSelecionada.getId(), mesAno);
+                String mesAno = String.format(Locale.ROOT, "%04d-%02d",
+                        Integer.parseInt(txtAno.getText().toString()),
+                        getMesIndex(txtMes.getText().toString()) + 1);
+                sucesso = TransacoesDAO.pagarTransacaoRecorrente(this, item.id, contaSelecionada.getId(), mesAno, dataPagamento);
             } else if ("fatura_despesa".equals(item.tipoTransacao)) {
-                sucesso = TransacoesDAO.pagarFatura(this, item.id, contaSelecionada.getId());
+                sucesso = TransacoesDAO.pagarFatura(this, item.id, contaSelecionada.getId(), dataPagamento);
             } else {
-                sucesso = TransacoesDAO.pagarDespesaReceberReceita(this, item.id, contaSelecionada.getId(), isReceita);
+                sucesso = TransacoesDAO.pagarDespesaReceberReceita(this, item.id, contaSelecionada.getId(), isReceita, dataPagamento);
             }
 
             if (sucesso) {
@@ -492,6 +545,7 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                 Toast.makeText(this, "Erro ao processar pagamento.", Toast.LENGTH_SHORT).show();
             }
         });
+
         builder.setNegativeButton("Cancelar", (dialog, which) -> dialog.cancel());
 
         builder.create().show();

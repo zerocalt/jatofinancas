@@ -81,7 +81,7 @@ public class TransacoesDAO {
      * Marca uma transação existente como paga/recebida e atualiza saldo da conta.
      * data_pagamento recebe timestamp atual.
      */
-    public static boolean pagarDespesaReceberReceita(Context context, int transacaoId, int contaId, boolean isReceita) {
+    public static boolean pagarDespesaReceberReceita(Context context, int transacaoId, int contaId, boolean isReceita, String dataPagamento) {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
         try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
             db.beginTransaction();
@@ -98,7 +98,7 @@ public class TransacoesDAO {
 
                 ContentValues values = new ContentValues();
                 values.put(isReceita ? "recebido" : "pago", 1);
-                values.put("data_pagamento", SDF_DATETIME.format(new Date()));
+                values.put("data_pagamento", dataPagamento);
 
                 int updated = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(transacaoId)});
                 if (updated == 0) {
@@ -120,7 +120,7 @@ public class TransacoesDAO {
         }
     }
 
-    public static boolean pagarFatura(Context context, int faturaId, int contaId) {
+    public static boolean pagarFatura(Context context, int faturaId, int contaId, String dataPagamento) {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
         try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
             db.beginTransaction();
@@ -137,7 +137,7 @@ public class TransacoesDAO {
 
                 ContentValues values = new ContentValues();
                 values.put("status", 1);
-                values.put("data_pagamento", SDF_DATETIME.format(new Date()));
+                values.put("data_pagamento", dataPagamento);
 
                 if (db.update("faturas", values, "id = ?", new String[]{String.valueOf(faturaId)}) == 0) {
                     db.endTransaction();
@@ -377,28 +377,6 @@ public class TransacoesDAO {
     }
 
     /**
-     * Mantém compatibilidade: delega para salvarTransacaoRecorrente
-     */
-    public static boolean salvarTransacaoRecorrenteParcelada(
-            Context context,
-            int idUsuario,
-            int idConta,
-            double valor,
-            int tipo,
-            int pago,
-            int recebido,
-            String dataMovimentacao,
-            String descricao,
-            int idCategoria,
-            String observacao,
-            int totalParcelas,
-            int repetirPeriodo
-    ) {
-        return salvarTransacaoRecorrente(context, idUsuario, idConta, valor, tipo, pago, recebido,
-                dataMovimentacao, descricao, idCategoria, observacao, totalParcelas, repetirPeriodo, 0);
-    }
-
-    /**
      * Salva transacao fixa (mantém registro mestre recorrente ativo) — compatibilidade.
      */
     public static boolean salvarTransacaoFixa(
@@ -448,7 +426,7 @@ public class TransacoesDAO {
     /**
      * Paga transacao recorrente: usa parcela existente ou cria parcela do mes e marca paga.
      */
-    public static boolean pagarTransacaoRecorrente(Context context, int idMestre, int contaPagamentoId, String mesAno) {
+    public static boolean pagarTransacaoRecorrente(Context context, int idMestre, int contaPagamentoId, String mesAno, String dataPagamento) {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
         try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
             db.beginTransaction();
@@ -459,7 +437,7 @@ public class TransacoesDAO {
                 }
 
                 if (transacaoExistenteId != -1) {
-                    boolean result = pagarDespesaReceberReceita(context, transacaoExistenteId, contaPagamentoId, false);
+                    boolean result = pagarDespesaReceberReceita(context, transacaoExistenteId, contaPagamentoId, false, dataPagamento);
                     if (result) db.setTransactionSuccessful();
                     return result;
                 } else {
@@ -479,7 +457,7 @@ public class TransacoesDAO {
 
                         String diaHora = new SimpleDateFormat("dd HH:mm:ss", Locale.ROOT).format(new Date());
                         values.put("data_movimentacao", mesAno + "-" + diaHora);
-                        values.put("data_pagamento", SDF_DATETIME.format(new Date()));
+                        values.put("data_pagamento", dataPagamento);
                         values.put("descricao", mestreCursor.getString(mestreCursor.getColumnIndexOrThrow("descricao")));
                         values.put("id_categoria", mestreCursor.getInt(mestreCursor.getColumnIndexOrThrow("id_categoria")));
                         values.put("observacao", mestreCursor.getString(mestreCursor.getColumnIndexOrThrow("observacao")));
