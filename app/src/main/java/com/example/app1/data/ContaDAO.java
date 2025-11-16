@@ -207,7 +207,7 @@ public class ContaDAO {
 
             // Buscar despesas pendentes dessa conta até o mês atual
             String mesAtual = new SimpleDateFormat("yyyy-MM", Locale.ROOT).format(new Date());
-            String sqlDespesas = "SELECT SUM(valor) FROM transacoes WHERE id_conta = ? AND id_usuario = ? AND tipo = 2 AND pago = 0 AND substr(data_movimentacao, 1, 7) <= ?";
+            String sqlDespesas = "SELECT SUM(valor) FROM transacoes WHERE id_conta = ? AND id_usuario = ? AND tipo = 2 AND pago = 0 AND substr(data_movimentacao, 1, 7) <= ? AND recorrente = 0";
             try (Cursor cursor = db.rawQuery(sqlDespesas, new String[]{String.valueOf(idConta), String.valueOf(idUsuario), mesAtual})) {
                 if (cursor.moveToFirst() && !cursor.isNull(0)) {
                     despesasPendentes = cursor.getDouble(0);
