@@ -137,6 +137,7 @@ public class TransacoesDAO {
                     return true;
                 }
 
+                // Atualiza a fatura com status pago e data de pagamento
                 ContentValues values = new ContentValues();
                 values.put("status", 1);
                 values.put("data_pagamento", dataPagamento);
@@ -146,6 +147,14 @@ public class TransacoesDAO {
                     return false;
                 }
 
+                // Atualiza as parcelas vinculadas a essa fatura como pagas, com data de pagamento
+                ContentValues parcelaValues = new ContentValues();
+                parcelaValues.put("paga", 1);
+                parcelaValues.put("data_pagamento", dataPagamento);
+
+                db.update("parcelas_cartao", parcelaValues, "id_fatura = ?", new String[]{String.valueOf(faturaId)});
+
+                // Atualiza o saldo da conta
                 db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?", new Object[]{valor, contaId});
 
                 db.setTransactionSuccessful();

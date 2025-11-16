@@ -154,66 +154,36 @@ public class GerenciadorDeFatura {
         }
     }
 
-    public static void corrigirFaturasAnteriores(Context context) {
+    // vou executar só 1x pq já corrigi
+    public static void sincronizarParcelasPagas(Context context) {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        db.beginTransaction();
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                // Cursor para buscar todas as faturas pagas
+                try (Cursor cursor = db.rawQuery("SELECT id, data_pagamento FROM faturas WHERE status = 1", null)) {
+                    while (cursor.moveToNext()) {
+                        int faturaId = cursor.getInt(0);
+                        String dataPagamento = cursor.getString(1);
 
-        try {
-            Map<Integer, int[]> cacheCartoes = new HashMap<>();
+                        // Atualiza parcelas vinculadas que não tenham sido marcadas como pagas
+                        ContentValues parcelaValues = new ContentValues();
+                        parcelaValues.put("paga", 1);
+                        parcelaValues.put("data_pagamento", dataPagamento);
 
-            String sql = "SELECT id, id_fatura, id_cartao, data_compra, valor FROM parcelas_cartao";
-            try (Cursor cursor = db.rawQuery(sql, null)) {
-
-                while (cursor.moveToNext()) {
-                    int idParcela = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
-                    int idFaturaAtual = cursor.getInt(cursor.getColumnIndexOrThrow("id_fatura"));
-                    int idCartao = cursor.getInt(cursor.getColumnIndexOrThrow("id_cartao"));
-                    String dataCompraStr = cursor.getString(cursor.getColumnIndexOrThrow("data_compra"));
-                    double valorParcela = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
-
-                    Date dataCompra = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dataCompraStr);
-
-                    int[] diasCartao = cacheCartoes.get(idCartao);
-                    if (diasCartao == null) {
-                        try (Cursor cCartao = db.rawQuery("SELECT data_fechamento_fatura, data_vencimento_fatura FROM cartoes WHERE id = ?", new String[]{String.valueOf(idCartao)})) {
-                            if (cCartao.moveToFirst()) {
-                                diasCartao = new int[]{cCartao.getInt(0), cCartao.getInt(1)};
-                                cacheCartoes.put(idCartao, diasCartao);
-                            }
-                        }
-                    }
-
-                    if (diasCartao == null) continue;
-
-                    long idFaturaCorreta = localizarOuCriarFatura(db, idCartao, dataCompra, diasCartao[0], diasCartao[1]);
-
-                    if (idFaturaAtual != idFaturaCorreta) {
-                        ContentValues cv = new ContentValues();
-                        cv.put("id_fatura", idFaturaCorreta);
-                        db.update("parcelas_cartao", cv, "id = ?", new String[]{String.valueOf(idParcela)});
-
-                        db.execSQL("UPDATE faturas SET valor_total = valor_total - ? WHERE id = ?",
-                                new Object[]{valorParcela, idFaturaAtual});
-
-                        db.execSQL("UPDATE faturas SET valor_total = valor_total + ? WHERE id = ?",
-                                new Object[]{valorParcela, idFaturaCorreta});
-
-                        Log.d(TAG, "Parcela " + idParcela + " movida da fatura " + idFaturaAtual + " para " + idFaturaCorreta);
+                        db.update("parcelas_cartao", parcelaValues, "id_fatura = ? AND paga = 0", new String[]{String.valueOf(faturaId)});
                     }
                 }
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
             }
-
-            db.setTransactionSuccessful();
-            Log.i(TAG, "Correção de faturas concluída com sucesso.");
-
         } catch (Exception e) {
-            Log.e(TAG, "Erro ao corrigir faturas anteriores.", e);
-        } finally {
-            db.endTransaction();
-            db.close();
+            Log.e(TAG, "sincronizarParcelasPagas", e);
         }
     }
+
 
     private static long localizarOuCriarFatura(SQLiteDatabase db, int idCartao, Date dataCompra,
                                                int diaFechamento, int diaVencimento) {

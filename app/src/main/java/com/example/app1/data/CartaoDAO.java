@@ -104,12 +104,16 @@ public class CartaoDAO {
         MeuDbHelper dbHelper = new MeuDbHelper(context);
 
         try (SQLiteDatabase db = dbHelper.getReadableDatabase()) {
-            String query = "SELECT SUM(p.valor) as total " +
-                    "FROM parcelas_cartao p " +
-                    "INNER JOIN transacoes_cartao t ON p.id_transacao = t.id " +
-                    "WHERE t.id_cartao = ? AND p.paga = 0";
+            Calendar calendar = Calendar.getInstance();
+            int ano = calendar.get(Calendar.YEAR);
+            int mes = calendar.get(Calendar.MONTH) + 1; // Janeiro começa em 0, por isso +1
+            String mesFormatado = (mes < 10) ? "0" + mes : String.valueOf(mes);
+            String anoMes = ano + "-" + mesFormatado;
 
-            try (Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(idCartao)})) {
+            String query = "SELECT SUM(p.valor) as total FROM parcelas_cartao p INNER JOIN transacoes_cartao t ON p.id_transacao = t.id " +
+                    "WHERE t.id_cartao = ? AND p.paga = 0 AND (p.fixa = 0 OR (p.fixa = 1 AND substr(p.data_vencimento,1,7) <= ?))";
+
+            try (Cursor cursor = db.rawQuery(query, new String[]{String.valueOf(idCartao), anoMes})) {
                 if (cursor.moveToFirst()) {
                     totalUtilizado = cursor.isNull(0) ? 0 : cursor.getDouble(cursor.getColumnIndexOrThrow("total"));
                 }
