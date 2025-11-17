@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/rootMenuConta" android:layout_width="match_parent" android:layout_height="match_parent">
+
+    <!-- Fundo escurecido quando o menu está aberto -->
+    <View
+        android:id="@+id/overlayTransferencia"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#99000000"
+        android:visibility="gone" />
+
+    <!-- Menu que desliza para cima, fixado ao rodapé -->
+    <LinearLayout
+        android:id="@+id/slidingTransferencia"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/background_menu_flutuante"
+        android:orientation="vertical"
+        android:visibility="visible"
+        android:layout_gravity="bottom"
+        android:padding="10dp"
+        android:clickable="true"
+        android:focusable="true"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/tituloTransferencia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Transferência entre Contas"
+            android:textColor="#FFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:padding="16dp" />
+
+        <!-- Valor da Despesa -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputValorTransferencia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            app:startIconDrawable="@drawable/ic_attach_money"
+            app:boxBackgroundMode="outline"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:endIconMode="clear_text"
+            android:hint="* Valor da Transferencia (ex: 1234,56)">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputValorTransferencia"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberDecimal"
+                android:maxLength="16"/>
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Data da Transferencia -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputDataTransferencia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Data da Transferência"
+            android:layout_marginTop="8dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:endIconMode="custom"
+            app:endIconDrawable="@drawable/ic_today"
+            app:endIconContentDescription="Open Date Picker"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            style="?attr/textInputOutlinedStyle">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputDataTransferencia"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:focusable="false"
+                android:clickable="true"
+                android:inputType="none"
+                />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <!-- Conta -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:id="@+id/menuContaOrigem"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:boxBackgroundMode="outline"
+                app:startIconDrawable="@drawable/ic_account_balance"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                android:hint="* Conta Origem">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompleteContaOrigem"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnAddConta"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="5dp"
+                android:contentDescription="Adicionar Conta"
+                android:src="@drawable/ic_add"
+                app:backgroundTint="#2F4F99"
+                app:tint="@android:color/white" />
+
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="Transferindo para:"/>
+
+        <!-- Conta -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
+                android:id="@+id/menuContaDestino"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                app:boxBackgroundMode="outline"
+                app:startIconDrawable="@drawable/ic_account_balance"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                android:hint="* Conta Destino">
+
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompleteContaDestino"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/btnAddContaDestino"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="5dp"
+                android:contentDescription="Adicionar Conta"
+                android:src="@drawable/ic_add"
+                app:backgroundTint="#2F4F99"
+                app:tint="@android:color/white" />
+
+        </LinearLayout>
+
+        <!-- Observação -->
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/textInputObservacao"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:startIconDrawable="@drawable/ic_edit"
+            android:hint="Observação"
+            app:boxBackgroundMode="outline"
+            android:layout_marginTop="8dp"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            >
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputObservacao"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="textMultiLine|textCapWords"
+                android:minLines="1"
+                android:maxLines="6"
+                android:gravity="top|start"
+                android:scrollbars="vertical" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+
+                <!-- Botão Salvar -->
+        <Button
+            android:id="@+id/btnSalvarTransferencia"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Realizar Transferência"
+            android:layout_marginTop="16dp"
+            android:backgroundTint="#2F4F99"
+            android:textColor="#FFF"/>
+
+    </LinearLayout>
+
+    <!-- abre o menu cadConta -->
+    <FrameLayout
+        android:id="@+id/fragmentContainerConta"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:visibility="gone" />
+
+</FrameLayout>

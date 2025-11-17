@@ -78,9 +78,12 @@ public class BottomMenuFragment extends Fragment {
                 new MenuHelper.MenuItemData("Categorias", R.drawable.ic_category, () -> navigateTo(TelaCategorias.class)),
                 new MenuHelper.MenuItemData("Contas", R.drawable.ic_account_balance, () -> navigateTo(TelaConta.class)),
                 new MenuHelper.MenuItemData("Gráficos", R.drawable.ic_bar_chart_5px, () -> navigateTo(TelaGraficos.class)),
+                /*
                 new MenuHelper.MenuItemData("Relatórios", R.drawable.ic_chrome_reader_mode, () -> {
                     // Ação para Relatórios
                 }),
+
+                 */
                 new MenuHelper.MenuItemData("Sobre", R.drawable.ic_feedback, () -> navigateTo(TelaSobre.class)),
                 new MenuHelper.MenuItemData("Encerrar Sessão", R.drawable.ic_logout, this::fazerLogout)
         };
@@ -178,7 +181,7 @@ public class BottomMenuFragment extends Fragment {
         fabReceita.setOnClickListener(btn -> openCadFragment("receita"));
         fabDespesa.setOnClickListener(btn -> openCadFragment("despesa"));
         fabDespesaCartao.setOnClickListener(btn -> openCadFragment("despesa_cartao"));
-        fabTransferencia.setOnClickListener(btn -> { /* Ação para Transferência */ });
+        fabTransferencia.setOnClickListener(btn -> openCadFragment("transferencia"));
     }
 
     private void openCadFragment(String tipo) {
@@ -196,6 +199,13 @@ public class BottomMenuFragment extends Fragment {
 
             if (tipo.equals("despesa_cartao")) {
                 MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuario, -1);
+                activity.getSupportFragmentManager().beginTransaction()
+                        .replace(containerId, fragment).addToBackStack(null).commit();
+            } else if (tipo.equals("transferencia")) {
+                MenuTransferenciaFragment fragment = new MenuTransferenciaFragment();
+                Bundle args = new Bundle();
+                args.putInt("id_usuario", idUsuario); // se precisar passar o usuário em args
+                fragment.setArguments(args);
                 activity.getSupportFragmentManager().beginTransaction()
                         .replace(containerId, fragment).addToBackStack(null).commit();
             } else {
