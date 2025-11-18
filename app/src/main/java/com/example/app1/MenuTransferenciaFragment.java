@@ -9,6 +9,8 @@ import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
@@ -24,6 +26,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,7 +38,15 @@ public class MenuTransferenciaFragment extends Fragment {
     private Button btnSalvarTransferencia;
     private View overlayTransferencia, slidingTransferencia;
     private OnBackPressedCallback backCallback;
+    private ImageButton btnAddConta, btnAddContaDestino;
     private int idUsuarioLogado = -1;
+
+    // Listas e adaptadores para contas
+    private List<Conta> contasCompletas;
+    private List<Conta> contasOrigem;
+    private List<Conta> contasDestino;
+    private ArrayAdapter<Conta> contaOrigemAdapter;
+    private ArrayAdapter<Conta> contaDestinoAdapter;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -62,6 +73,8 @@ public class MenuTransferenciaFragment extends Fragment {
         }
 
         bindViews(root);
+        corrigirErroValidacao();
+        configurarAdaptersContas();
 
         overlayTransferencia.setOnClickListener(v -> fecharMenu(false));
         inputValorTransferencia.addTextChangedListener(new MascaraMonetaria(inputValorTransferencia));
@@ -71,17 +84,15 @@ public class MenuTransferenciaFragment extends Fragment {
         SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy", Locale.getDefault());
         inputDataTransferencia.setText(sdf.format(new java.util.Date()));
 
-        List<Conta> contas = ContaDAO.carregarListaContas(requireContext(), idUsuarioLogado);
-        ArrayAdapter<Conta> contaAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contas);
-        autoCompleteContaOrigem.setAdapter(contaAdapter);
-        autoCompleteContaDestino.setAdapter(contaAdapter);
-
         btnSalvarTransferencia.setOnClickListener(v -> {
             limparErros();
             if (validarCampos()) {
                 Toast.makeText(getContext(), "Validação OK: pode salvar", Toast.LENGTH_SHORT).show();
             }
         });
+
+        btnAddConta.setOnClickListener(v -> abrirCadastroConta());
+        btnAddContaDestino.setOnClickListener(v -> abrirCadastroConta());
 
         return root;
     }
@@ -113,6 +124,59 @@ public class MenuTransferenciaFragment extends Fragment {
         autoCompleteContaDestino = root.findViewById(R.id.autoCompleteContaDestino);
 
         btnSalvarTransferencia = root.findViewById(R.id.btnSalvarTransferencia);
+        btnAddConta = root.findViewById(R.id.btnAddConta);
+        btnAddContaDestino = root.findViewById(R.id.btnAddContaDestino);
+    }
+
+    public void corrigirErroValidacao(){
+        inputValorTransferencia.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tilValorTransferencia.setError(null);
+                tilValorTransferencia.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        inputDataTransferencia.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tilDataTransferencia.setError(null);
+                tilDataTransferencia.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        autoCompleteContaOrigem.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tilContaOrigem.setError(null);
+                tilContaOrigem.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
+        autoCompleteContaDestino.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                tilContaDestino.setError(null);
+                tilContaDestino.setErrorEnabled(false);
+            }
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
+
     }
 
     public void abrirMenu() {
@@ -198,4 +262,77 @@ public class MenuTransferenciaFragment extends Fragment {
 
         return valido;
     }
+
+    private void abrirCadastroConta() {
+        FrameLayout containerConta = requireActivity().findViewById(R.id.fragmentContainerConta);
+        containerConta.setVisibility(View.VISIBLE);
+
+        MenuCadContaFragment fragment = MenuCadContaFragment.newInstance(idUsuarioLogado);
+        fragment.setOnContaSalvaListener(nomeConta -> {
+            Toast.makeText(getContext(), "Conta salva: " + nomeConta, Toast.LENGTH_SHORT).show();
+            configurarAdaptersContas(); // recarrega as contas após cadastro
+        });
+
+        requireActivity().getSupportFragmentManager()
+                .beginTransaction()
+                .replace(R.id.fragmentContainerConta, fragment)
+                .addToBackStack(null)
+                .commit();
+    }
+
+    private void configurarAdaptersContas() {
+        contasCompletas = ContaDAO.carregarListaContas(requireContext(), idUsuarioLogado);
+
+        contasOrigem = new ArrayList<>(contasCompletas);
+        contasDestino = new ArrayList<>(contasCompletas);
+
+        contaOrigemAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contasOrigem);
+        contaDestinoAdapter = new ArrayAdapter<>(requireContext(), android.R.layout.simple_dropdown_item_1line, contasDestino);
+
+        autoCompleteContaOrigem.setAdapter(contaOrigemAdapter);
+        autoCompleteContaDestino.setAdapter(contaDestinoAdapter);
+
+        autoCompleteContaOrigem.setOnItemClickListener((parent, view, position, id) -> {
+            Conta contaSelecionada = contaOrigemAdapter.getItem(position);
+            atualizarContasDestino(contaSelecionada);
+        });
+
+        autoCompleteContaDestino.setOnItemClickListener((parent, view, position, id) -> {
+            Conta contaSelecionada = contaDestinoAdapter.getItem(position);
+            atualizarContasOrigem(contaSelecionada);
+        });
+    }
+
+    private void atualizarContasDestino(Conta selecionada) {
+        contasDestino.clear();
+
+        for (Conta c : contasCompletas) {
+            if (!c.equals(selecionada)) {
+                contasDestino.add(c);
+            }
+        }
+        contaDestinoAdapter.notifyDataSetChanged();
+
+        String selecaoDestino = autoCompleteContaDestino.getText().toString();
+        if (!selecaoDestino.isEmpty() && selecaoDestino.equals(selecionada.getNome())) {
+            autoCompleteContaDestino.setText("");
+        }
+    }
+
+    private void atualizarContasOrigem(Conta selecionada) {
+        contasOrigem.clear();
+
+        for (Conta c : contasCompletas) {
+            if (!c.equals(selecionada)) {
+                contasOrigem.add(c);
+            }
+        }
+        contaOrigemAdapter.notifyDataSetChanged();
+
+        String selecaoOrigem = autoCompleteContaOrigem.getText().toString();
+        if (!selecaoOrigem.isEmpty() && selecaoOrigem.equals(selecionada.getNome())) {
+            autoCompleteContaOrigem.setText("");
+        }
+    }
+
 }
