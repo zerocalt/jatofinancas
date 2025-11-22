@@ -130,10 +130,23 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
         setupRecyclerView();
         setupListeners();
 
-        Calendar agora = Calendar.getInstance();
-        String[] nomesMes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
-        txtMes.setText(nomesMes[agora.get(Calendar.MONTH)]);
-        txtAno.setText(String.valueOf(agora.get(Calendar.YEAR)));
+
+        txtMes = findViewById(R.id.txtMes);
+        txtAno = findViewById(R.id.txtAno);
+
+        Intent intent = getIntent();
+        String mesSelecionado = intent.getStringExtra("mesSelecionado");
+        String anoSelecionado = intent.getStringExtra("anoSelecionado");
+
+        if (mesSelecionado != null && anoSelecionado != null) {
+            txtMes.setText(mesSelecionado);
+            txtAno.setText(anoSelecionado);
+        }else {
+            Calendar agora = Calendar.getInstance();
+            String[] nomesMes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
+            txtMes.setText(nomesMes[agora.get(Calendar.MONTH)]);
+            txtAno.setText(String.valueOf(agora.get(Calendar.YEAR)));
+        }
 
         atualizarTituloDaTela();
 

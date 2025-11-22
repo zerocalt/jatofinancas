@@ -62,9 +62,15 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             return insets;
         });
 
+        bindViews();
+
         idCartao = getIntent().getIntExtra("id_cartao", -1);
         idUsuarioLogado = getIntent().getIntExtra("id_usuario", -1);
         idFatura = getIntent().getIntExtra("id_fatura", -1);
+
+        // NOVO: pegar mês e ano do Intent
+        String mesSelecionado = getIntent().getStringExtra("mesSelecionado");
+        String anoSelecionado = getIntent().getStringExtra("anoSelecionado");
 
         if (idCartao == -1 || idUsuarioLogado == -1) {
             Toast.makeText(this, "Erro: ID do cartão ou usuário inválido.", Toast.LENGTH_LONG).show();
@@ -72,11 +78,16 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             return;
         }
 
-        bindViews();
-
         // Se nenhuma fatura específica foi passada, inicializa mês e ano atuais
         if (idFatura == -1) {
-            setupInitialDate();
+            // Se recebeu mês e ano, define-os nos TextViews
+            if (mesSelecionado != null && anoSelecionado != null) {
+                txtMes.setText(mesSelecionado);
+                txtAno.setText(anoSelecionado);
+            } else {
+                // Se não recebeu, usa a data atual (método já existente)
+                setupInitialDate();
+            }
         } else {
             // Fatura específica: tenta pegar o mês e ano da fatura
             try (MeuDbHelper dbHelper = new MeuDbHelper(this);

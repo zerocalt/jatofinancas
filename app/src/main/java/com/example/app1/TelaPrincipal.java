@@ -154,6 +154,8 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
                 Intent intent = new Intent(TelaPrincipal.this, TelaTransacoes.class);
                 intent.putExtra("conta_id", conta.getId()); // ou outro identificador
                 intent.putExtra("id_usuario", idUsuarioLogado);
+                intent.putExtra("mesSelecionado", txtMes.getText().toString());
+                intent.putExtra("anoSelecionado", txtAno.getText().toString());
                 startActivity(intent);
             }
 
@@ -177,12 +179,16 @@ public class TelaPrincipal extends AppCompatActivity implements CartaoPrincipalA
         Intent intent = new Intent(this, TelaFaturaCartao.class);
         intent.putExtra("id_cartao", idCartao);
         intent.putExtra("id_usuario", idUsuarioLogado);
+        intent.putExtra("mesSelecionado", txtMes.getText().toString());
+        intent.putExtra("anoSelecionado", txtAno.getText().toString());
         startActivity(intent);
     }
 
     private void abrirTransacoesComFiltro(String tipo, String status) {
         Intent intent = new Intent(this, TelaTransacoes.class);
         intent.putExtra("id_usuario", idUsuarioLogado);
+        intent.putExtra("mesSelecionado", txtMes.getText().toString());
+        intent.putExtra("anoSelecionado", txtAno.getText().toString());
         if (tipo != null) {
             intent.putExtra("filtro_tipo", tipo);
         }
