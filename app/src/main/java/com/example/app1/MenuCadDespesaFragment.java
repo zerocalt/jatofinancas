@@ -367,19 +367,18 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
             }
 
             if (idTransacaoEditando > 0) {
-                // Ajusta saldo da conta correta considerando valor e conta antiga e nova
                 TransacoesDAO.ajustarSaldoParaEdicao(requireContext(), idTransacaoEditando, idContaNova, valor);
-
-                // Em seguida, exclui a transação antiga para evitar duplicidade
                 TransacoesDAO.excluirTransacao(requireContext(), idTransacaoEditando, "transacao");
-
-                sucesso = false; // resetar para evitar salvar duas vezes por engano, será salvo mais abaixo
+                sucesso = false;
             } else {
-                sucesso = true; // se for nova, não excluir nada
+                sucesso = true;
             }
 
             if (despesaFixa) {
                 sucesso = TransacoesDAO.salvarTransacaoFixa(requireContext(), idUsuario, idContaNova, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, periodo);
+                if (sucesso && idTransacaoEditando > 0) {
+                    TransacoesDAO.atualizarFilhasNaoPagas(requireContext(), idTransacaoEditando, valor, idCategoriaSelecionada, nomeDespesa, observacao);
+                }
             } else {
                 sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idContaNova, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, totalParcelas, periodo, idTransacaoEditando);
             }

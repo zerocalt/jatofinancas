@@ -240,12 +240,109 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
         try (SQLiteDatabase db = new MeuDbHelper(this).getReadableDatabase()) {
 
-            // ---------------------- TRANSAÇÕES NORMAIS ----------------------
             if (!"cartao".equals(filtroTipo)) {
-                ArrayList<String> args = new ArrayList<>();
-                args.add(String.valueOf(idUsuarioLogado));
+                ArrayList<String> argsFilhas = new ArrayList<>();
+                argsFilhas.add(String.valueOf(idUsuarioLogado));
+                argsFilhas.add(mesAno);
 
-                StringBuilder query = new StringBuilder(
+                StringBuilder queryFilhas = new StringBuilder(
+                        "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
+                                "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
+                                "(CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) AS tipo, " +
+                                "t.recorrente, t.total_parcelas AS parcelas, t.numero_parcela AS numero_parcela, " +
+                                "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
+                                "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                                "WHERE t.id_usuario = ? AND t.id_mestre IS NOT NULL AND substr(t.data_movimentacao,1,7) = ? ");
+
+                if (filtroTipo != null) {
+                    if ("receita".equals(filtroTipo)) queryFilhas.append(" AND t.tipo = 1");
+                    else if ("despesa".equals(filtroTipo)) queryFilhas.append(" AND t.tipo = 2");
+                }
+
+                if (filtroStatus != null) {
+                    if ("pendente".equals(filtroStatus)) {
+                        queryFilhas.append(" AND t.pago = 0 AND date(t.data_movimentacao) <= date(?)");
+                        argsFilhas.add(dataLimite);
+                    } else if ("pago".equals(filtroStatus)) {
+                        queryFilhas.append(" AND t.pago = 1");
+                    }
+                }
+
+                if (idContaFiltro != -1) {
+                    queryFilhas.append(" AND t.id_conta = ?");
+                    argsFilhas.add(String.valueOf(idContaFiltro));
+                }
+                queryFilhas.append(" ORDER BY date(t.data_movimentacao) DESC");
+
+                List<Integer> mestresComFilhas = new ArrayList<>();
+                List<Integer> idsFilhasBuscadas = new ArrayList<>();
+
+                try (Cursor cur = db.rawQuery(queryFilhas.toString(), argsFilhas.toArray(new String[0]))) {
+                    while (cur.moveToNext()) {
+                        itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
+                        int idMestre = cur.getInt(cur.getColumnIndexOrThrow("id_mestre"));
+                        int idFilha = cur.getInt(cur.getColumnIndexOrThrow("id"));
+                        if (!mestresComFilhas.contains(idMestre)) {
+                            mestresComFilhas.add(idMestre);
+                        }
+                        if (!idsFilhasBuscadas.contains(idFilha)) {
+                            idsFilhasBuscadas.add(idFilha);
+                        }
+                    }
+                }
+
+                // 2) Buscar os mestres ativos sem filhas no mês
+                StringBuilder queryMestres = new StringBuilder(
+                        "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
+                                "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
+                                "(CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) AS tipo, " +
+                                "t.recorrente, t.total_parcelas AS parcelas, t.numero_parcela AS numero_parcela, " +
+                                "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
+                                "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                                "WHERE t.id_usuario = ? AND t.recorrente = 1 AND t.recorrente_ativo = 1 " +
+                                "AND (t.total_parcelas = 0 OR t.total_parcelas IS NULL) ");
+
+                ArrayList<String> argsMestres = new ArrayList<>();
+                argsMestres.add(String.valueOf(idUsuarioLogado));
+
+                if (!mestresComFilhas.isEmpty()) {
+                    StringBuilder inClause = new StringBuilder();
+                    for (int i = 0; i < mestresComFilhas.size(); i++) {
+                        inClause.append("?");
+                        if (i < mestresComFilhas.size() - 1) inClause.append(",");
+                        argsMestres.add(String.valueOf(mestresComFilhas.get(i)));
+                    }
+                    queryMestres.append(" AND t.id NOT IN (").append(inClause).append(") ");
+                }
+
+                if (filtroTipo != null) {
+                    if ("receita".equals(filtroTipo)) queryMestres.append(" AND t.tipo = 1");
+                    else if ("despesa".equals(filtroTipo)) queryMestres.append(" AND t.tipo = 2");
+                }
+
+                if (filtroStatus != null) {
+                    if ("pendente".equals(filtroStatus)) {
+                        queryMestres.append(" AND t.pago = 0 AND date(t.data_movimentacao) <= date(?)");
+                        argsMestres.add(dataLimite);
+                    } else if ("pago".equals(filtroStatus)) {
+                        queryMestres.append(" AND t.pago = 1");
+                    }
+                }
+
+                if (idContaFiltro != -1) {
+                    queryMestres.append(" AND t.id_conta = ?");
+                    argsMestres.add(String.valueOf(idContaFiltro));
+                }
+                queryMestres.append(" ORDER BY date(t.data_movimentacao) DESC");
+
+                try (Cursor cur = db.rawQuery(queryMestres.toString(), argsMestres.toArray(new String[0]))) {
+                    while (cur.moveToNext()) {
+                        itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
+                    }
+                }
+
+                // 3) Buscar transações normais (não recorrentes)
+                StringBuilder queryNormais = new StringBuilder(
                         "SELECT t.id, t.descricao, t.valor, t.data_movimentacao AS data, " +
                                 "c.nome AS categoria_nome, c.cor AS categoria_cor, " +
                                 "(CASE t.tipo WHEN 1 THEN 'receita' ELSE 'despesa' END) AS tipo, " +
@@ -253,35 +350,45 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                                 "t.pago, t.recebido, t.id_mestre, t.repetir_periodo, t.id_conta, -1 AS id_cartao " +
                                 "FROM transacoes t LEFT JOIN categorias c ON t.id_categoria = c.id " +
                                 "WHERE t.id_usuario = ? " +
-                                "AND NOT (t.recorrente = 1 AND t.total_parcelas > 0 AND (t.id_mestre IS NULL OR t.id_mestre = 0))"
-                );
+                                "AND (t.recorrente IS NULL OR t.recorrente = 0) " +
+                                "AND substr(t.data_movimentacao,1,7) = ? ");
+
+                ArrayList<String> argsNormais = new ArrayList<>();
+                argsNormais.add(String.valueOf(idUsuarioLogado));
+                argsNormais.add(mesAno);
+
+                // Adicione parâmetro para ids do NOT IN
+                if (!idsFilhasBuscadas.isEmpty()) {
+                    StringBuilder inClause = new StringBuilder();
+                    for (int i = 0; i < idsFilhasBuscadas.size(); i++) {
+                        inClause.append("?");
+                        if (i < idsFilhasBuscadas.size() - 1) inClause.append(",");
+                        argsNormais.add(String.valueOf(idsFilhasBuscadas.get(i)));
+                    }
+                    queryNormais.append(" AND t.id NOT IN (" + inClause.toString() + ")");
+                }
 
                 if (filtroTipo != null) {
-                    if ("receita".equals(filtroTipo)) query.append(" AND t.tipo = 1");
-                    else if ("despesa".equals(filtroTipo)) query.append(" AND t.tipo = 2");
+                    if ("receita".equals(filtroTipo)) queryNormais.append(" AND t.tipo = 1");
+                    else if ("despesa".equals(filtroTipo)) queryNormais.append(" AND t.tipo = 2");
                 }
 
                 if (filtroStatus != null) {
                     if ("pendente".equals(filtroStatus)) {
-                        query.append(" AND t.pago = 0 AND date(t.data_movimentacao) <= date(?)");
-                        args.add(dataLimite);
+                        queryNormais.append(" AND t.pago = 0 AND date(t.data_movimentacao) <= date(?)");
+                        argsNormais.add(dataLimite);
                     } else if ("pago".equals(filtroStatus)) {
-                        query.append(" AND t.pago = 1 AND substr(t.data_movimentacao,1,7) = ?");
-                        args.add(mesAno);
-                    } else {
-                        query.append(" AND substr(t.data_movimentacao,1,7) = ?");
-                        args.add(mesAno);
+                        queryNormais.append(" AND t.pago = 1");
                     }
-                } else {
-                    query.append(" AND substr(t.data_movimentacao,1,7) = ?");
-                    args.add(mesAno);
-                }
-                if (idContaFiltro != -1) {
-                    query.append(" AND t.id_conta = ?");
-                    args.add(String.valueOf(idContaFiltro));
                 }
 
-                try (Cursor cur = db.rawQuery(query.toString(), args.toArray(new String[0]))) {
+                if (idContaFiltro != -1) {
+                    queryNormais.append(" AND t.id_conta = ?");
+                    argsNormais.add(String.valueOf(idContaFiltro));
+                }
+                queryNormais.append(" ORDER BY date(t.data_movimentacao) DESC");
+
+                try (Cursor cur = db.rawQuery(queryNormais.toString(), argsNormais.toArray(new String[0]))) {
                     while (cur.moveToNext()) {
                         itens.add(new TransacaoItem(cur, cur.getString(cur.getColumnIndexOrThrow("tipo")), false, null));
                     }

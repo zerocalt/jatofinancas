@@ -65,9 +65,11 @@ public class TransacoesDAO {
                     boolean idMestreIsNull = idxIdMestre == -1 || c.isNull(idxIdMestre);
 
                     if (recorrente == 1 && idMestreIsNull) {
-                        // é mestre -> apagar mestre e parcelas (id_mestre = id)
-                        int deleted = db.delete("transacoes", "id = ? OR id_mestre = ?", new String[]{String.valueOf(id), String.valueOf(id)});
-                        return deleted > 0;
+                        // é mestre -> desativar a recorrência, não apagar registros
+                        ContentValues values = new ContentValues();
+                        values.put("recorrente_ativo", 0);
+                        int updated = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(id)});
+                        return updated > 0;
                     }
                 }
             }
@@ -405,29 +407,67 @@ public class TransacoesDAO {
             int periodo
     ) {
         try (SQLiteDatabase db = new MeuDbHelper(context).getWritableDatabase()) {
-            ContentValues values = new ContentValues();
-            values.put("id_usuario", idUsuario);
-            values.put("id_conta", idConta);
-            values.put("valor", valor);
-            values.put("tipo", tipo);
-            values.put("pago", pago);
-            values.put("recebido", recebido);
-            values.put("data_movimentacao", data);
-            values.put("descricao", descricao);
-            values.put("id_categoria", idCategoria);
-            values.put("observacao", observacao);
-            values.put("recorrente", 1);
-            values.put("recorrente_ativo", 1);
-            values.put("repetir_periodo", periodo);
-
-            if (pago == 1 || recebido == 1) {
-                values.put("data_pagamento", data);
-            } else {
+            db.beginTransaction();
+            try {
+                // Cria transação mestre, SEM marcar paga
+                ContentValues values = new ContentValues();
+                values.put("id_usuario", idUsuario);
+                values.put("id_conta", idConta);
+                values.put("valor", valor);
+                values.put("tipo", tipo);
+                values.put("pago", 0); // mestre nunca marcado como pago
+                values.put("recebido", 0);
+                values.put("data_movimentacao", data);
                 values.putNull("data_pagamento");
-            }
+                values.put("descricao", descricao);
+                values.put("id_categoria", idCategoria);
+                values.put("observacao", observacao);
+                values.put("recorrente", 1);
+                values.put("recorrente_ativo", 1);
+                values.put("repetir_periodo", periodo);
 
-            long inserted = db.insert("transacoes", null, values);
-            return inserted != -1;
+                long idMestre = db.insert("transacoes", null, values);
+                if (idMestre == -1) {
+                    db.endTransaction();
+                    return false;
+                }
+
+                // Se marcado como pago, cria transação filha correspondente
+                if (pago == 1 || recebido == 1) {
+                    ContentValues filha = new ContentValues();
+                    filha.put("id_usuario", idUsuario);
+                    filha.put("id_conta", idConta);
+                    filha.put("valor", valor);
+                    filha.put("tipo", tipo);
+                    filha.put("pago", pago);
+                    filha.put("recebido", recebido);
+                    filha.put("data_movimentacao", data);
+                    filha.put("data_pagamento", data);
+                    filha.put("descricao", descricao);
+                    filha.put("id_categoria", idCategoria);
+                    filha.put("observacao", observacao);
+                    filha.put("recorrente", 0); // filha não é recorrente
+                    filha.put("id_mestre", idMestre); // referência ao mestre
+                    filha.put("total_parcelas", 0);
+                    filha.put("numero_parcela", 0);
+                    filha.put("repetir_periodo", 0);
+
+                    long idFilha = db.insert("transacoes", null, filha);
+                    if (idFilha == -1) {
+                        db.endTransaction();
+                        return false;
+                    }
+
+                    // Atualiza saldo das contas descontando o valor da filha paga
+                    String op = (tipo == 1) ? "+" : "-";
+                    db.execSQL("UPDATE contas SET saldo = saldo " + op + " ? WHERE id = ?", new Object[]{valor, idConta});
+                }
+
+                db.setTransactionSuccessful();
+                return true;
+            } finally {
+                db.endTransaction();
+            }
         } catch (Exception e) {
             Log.e(TAG, "salvarTransacaoFixa", e);
             return false;
@@ -556,16 +596,32 @@ public class TransacoesDAO {
         try (MeuDbHelper dbHelper = new MeuDbHelper(context);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // Despesas normais e parcelas recorrentes
-            String query = "SELECT SUM(valor) FROM transacoes " +
-                    "WHERE id_usuario = ? AND tipo = 2 " +
-                    "AND NOT (recorrente = 1 AND total_parcelas > 0 AND (id_mestre IS NULL OR id_mestre = 0)) " +
+            // 1) Soma das filhas no mês
+            String queryFilhas = "SELECT SUM(valor) FROM transacoes " +
+                    "WHERE id_usuario = ? AND tipo = 2 AND id_mestre IS NOT NULL " +
                     "AND substr(data_movimentacao,1,7) = ?";
-            try (Cursor cur = db.rawQuery(query, new String[]{String.valueOf(idUsuario), mesAno})) {
+            try (Cursor cur = db.rawQuery(queryFilhas, new String[]{String.valueOf(idUsuario), mesAno})) {
                 if (cur.moveToFirst()) total = cur.getDouble(0);
             }
 
-            // Somar faturas do mês
+            // 2) Soma das despesas mestre sem filhas no mês
+            String queryMestres = "SELECT SUM(valor) FROM transacoes " +
+                    "WHERE id_usuario = ? AND tipo = 2 AND recorrente = 1 AND recorrente_ativo = 1 AND (total_parcelas = 0 OR total_parcelas IS NULL) " +
+                    "AND id NOT IN (SELECT DISTINCT id_mestre FROM transacoes WHERE substr(data_movimentacao,1,7) = ?)";
+            try (Cursor cur = db.rawQuery(queryMestres, new String[]{String.valueOf(idUsuario), mesAno})) {
+                if (cur.moveToFirst()) total += cur.getDouble(0);
+            }
+
+            // 3) Soma das transações únicas (não filhas nem mestres)
+            String queryUnicas = "SELECT SUM(valor) FROM transacoes " +
+                    "WHERE id_usuario = ? AND tipo = 2 " +
+                    "AND (id_mestre IS NULL OR id_mestre = 0) AND (recorrente IS NULL OR recorrente = 0) " +
+                    "AND substr(data_movimentacao,1,7) = ?";
+            try (Cursor cur = db.rawQuery(queryUnicas, new String[]{String.valueOf(idUsuario), mesAno})) {
+                if (cur.moveToFirst()) total += cur.getDouble(0);
+            }
+
+            // 4) Soma das faturas do mês
             String queryFaturas = "SELECT SUM(valor_total) FROM faturas f JOIN cartoes c ON f.id_cartao = c.id " +
                     "WHERE c.id_usuario = ? AND substr(f.data_vencimento,1,7) = ?";
             try (Cursor cur = db.rawQuery(queryFaturas, new String[]{String.valueOf(idUsuario), mesAno})) {
@@ -654,6 +710,41 @@ public class TransacoesDAO {
             }
         } catch (Exception e) {
             Log.e("TransacoesDAO", "ajustarSaldoParaEdicao", e);
+        }
+    }
+
+    public static boolean atualizarFilhasNaoPagas(
+            Context context,
+            int idMestre,
+            double novoValor,
+            int idCategoria,
+            String novaDescricao,
+            String novaObservacao) {
+        try (SQLiteDatabase db = new MeuDbHelper(context).getWritableDatabase()) {
+            ContentValues values = new ContentValues();
+            values.put("valor", novoValor);
+            values.put("id_categoria", idCategoria);
+            values.put("descricao", novaDescricao);
+            values.put("observacao", novaObservacao);
+
+            int updated = db.update("transacoes", values,
+                    "id_mestre = ? AND pago = 0", new String[]{String.valueOf(idMestre)});
+            return updated > 0;
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "atualizarFilhasNaoPagas", e);
+            return false;
+        }
+    }
+
+    public static boolean desativarTransacaoMestre(Context context, int idMestre) {
+        try (SQLiteDatabase db = new MeuDbHelper(context).getWritableDatabase()) {
+            ContentValues values = new ContentValues();
+            values.put("recorrente_ativo", 0);
+            int linhasAtualizadas = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(idMestre)});
+            return linhasAtualizadas > 0;
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "desativarTransacaoMestre", e);
+            return false;
         }
     }
 
