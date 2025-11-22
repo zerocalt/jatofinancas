@@ -595,7 +595,17 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
                    .addToBackStack(null)
                    .commit();
        } else {
-           Toast.makeText(this, "Edição de despesas normais a ser implementada.", Toast.LENGTH_SHORT).show();
+            // Criar uma nova instância do fragmento MenuCadDespesaFragment
+            MenuCadDespesaFragment fragment = MenuCadDespesaFragment.newInstance(idUsuarioLogado, "despesa");
+
+            // Definir a transação que será editada no fragmento
+            fragment.editarTransacao(item.id);
+
+            // Substituir o container atual pelo fragmento de edição
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.containerFragment, fragment)
+                    .addToBackStack(null)
+                    .commit();
        }
    }
 

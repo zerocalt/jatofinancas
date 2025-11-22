@@ -623,4 +623,38 @@ public class TransacoesDAO {
         return total;
     }
 
+    public static void ajustarSaldoParaEdicao(Context context, int idTransacao, int idContaNova, double valorNovo) {
+        MeuDbHelper dbHelper = new MeuDbHelper(context);
+        try (SQLiteDatabase db = dbHelper.getWritableDatabase()) {
+            db.beginTransaction();
+            try {
+                double valorAntigo = 0;
+                int idContaAntiga = -1;
+
+                try (Cursor cursor = db.rawQuery("SELECT valor, id_conta FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+                    if (cursor.moveToFirst()) {
+                        valorAntigo = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
+                        idContaAntiga = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
+                    }
+                }
+
+                // Reembolsa valor antigo na conta antiga
+                if (idContaAntiga != -1) {
+                    db.execSQL("UPDATE contas SET saldo = saldo + ? WHERE id = ?", new Object[]{valorAntigo, idContaAntiga});
+                }
+
+                // Debita valor novo da conta nova
+                if (idContaNova != -1) {
+                    db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?", new Object[]{valorNovo, idContaNova});
+                }
+
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+            }
+        } catch (Exception e) {
+            Log.e("TransacoesDAO", "ajustarSaldoParaEdicao", e);
+        }
+    }
+
 }

@@ -260,6 +260,9 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                             autoCompletePeriodo.setText(autoCompletePeriodo.getAdapter().getItem(repetirPeriodo - 1).toString(), false);
                             valorPeriodoSelecionado = repetirPeriodo;
                         }
+
+                        // Abre o menu para a despesa fixa automaticamente
+                        abrirMenu();
                     } else {
                         limparCamposRecorrencia();
                     }
@@ -296,16 +299,14 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
         if (!validarCampos()) return;
 
         String tipoMovimento = getArguments() != null ? getArguments().getString("tipoMovimento", "despesa") : "despesa";
-        if (idTransacaoEditando > 0) {
-            TransacoesDAO.excluirTransacao(getContext(), idTransacaoEditando, "transacao");
-        }
 
         String valorDespesa = inputValorDespesa.getText() != null ? inputValorDespesa.getText().toString().trim() : "";
         String nomeDespesa = inputNomeDespesa.getText() != null ? inputNomeDespesa.getText().toString().trim() : "";
         String categoria = autoCompleteCategoria.getText() != null ? autoCompleteCategoria.getText().toString().trim() : "";
         String dataInput = inputDataDespesa.getText() != null ? inputDataDespesa.getText().toString().trim() : "";
-        int idConta = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
+        int idContaNova = (contaSelecionada[0] != null) ? contaSelecionada[0].getId() : -1;
         int tipo = tipoMovimento.equals("receita") ? 1 : 2;
+
         int periodo = valorPeriodoSelecionado;
         boolean despesaFixa = switchDespesaFixa.isChecked();
         int quantidade = getNumberFromEditText();
@@ -347,6 +348,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
         }
 
         boolean sucesso;
+
         boolean isRecorrente = containerRepeticao.getVisibility() == View.VISIBLE;
 
         if (isRecorrente) {
@@ -364,14 +366,29 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                 return;
             }
 
-            if (despesaFixa) {
-                periodo = 0;
-                sucesso = TransacoesDAO.salvarTransacaoFixa(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, periodo);
+            if (idTransacaoEditando > 0) {
+                // Ajusta saldo da conta correta considerando valor e conta antiga e nova
+                TransacoesDAO.ajustarSaldoParaEdicao(requireContext(), idTransacaoEditando, idContaNova, valor);
+
+                // Em seguida, exclui a transação antiga para evitar duplicidade
+                TransacoesDAO.excluirTransacao(requireContext(), idTransacaoEditando, "transacao");
+
+                sucesso = false; // resetar para evitar salvar duas vezes por engano, será salvo mais abaixo
             } else {
-                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, totalParcelas, periodo, 0);
+                sucesso = true; // se for nova, não excluir nada
+            }
+
+            if (despesaFixa) {
+                sucesso = TransacoesDAO.salvarTransacaoFixa(requireContext(), idUsuario, idContaNova, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, periodo);
+            } else {
+                sucesso = TransacoesDAO.salvarTransacaoRecorrente(requireContext(), idUsuario, idContaNova, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao, totalParcelas, periodo, idTransacaoEditando);
             }
         } else {
-            sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idConta, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);
+            if (idTransacaoEditando > 0) {
+                TransacoesDAO.ajustarSaldoParaEdicao(requireContext(), idTransacaoEditando, idContaNova, valor);
+                TransacoesDAO.excluirTransacao(requireContext(), idTransacaoEditando, "transacao");
+            }
+            sucesso = TransacoesDAO.salvarTransacaoUnica(requireContext(), idUsuario, idContaNova, valor, tipo, pago, recebido, dataParaBanco, nomeDespesa, idCategoriaSelecionada, observacao);
         }
 
         if (sucesso) {
@@ -599,4 +616,5 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
         valorPeriodoSelecionado = -1;
         containerRepeticao.setVisibility(View.GONE);
     }
+
 }
