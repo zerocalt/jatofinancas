@@ -641,12 +641,16 @@ public class TransacoesDAO {
         try (MeuDbHelper dbHelper = new MeuDbHelper(context);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // 1️⃣ Despesas pendentes normais (já cadastradas, não recorrentes)
+            // 1️⃣ Despesas pendentes normais (não recorrentes ou filhas), excluindo mestres com filhas no período
             String queryDespesas = "SELECT SUM(valor) FROM transacoes " +
                     "WHERE id_usuario = ? AND tipo = 2 AND pago = 0 " +
                     "AND NOT (recorrente = 1 AND total_parcelas > 0 AND (id_mestre IS NULL OR id_mestre = 0)) " +
+                    "AND id NOT IN ( " +
+                    "    SELECT DISTINCT id_mestre FROM transacoes " +
+                    "    WHERE substr(data_movimentacao,1,7) = ? " +
+                    ") " +
                     "AND substr(data_movimentacao,1,7) <= ?";
-            try (Cursor cur = db.rawQuery(queryDespesas, new String[]{String.valueOf(idUsuario), mesAno})) {
+            try (Cursor cur = db.rawQuery(queryDespesas, new String[]{String.valueOf(idUsuario), mesAno, mesAno})) {
                 if (cur.moveToFirst() && !cur.isNull(0)) total += cur.getDouble(0);
             }
 
