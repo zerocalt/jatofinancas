@@ -740,16 +740,4 @@ public class TransacoesDAO {
         }
     }
 
-    public static boolean desativarTransacaoMestre(Context context, int idMestre) {
-        try (SQLiteDatabase db = new MeuDbHelper(context).getWritableDatabase()) {
-            ContentValues values = new ContentValues();
-            values.put("recorrente_ativo", 0);
-            int linhasAtualizadas = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(idMestre)});
-            return linhasAtualizadas > 0;
-        } catch (Exception e) {
-            Log.e("TransacoesDAO", "desativarTransacaoMestre", e);
-            return false;
-        }
-    }
-
 }
