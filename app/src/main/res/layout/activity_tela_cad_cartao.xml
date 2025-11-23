@@ -138,7 +138,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Adicionar Cartão de Crédito"
-            android:textColor="#FFF"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textAlignment="center"
@@ -342,16 +341,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Ativo"
-                android:checked="true"
-                android:textColor="#FFF" />
+                android:checked="true" />
 
             <RadioButton
                 android:id="@+id/radioDesativado"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Desativado"
-                android:layout_marginStart="24dp"
-                android:textColor="#FFF" />
+                android:layout_marginStart="24dp" />
         </RadioGroup>
 
         <!-- Botão para salvar -->
