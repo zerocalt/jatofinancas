@@ -1,19 +1,33 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Base.Theme.App1" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
-        <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
-        <item name="colorAccent">@color/colorAccent</item>
-        <item name="android:statusBarColor">@color/colorPrimary</item>
-        <item name="android:navigationBarColor">@color/colorPrimary</item>
-    </style>
-    <style name="Theme.App1" parent="Base.Theme.App1" />
-    <style name="ALERTAVERMELHO">
-        <item name="android:textColor">@color/red</item>
-    </style>
-    <style name="HINTCOR">
-        <item name="android:textColorHint">@color/cinzaHint</item>
-    </style>
+<!-- Base application theme. -->
+<style name="Base.Theme.App1" parent="Theme.Material3.DayNight.NoActionBar">
+    <!-- Cores principais -->
+    <item name="colorPrimary">@color/colorPrimary</item>
+    <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+    <item name="colorAccent">@color/colorAccent</item>
+    <item name="android:statusBarColor">@color/colorPrimary</item>
+    <item name="android:navigationBarColor">@color/colorPrimary</item>
+
+    <!-- Cores padrão do Material Theme -->
+    <item name="colorPrimaryVariant">@color/colorPrimary</item>
+
+
+    <item name="android:textColorHint">@color/cinzaHint</item>
+
+</style>
+
+<!-- Herança principal do seu app -->
+<style name="Theme.App1" parent="Base.Theme.App1" />
+
+<!-- Estilo para alertas vermelhos -->
+<style name="ALERTAVERMELHO">
+    <item name="android:textColor">@color/red</item>
+</style>
+
+<!-- Estilo para hints (usado em campos) -->
+<style name="HINTCOR">
+    <item name="android:textColorHint">@color/cinzaHint</item>
+</style>
+
+
 </resources>

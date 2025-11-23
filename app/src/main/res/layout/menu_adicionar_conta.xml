@@ -29,7 +29,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Adicionar Conta"
-            android:textColor="#FFF"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textAlignment="center"
@@ -140,16 +139,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Somar na Tela Inicial"
-                android:checked="true"
-                android:textColor="#FFF" />
+                android:checked="true" />
 
             <RadioButton
                 android:id="@+id/radioMostrarNao"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Não Somar"
-                android:layout_marginStart="24dp"
-                android:textColor="#FFF" />
+                android:layout_marginStart="24dp" />
         </RadioGroup>
 
         <!-- Botão Salvar -->

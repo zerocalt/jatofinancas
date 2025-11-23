@@ -8,7 +8,8 @@
     <color name="colorAccent">#2F4F99</color>
     <color name="botaoDesativado">#777FFF</color>
 
-    <color name="colorIcone">#000000</color>
+    <color name="colorIcone">#FFFFFF</color>
+
 
     <!-- tema escuro -->
     <color name="cinzaEscuroHint">#808080</color>
@@ -16,5 +17,5 @@
     <color name="cinzaHint">#A9A9A9</color>
 
     <!-- cor do fundo dos fragments -->
-    <color name="menuFlutuanteFundo">#FFFFFF</color>
+    <color name="menuFlutuanteFundo">#303030</color>
 </resources>

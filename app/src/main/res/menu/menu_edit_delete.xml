@@ -3,13 +3,16 @@
     <item
         android:id="@+id/menu_editar"
         android:icon="@drawable/ic_edit"
-        android:title="Editar" />
+        android:title="Editar"
+        android:iconTint="@color/colorIcone"/>
     <item
         android:id="@+id/menu_alterar_saldo"
         android:icon="@drawable/ic_local_atm"
-        android:title="Alterar Saldo" />
+        android:title="Alterar Saldo"
+        android:iconTint="@color/colorIcone"/>
     <item
         android:id="@+id/menu_excluir"
         android:icon="@drawable/ic_delete"
-        android:title="Excluir" />
+        android:title="Excluir"
+        android:iconTint="@color/colorIcone"/>
 </menu>

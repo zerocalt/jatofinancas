@@ -2,9 +2,11 @@
     <item
         android:id="@+id/menu_alterar_saldo"
         android:title="Alterar Saldo"
-        android:icon="@drawable/ic_local_atm" />
+        android:icon="@drawable/ic_local_atm"
+        android:iconTint="@color/colorIcone"/>
     <item
         android:id="@+id/menu_exibir_transacoes"
         android:title="Exibir Transações"
-        android:icon="@drawable/ic_bar_chart_5px" />
+        android:icon="@drawable/ic_bar_chart_5px"
+        android:iconTint="@color/colorIcone"/>
 </menu>

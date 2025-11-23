@@ -40,7 +40,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Adicionar Despesa"
-            android:textColor="#FFF"
             android:textSize="16sp"
             android:textStyle="bold"
             android:textAlignment="center"
@@ -124,8 +123,8 @@
                     android:id="@+id/textoTipo"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Pago"
                     android:layout_marginStart="12dp"
+                    android:text="Pago"
                     android:textSize="15sp" />
             </LinearLayout>
         </com.google.android.material.textfield.TextInputLayout>
@@ -311,7 +310,6 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:checked="false"
-                        app:thumbTint="@color/white"
                         />
 
                     <TextView
