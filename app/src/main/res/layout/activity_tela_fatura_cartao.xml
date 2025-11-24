@@ -90,7 +90,7 @@
                     android:layout_height="24dp"
                     android:contentDescription="Ícone Cartão"
                     android:src="@drawable/ic_credit_card"
-                    app:tint="@color/white" />
+                    app:tint="@color/colorIcone" />
 
                 <TextView
                     android:id="@+id/txtNomeCartao"
@@ -122,7 +122,8 @@
                         android:layout_width="18dp"
                         android:layout_height="18dp"
                         android:contentDescription="Ícone calendário"
-                        android:src="@drawable/ic_today" />
+                        android:src="@drawable/ic_today"
+                        app:tint="@color/colorIcone"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -160,7 +161,8 @@
                         android:layout_width="18dp"
                         android:layout_height="18dp"
                         android:contentDescription="Ícone calendário"
-                        android:src="@drawable/ic_today" />
+                        android:src="@drawable/ic_today"
+                        app:tint="@color/colorIcone"/>
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -198,7 +200,8 @@
                     android:layout_width="18dp"
                     android:layout_height="18dp"
                     android:contentDescription="Ícone calendário"
-                    android:src="@drawable/ic_local_atm" />
+                    android:src="@drawable/ic_local_atm"
+                    app:tint="@color/colorIcone"/>
 
                 <LinearLayout
                     android:layout_width="wrap_content"
