@@ -1,10 +1,17 @@
 package com.example.app1.utils;
 
 import android.content.Context;
+import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
+
+import androidx.appcompat.content.res.AppCompatResources;
 import androidx.appcompat.widget.PopupMenu;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+
+import com.example.app1.R;
 
 public class MenuHelper {
 
@@ -41,12 +48,25 @@ public class MenuHelper {
             Log.e("MENU_HELPER", "Erro ao forçar ícones", e);
         }
 
+        // --- AQUI COMEÇA A PARTE IMPORTANTE (tint) ---
         for (int i = 0; i < items.length; i++) {
             MenuItem item = popup.getMenu().add(0, i, i, items[i].title);
+
             if (items[i].iconResId != 0) {
-                item.setIcon(items[i].iconResId);
+                Drawable icon = AppCompatResources.getDrawable(context, items[i].iconResId);
+
+                if (icon != null) {
+                    icon = DrawableCompat.wrap(icon.mutate());
+
+                    // 👇 Altere a cor aqui (ex: branco)
+                    int tintColor = ContextCompat.getColor(context, R.color.colorIcone);
+
+                    DrawableCompat.setTint(icon, tintColor);
+                    item.setIcon(icon);
+                }
             }
         }
+        // --- FIM DA PARTE MODIFICADA ---
 
         popup.setOnMenuItemClickListener(item -> {
             int id = item.getItemId();
@@ -55,7 +75,7 @@ public class MenuHelper {
             }
             return true;
         });
-        
+
         Log.d("MENU_DEBUG", "7. Chamando popup.show()...");
         popup.show();
     }
