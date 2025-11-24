@@ -695,26 +695,31 @@ public class TelaTransacoes extends AppCompatActivity implements TransacaoAdapte
 
     private void editarTransacao(TransacaoItem item) {
         if ("cartao".equals(item.tipoTransacao)) {
-           MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, item.idCartao);
-           fragment.editarTransacao(item.id);
-           getSupportFragmentManager().beginTransaction()
-                   .replace(R.id.containerFragment, fragment)
-                   .addToBackStack(null)
-                   .commit();
-       } else {
-            // Criar uma nova instância do fragmento MenuCadDespesaFragment
-            MenuCadDespesaFragment fragment = MenuCadDespesaFragment.newInstance(idUsuarioLogado, "despesa");
-
-            // Definir a transação que será editada no fragmento
+            MenuCadDespesaCartaoFragment fragment = MenuCadDespesaCartaoFragment.newInstance(idUsuarioLogado, item.idCartao);
             fragment.editarTransacao(item.id);
-
-            // Substituir o container atual pelo fragmento de edição
             getSupportFragmentManager().beginTransaction()
                     .replace(R.id.containerFragment, fragment)
                     .addToBackStack(null)
                     .commit();
-       }
-   }
+        } else if ("despesa".equals(item.tipoTransacao)) {
+            MenuCadDespesaFragment fragment = MenuCadDespesaFragment.newInstance(idUsuarioLogado, "despesa");
+            fragment.editarTransacao(item.id);
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.containerFragment, fragment)
+                    .addToBackStack(null)
+                    .commit();
+        } else if ("receita".equals(item.tipoTransacao)) {
+            MenuCadDespesaFragment fragment = MenuCadDespesaFragment.newInstance(idUsuarioLogado, "receita");
+            fragment.editarTransacao(item.id);
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.containerFragment, fragment)
+                    .addToBackStack(null)
+                    .commit();
+        } else {
+            Toast.makeText(this, "Tipo de transação desconhecido", Toast.LENGTH_SHORT).show();
+        }
+    }
+
 
     private void confirmarExclusao(TransacaoItem item) {
         new android.app.AlertDialog.Builder(this)
