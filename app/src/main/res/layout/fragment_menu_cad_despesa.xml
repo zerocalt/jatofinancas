@@ -71,6 +71,7 @@
 
         <!-- Nome da Despesa -->
         <com.google.android.material.textfield.TextInputLayout
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
             android:id="@+id/textInputNomeDespesa"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -84,11 +85,11 @@
             app:endIconMode="clear_text"
             android:hint="* Descrição da Despesa">
 
-            <com.google.android.material.textfield.TextInputEditText
+            <com.google.android.material.textfield.MaterialAutoCompleteTextView
                 android:id="@+id/inputNomeDespesa"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapSentences" />
+                android:inputType="textCapSentences"/>
 
         </com.google.android.material.textfield.TextInputLayout>
 

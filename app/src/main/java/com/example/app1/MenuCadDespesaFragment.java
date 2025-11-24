@@ -6,6 +6,9 @@ import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -36,6 +39,7 @@ import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +51,8 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
 
     private View overlayDespesa;
     private View slidingMenuDespesa;
-    private TextInputEditText inputValorDespesa, inputNomeDespesa, inputDataDespesa, inputObservacao;
+    private TextInputEditText inputValorDespesa, inputDataDespesa, inputObservacao;
+    private MaterialAutoCompleteTextView inputNomeDespesa;
     private EditText inputQuantRep;
     private Button btnSalvarDespesa;
     private ImageButton btnIncrement, btnDecrement, btnAddCategoria, btnAddConta;
@@ -518,6 +523,28 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                     .commit();
         });
 
+        inputNomeDespesa.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                String texto = s.toString();
+                if (texto.length() >= 1) {
+                    List<String> sugestoes = buscarNomesDespesa(texto);
+                    ArrayAdapter<String> adapter = new ArrayAdapter<>(requireContext(),
+                            android.R.layout.simple_dropdown_item_1line, sugestoes);
+                    inputNomeDespesa.setAdapter(adapter);
+                    adapter.notifyDataSetChanged();
+                }
+            }
+        });
+
+        inputNomeDespesa.setOnItemClickListener((parent, view, position, id) -> {
+            String nomeSelecionado = (String) parent.getItemAtPosition(position);
+            preencherCamposPorNome(nomeSelecionado);
+        });
+
     }
 
     private int getNumberFromEditText() {
@@ -615,5 +642,52 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
         valorPeriodoSelecionado = -1;
         containerRepeticao.setVisibility(View.GONE);
     }
+
+    private List<String> buscarNomesDespesa(String texto) {
+        List<String> resultados = new ArrayList<>();
+        Cursor cursor = null;
+        try (MeuDbHelper dbHelper = new MeuDbHelper(requireContext());
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+            String query = "SELECT DISTINCT descricao FROM transacoes WHERE descricao LIKE ?";
+            String[] args = new String[]{"%" + texto + "%"};
+            cursor = db.rawQuery(query, args);
+            while (cursor.moveToNext()) {
+                resultados.add(cursor.getString(0));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return resultados;
+    }
+
+    private void preencherCamposPorNome(String nome) {
+        Cursor cursor = null;
+        try (MeuDbHelper dbHelper = new MeuDbHelper(requireContext());
+             SQLiteDatabase db = dbHelper.getReadableDatabase()) {
+            String query = "SELECT t.id_categoria, c.nome AS nome_categoria, t.id_conta, co.nome AS nome_conta, t.observacao " +
+                    "FROM transacoes t " +
+                    "LEFT JOIN categorias c ON t.id_categoria = c.id " +
+                    "LEFT JOIN contas co ON t.id_conta = co.id " +
+                    "WHERE t.descricao = ?";
+            String[] args = new String[]{ nome };
+            cursor = db.rawQuery(query, args);
+            if (cursor.moveToFirst()) {
+                String nomeCategoria = cursor.getString(cursor.getColumnIndexOrThrow("nome_categoria"));
+                String nomeConta = cursor.getString(cursor.getColumnIndexOrThrow("nome_conta"));
+                String observacao = cursor.getString(cursor.getColumnIndexOrThrow("observacao"));
+
+                autoCompleteCategoria.setText(nomeCategoria, false);
+                autoCompleteConta.setText(nomeConta, false);
+                inputObservacao.setText(observacao);
+            }
+        } catch (Exception e) {
+            Log.e("MenuCadDespesaFragment", "Erro no SQL: " + e.getMessage());
+            e.printStackTrace();
+            Toast.makeText(getContext(), "Erro ao carregar dados da despesa", Toast.LENGTH_SHORT).show();
+        } finally {
+            if(cursor != null) cursor.close();
+        }
+    }
+
 
 }
