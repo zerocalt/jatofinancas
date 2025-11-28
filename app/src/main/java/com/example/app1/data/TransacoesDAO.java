@@ -55,26 +55,63 @@ public class TransacoesDAO {
      */
     public static boolean excluirTransacao(Context context, int id, String tipo) {
         try (SQLiteDatabase db = new MeuDbHelper(context).getWritableDatabase()) {
-            try (Cursor c = db.rawQuery("SELECT recorrente, id_mestre FROM transacoes WHERE id = ?", new String[]{String.valueOf(id)})) {
-                if (c.moveToFirst()) {
-                    int recorrente = 0;
-                    int idxRec = c.getColumnIndex("recorrente");
-                    if (idxRec != -1 && !c.isNull(idxRec)) recorrente = c.getInt(idxRec);
 
-                    int idxIdMestre = c.getColumnIndex("id_mestre");
-                    boolean idMestreIsNull = idxIdMestre == -1 || c.isNull(idxIdMestre);
+            // 1) Busca dados da transação
+            int tipoTrans = 0;
+            double valor = 0;
+            int idConta = -1;
+            int pago = 0;
+            int recebido = 0;
+            int recorrente = 0;
+            Integer idMestre = null;
 
-                    if (recorrente == 1 && idMestreIsNull) {
-                        // é mestre -> desativar a recorrência, não apagar registros
-                        ContentValues values = new ContentValues();
-                        values.put("recorrente_ativo", 0);
-                        int updated = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(id)});
-                        return updated > 0;
-                    }
+            try (Cursor c = db.rawQuery(
+                    "SELECT tipo, valor, id_conta, pago, recebido, recorrente, id_mestre " +
+                            "FROM transacoes WHERE id = ?",
+                    new String[]{String.valueOf(id)})) {
+
+                if (!c.moveToFirst()) {
+                    return false;
+                }
+
+                tipoTrans = c.getInt(c.getColumnIndexOrThrow("tipo"));
+                valor = c.getDouble(c.getColumnIndexOrThrow("valor"));
+                idConta = c.getInt(c.getColumnIndexOrThrow("id_conta"));
+                int idxPago = c.getColumnIndex("pago");
+                if (idxPago != -1 && !c.isNull(idxPago)) pago = c.getInt(idxPago);
+                int idxRecebido = c.getColumnIndex("recebido");
+                if (idxRecebido != -1 && !c.isNull(idxRecebido)) recebido = c.getInt(idxRecebido);
+                recorrente = c.getInt(c.getColumnIndexOrThrow("recorrente"));
+                int idxIdMestre = c.getColumnIndex("id_mestre");
+                if (idxIdMestre != -1 && !c.isNull(idxIdMestre)) {
+                    idMestre = c.getInt(idxIdMestre);
                 }
             }
-            // caso normal: apagar somente o registro
+
+            // 2) Se for mestre recorrente ativa, apenas desativar (sua lógica atual)
+            if (recorrente == 1 && (idMestre == null)) {
+                ContentValues values = new ContentValues();
+                values.put("recorrente_ativo", 0);
+                int updated = db.update("transacoes", values, "id = ?", new String[]{String.valueOf(id)});
+                return updated > 0;
+            }
+
+            // 3) Estorna saldo da conta se já impactou saldo
+            if (idConta > 0) {
+                if (tipoTrans == 1 && recebido == 1) {
+                    // Receita recebida → tirar do saldo
+                    db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?",
+                            new Object[]{valor, idConta});
+                } else if (tipoTrans == 2 && pago == 1) {
+                    // Despesa paga → devolver ao saldo
+                    db.execSQL("UPDATE contas SET saldo = saldo + ? WHERE id = ?",
+                            new Object[]{valor, idConta});
+                }
+            }
+
+            // 4) Exclui a transação
             return db.delete("transacoes", "id = ?", new String[]{String.valueOf(id)}) > 0;
+
         } catch (Exception e) {
             Log.e(TAG, "excluirTransacao", e);
             return false;
@@ -736,22 +773,57 @@ public class TransacoesDAO {
             try {
                 double valorAntigo = 0;
                 int idContaAntiga = -1;
+                int tipo = 0;
+                int pago = 0;
+                int recebido = 0;
 
-                try (Cursor cursor = db.rawQuery("SELECT valor, id_conta FROM transacoes WHERE id = ?", new String[]{String.valueOf(idTransacao)})) {
+                try (Cursor cursor = db.rawQuery(
+                        "SELECT valor, id_conta, tipo, pago, recebido FROM transacoes WHERE id = ?",
+                        new String[]{String.valueOf(idTransacao)})) {
                     if (cursor.moveToFirst()) {
                         valorAntigo = cursor.getDouble(cursor.getColumnIndexOrThrow("valor"));
                         idContaAntiga = cursor.getInt(cursor.getColumnIndexOrThrow("id_conta"));
+                        tipo = cursor.getInt(cursor.getColumnIndexOrThrow("tipo"));
+                        int idxPago = cursor.getColumnIndex("pago");
+                        if (idxPago != -1 && !cursor.isNull(idxPago)) {
+                            pago = cursor.getInt(idxPago);
+                        }
+                        int idxRecebido = cursor.getColumnIndex("recebido");
+                        if (idxRecebido != -1 && !cursor.isNull(idxRecebido)) {
+                            recebido = cursor.getInt(idxRecebido);
+                        }
                     }
                 }
 
-                // Reembolsa valor antigo na conta antiga
-                if (idContaAntiga != -1) {
-                    db.execSQL("UPDATE contas SET saldo = saldo + ? WHERE id = ?", new Object[]{valorAntigo, idContaAntiga});
-                }
+                // Só ajusta saldo se já impactou a conta
+                boolean impactouSaldo = (tipo == 1 && recebido == 1) || (tipo == 2 && pago == 1);
 
-                // Debita valor novo da conta nova
-                if (idContaNova != -1) {
-                    db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?", new Object[]{valorNovo, idContaNova});
+                if (impactouSaldo) {
+                    // Estorna valor antigo na conta antiga
+                    if (idContaAntiga != -1) {
+                        if (tipo == 1) {
+                            // Receita: tirar o valor antigo
+                            db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?",
+                                    new Object[]{valorAntigo, idContaAntiga});
+                        } else if (tipo == 2) {
+                            // Despesa: devolver o valor antigo
+                            db.execSQL("UPDATE contas SET saldo = saldo + ? WHERE id = ?",
+                                    new Object[]{valorAntigo, idContaAntiga});
+                        }
+                    }
+
+                    // Aplica valor novo na conta nova
+                    if (idContaNova != -1) {
+                        if (tipo == 1) {
+                            // Receita: adicionar valor novo
+                            db.execSQL("UPDATE contas SET saldo = saldo + ? WHERE id = ?",
+                                    new Object[]{valorNovo, idContaNova});
+                        } else if (tipo == 2) {
+                            // Despesa: debitar valor novo
+                            db.execSQL("UPDATE contas SET saldo = saldo - ? WHERE id = ?",
+                                    new Object[]{valorNovo, idContaNova});
+                        }
+                    }
                 }
 
                 db.setTransactionSuccessful();

@@ -664,11 +664,13 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
         Cursor cursor = null;
         try (MeuDbHelper dbHelper = new MeuDbHelper(requireContext());
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
-            String query = "SELECT t.id_categoria, c.nome AS nome_categoria, t.id_conta, co.nome AS nome_conta, t.observacao " +
+
+            String query = "SELECT t.id_categoria, c.nome AS nome_categoria, " +
+                    "t.id_conta, co.nome AS nome_conta, t.observacao " +
                     "FROM transacoes t " +
                     "LEFT JOIN categorias c ON t.id_categoria = c.id " +
                     "LEFT JOIN contas co ON t.id_conta = co.id " +
-                    "WHERE t.descricao = ?";
+                    "WHERE t.descricao = ? LIMIT 1";
             String[] args = new String[]{ nome };
             cursor = db.rawQuery(query, args);
             if (cursor.moveToFirst()) {
@@ -676,16 +678,41 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                 String nomeConta = cursor.getString(cursor.getColumnIndexOrThrow("nome_conta"));
                 String observacao = cursor.getString(cursor.getColumnIndexOrThrow("observacao"));
 
+                // Preenche textos
                 autoCompleteCategoria.setText(nomeCategoria, false);
                 autoCompleteConta.setText(nomeConta, false);
                 inputObservacao.setText(observacao);
+
+                // Ajusta objeto Categoria
+                CategoriasDropdownAdapter catAdapter = (CategoriasDropdownAdapter) autoCompleteCategoria.getAdapter();
+                if (catAdapter != null && nomeCategoria != null) {
+                    for (int i = 0; i < catAdapter.getCount(); i++) {
+                        Categoria cat = catAdapter.getItem(i);
+                        if (cat != null && nomeCategoria.equals(cat.getNome())) {
+                            autoCompleteCategoria.setText(cat.getNome(), false);
+                            break;
+                        }
+                    }
+                }
+
+                // Ajusta objeto Conta (fundamental para salvar)
+                ArrayAdapter<Conta> contaAdapter = (ArrayAdapter<Conta>) autoCompleteConta.getAdapter();
+                if (contaAdapter != null && nomeConta != null) {
+                    for (int i = 0; i < contaAdapter.getCount(); i++) {
+                        Conta cObj = contaAdapter.getItem(i);
+                        if (cObj != null && nomeConta.equals(cObj.getNome())) {
+                            autoCompleteConta.setText(cObj.getNome(), false);
+                            contaSelecionada[0] = cObj; // agora idContaNova não será -1
+                            break;
+                        }
+                    }
+                }
             }
         } catch (Exception e) {
             Log.e("MenuCadDespesaFragment", "Erro no SQL: " + e.getMessage());
-            e.printStackTrace();
             Toast.makeText(getContext(), "Erro ao carregar dados da despesa", Toast.LENGTH_SHORT).show();
         } finally {
-            if(cursor != null) cursor.close();
+            if (cursor != null) cursor.close();
         }
     }
 
