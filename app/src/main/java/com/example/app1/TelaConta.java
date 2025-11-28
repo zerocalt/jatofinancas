@@ -218,9 +218,18 @@ public class TelaConta extends AppCompatActivity {
 
             NumberFormat format = NumberFormat.getCurrencyInstance(new Locale("pt", "BR"));
             holder.txtSaldoConta.setText(format.format(conta.getSaldo()));
-            double saldoPrevistoConta = ContaDAO.getSaldoPrevistoConta(context, idUsuarioLogado, conta.getId());
-            holder.txtSaldoContaPrevisao.setText("saldo previsto: " + format.format(saldoPrevistoConta));
 
+            int anoSelecionado = Integer.parseInt(txtAno.getText().toString());
+            int mesSelecionado = getMesNumero(txtMes.getText().toString());
+
+            double saldoPrevistoConta = ContaDAO.getSaldoPrevistoConta(
+                    context,
+                    idUsuarioLogado,
+                    conta.getId(),
+                    anoSelecionado,
+                    mesSelecionado
+            );
+            holder.txtSaldoContaPrevisao.setText("saldo previsto: " + format.format(saldoPrevistoConta));
 
             if (conta.getSaldo() >= 0) {
                 holder.txtSaldoConta.setTextColor(Color.parseColor("#339933")); // Verde
@@ -355,4 +364,16 @@ public class TelaConta extends AppCompatActivity {
             }
         }
     }
+
+    private int getMesNumero(String nomeMes) {
+        String[] nomes = {"Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+                "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"};
+        for (int i = 0; i < nomes.length; i++) {
+            if (nomes[i].equalsIgnoreCase(nomeMes)) {
+                return i + 1; // 1 a 12
+            }
+        }
+        return 1; // default Janeiro
+    }
+
 }

@@ -3,6 +3,7 @@ package com.example.app1;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Color;
 import android.os.Bundle;
@@ -33,6 +34,7 @@ import androidx.security.crypto.MasterKey;
 
 import com.example.app1.data.CartaoDAO;
 import com.example.app1.data.ContaDAO;
+import com.example.app1.data.TransacoesCartaoDAO;
 import com.example.app1.utils.MascaraMonetaria;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.textfield.MaterialAutoCompleteTextView;
@@ -45,6 +47,7 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -207,7 +210,7 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
                     if (cartao != null) {
                         ((TextInputEditText) findViewById(R.id.inputNomeCartao)).setText(cartao.nome);
                         ((MaterialAutoCompleteTextView) findViewById(R.id.autoCompleteBandeira)).setText(cartao.bandeira, false);
-                        ((TextInputEditText) findViewById(R.id.inputLimite)).setText(String.valueOf(cartao.limite));
+                        ((TextInputEditText) findViewById(R.id.inputLimite)).setText(String.format(Locale.GERMAN, "%.2f", cartao.limite));
                         ((TextInputEditText) findViewById(R.id.inputDiaVencimento)).setText(String.valueOf(cartao.diaVencimento));
                         ((TextInputEditText) findViewById(R.id.inputDiaFechamento)).setText(String.valueOf(cartao.diaFechamento));
                         ((TextInputEditText) findViewById(R.id.inputCor)).setText(cartao.cor);
@@ -298,6 +301,25 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
 
         MeuDbHelper dbHelper = new MeuDbHelper(this);
         SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        Integer fechamentoAntigo = null;
+        Integer vencimentoAntigo = null;
+
+        // Se for edição, buscar fechamento e vencimento antigos
+        if (idCartaoEdicao != null) {
+            Cursor cursor = db.query("cartoes",
+                    new String[]{"data_fechamento_fatura", "data_vencimento_fatura"},
+                    "id = ?", new String[]{String.valueOf(idCartaoEdicao)},
+                    null, null, null);
+            if (cursor != null) {
+                if (cursor.moveToFirst()) {
+                    fechamentoAntigo = cursor.getInt(cursor.getColumnIndexOrThrow("data_fechamento_fatura"));
+                    vencimentoAntigo = cursor.getInt(cursor.getColumnIndexOrThrow("data_vencimento_fatura"));
+                }
+                cursor.close();
+            }
+        }
+
         ContentValues values = new ContentValues();
         values.put("nome", nome);
         values.put("bandeira", bandeira);
@@ -316,6 +338,12 @@ public class TelaCadCartao extends AppCompatActivity implements CartaoAdapter.On
         } else {
             int rowsAffected = db.update("cartoes", values, "id = ?", new String[]{String.valueOf(idCartaoEdicao)});
             sucesso = rowsAffected > 0;
+
+            // Se mudou o fechamento, reprocessar as faturas
+            if (sucesso && fechamentoAntigo != null && fechamentoAntigo != fechamento) {
+                TransacoesCartaoDAO dao = new TransacoesCartaoDAO();
+                dao.reprocessarFaturasAbertasPorFechamento(db, idCartaoEdicao, fechamentoAntigo, fechamento, vencimento);
+            }
         }
 
         if (sucesso) {

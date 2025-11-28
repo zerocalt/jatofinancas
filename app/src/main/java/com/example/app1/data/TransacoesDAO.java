@@ -596,36 +596,56 @@ public class TransacoesDAO {
         try (MeuDbHelper dbHelper = new MeuDbHelper(context);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // 1) Soma das filhas no mês
+            // 1) FILHAS do mês (excluindo parcelas de cartão)
             String queryFilhas = "SELECT SUM(valor) FROM transacoes " +
                     "WHERE id_usuario = ? AND tipo = 2 AND id_mestre IS NOT NULL " +
                     "AND substr(data_movimentacao,1,7) = ?";
             try (Cursor cur = db.rawQuery(queryFilhas, new String[]{String.valueOf(idUsuario), mesAno})) {
-                if (cur.moveToFirst()) total = cur.getDouble(0);
+                if (cur.moveToFirst() && !cur.isNull(0)) {
+                    total += cur.getDouble(0);
+                }
             }
 
-            // 2) Soma das despesas mestre sem filhas no mês
-            String queryMestres = "SELECT SUM(valor) FROM transacoes " +
-                    "WHERE id_usuario = ? AND tipo = 2 AND recorrente = 1 AND recorrente_ativo = 1 AND (total_parcelas = 0 OR total_parcelas IS NULL) " +
-                    "AND id NOT IN (SELECT DISTINCT id_mestre FROM transacoes WHERE substr(data_movimentacao,1,7) = ?)";
-            try (Cursor cur = db.rawQuery(queryMestres, new String[]{String.valueOf(idUsuario), mesAno})) {
-                if (cur.moveToFirst()) total += cur.getDouble(0);
+            // 2) MESTRES recorrentes ativas SEM filhas no mês
+            String queryMestres = "SELECT SUM(valor) FROM transacoes t1 " +
+                    "WHERE t1.id_usuario = ? " +
+                    "AND t1.tipo = 2 " +
+                    "AND t1.recorrente = 1 " +
+                    "AND t1.recorrente_ativo = 1 " +
+                    "AND t1.id NOT IN ( " +
+                    "    SELECT DISTINCT t2.id_mestre " +
+                    "    FROM transacoes t2 " +
+                    "    WHERE t2.id_usuario = ? " +
+                    "      AND t2.tipo = 2 " +
+                    "      AND t2.id_mestre IS NOT NULL " +
+                    "      AND substr(t2.data_movimentacao,1,7) = ? " +
+                    ")";
+            try (Cursor cur = db.rawQuery(queryMestres,
+                    new String[]{String.valueOf(idUsuario), String.valueOf(idUsuario), mesAno})) {
+                if (cur.moveToFirst() && !cur.isNull(0)) {
+                    total += cur.getDouble(0);
+                }
             }
 
-            // 3) Soma das transações únicas (não filhas nem mestres)
+            // 3) TRANSAÇÕES ÚNICAS
             String queryUnicas = "SELECT SUM(valor) FROM transacoes " +
                     "WHERE id_usuario = ? AND tipo = 2 " +
-                    "AND (id_mestre IS NULL OR id_mestre = 0) AND (recorrente IS NULL OR recorrente = 0) " +
+                    "AND (id_mestre IS NULL OR id_mestre = 0) " +
+                    "AND (recorrente IS NULL OR recorrente = 0) " +
                     "AND substr(data_movimentacao,1,7) = ?";
             try (Cursor cur = db.rawQuery(queryUnicas, new String[]{String.valueOf(idUsuario), mesAno})) {
-                if (cur.moveToFirst()) total += cur.getDouble(0);
+                if (cur.moveToFirst() && !cur.isNull(0)) {
+                    total += cur.getDouble(0);
+                }
             }
 
-            // 4) Soma das faturas do mês
+            // 4) FATURAS do cartão
             String queryFaturas = "SELECT SUM(valor_total) FROM faturas f JOIN cartoes c ON f.id_cartao = c.id " +
                     "WHERE c.id_usuario = ? AND substr(f.data_vencimento,1,7) = ?";
             try (Cursor cur = db.rawQuery(queryFaturas, new String[]{String.valueOf(idUsuario), mesAno})) {
-                if (cur.moveToFirst()) total += cur.getDouble(0);
+                if (cur.moveToFirst() && !cur.isNull(0)) {
+                    total += cur.getDouble(0);
+                }
             }
 
         } catch (Exception e) {
@@ -634,6 +654,7 @@ public class TransacoesDAO {
         return total;
     }
 
+
     public static double getDespesasPendentes(Context context, int idUsuario, int ano, int mes) {
         double total = 0;
         String mesAno = String.format(Locale.ROOT, "%04d-%02d", ano, mes);
@@ -641,38 +662,63 @@ public class TransacoesDAO {
         try (MeuDbHelper dbHelper = new MeuDbHelper(context);
              SQLiteDatabase db = dbHelper.getReadableDatabase()) {
 
-            // 1️⃣ Despesas pendentes normais (não recorrentes ou filhas), excluindo mestres com filhas no período
+            // 1️⃣ Despesas pendentes normais (não pagas, não recorrentes parceladas)
             String queryDespesas = "SELECT SUM(valor) FROM transacoes " +
                     "WHERE id_usuario = ? AND tipo = 2 AND pago = 0 " +
-                    "AND NOT (recorrente = 1 AND total_parcelas > 0 AND (id_mestre IS NULL OR id_mestre = 0)) " +
-                    "AND id NOT IN ( " +
-                    "    SELECT DISTINCT id_mestre FROM transacoes " +
-                    "    WHERE substr(data_movimentacao,1,7) = ? " +
-                    ") " +
+                    "AND (recorrente IS NULL OR recorrente = 0) " +
                     "AND substr(data_movimentacao,1,7) <= ?";
-            try (Cursor cur = db.rawQuery(queryDespesas, new String[]{String.valueOf(idUsuario), mesAno, mesAno})) {
+            try (Cursor cur = db.rawQuery(queryDespesas, new String[]{String.valueOf(idUsuario), mesAno})) {
                 if (cur.moveToFirst() && !cur.isNull(0)) total += cur.getDouble(0);
             }
 
-            // 2️⃣ Faturas pendentes
+            // 2️⃣ Faturas pendentes do cartão
             String queryFaturasPendentes = "SELECT SUM(valor_total) FROM faturas f " +
                     "JOIN cartoes c ON f.id_cartao = c.id " +
-                    "WHERE c.id_usuario = ? AND substr(f.data_vencimento,1,7) <= ? AND f.status = 0";
+                    "WHERE c.id_usuario = ? AND f.status = 0 " +
+                    "AND substr(f.data_vencimento,1,7) <= ?";
             try (Cursor cur = db.rawQuery(queryFaturasPendentes, new String[]{String.valueOf(idUsuario), mesAno})) {
                 if (cur.moveToFirst() && !cur.isNull(0)) total += cur.getDouble(0);
             }
 
-            // 3️⃣ Parcelas recorrentes ainda não geradas (somente despesas)
-            String queryRecorrentes = "SELECT SUM(valor) FROM transacoes AS mestre " +
-                    "WHERE id_usuario = ? AND tipo = 2 AND recorrente = 1 AND recorrente_ativo = 1 " +
-                    "AND total_parcelas > 0 " +
-                    "AND (id_mestre IS NULL OR id_mestre = 0) " +
-                    "AND NOT EXISTS ( " +
-                    "    SELECT 1 FROM transacoes AS filha " +
-                    "    WHERE filha.id_mestre = mestre.id " +
-                    "    AND substr(filha.data_movimentacao,1,7) = ? " +
+            // 3️⃣ MESTRES fixas infinitas (total_parcelas = 0 ou NULL) SEM filhas no mês
+            String queryFixasInfinitas = "SELECT SUM(valor) FROM transacoes t1 " +
+                    "WHERE t1.id_usuario = ? " +
+                    "AND t1.tipo = 2 " +
+                    "AND t1.recorrente = 1 " +
+                    "AND t1.recorrente_ativo = 1 " +
+                    "AND (t1.total_parcelas = 0 OR t1.total_parcelas IS NULL) " +
+                    "AND t1.pago = 0 " +
+                    "AND t1.id NOT IN ( " +
+                    "    SELECT DISTINCT t2.id_mestre " +
+                    "    FROM transacoes t2 " +
+                    "    WHERE t2.id_usuario = ? " +
+                    "      AND t2.tipo = 2 " +
+                    "      AND t2.id_mestre IS NOT NULL " +
+                    "      AND substr(t2.data_movimentacao,1,7) = ? " +
                     ")";
-            try (Cursor cur = db.rawQuery(queryRecorrentes, new String[]{String.valueOf(idUsuario), mesAno})) {
+            try (Cursor cur = db.rawQuery(queryFixasInfinitas,
+                    new String[]{String.valueOf(idUsuario), String.valueOf(idUsuario), mesAno})) {
+                if (cur.moveToFirst() && !cur.isNull(0)) total += cur.getDouble(0);
+            }
+
+            // 4️⃣ MESTRES parceladas recorrentes SEM filhas no mês (pendentes)
+            String queryMestresParceladas = "SELECT SUM(valor) FROM transacoes t1 " +
+                    "WHERE t1.id_usuario = ? " +
+                    "AND t1.tipo = 2 " +
+                    "AND t1.recorrente = 1 " +
+                    "AND t1.recorrente_ativo = 1 " +
+                    "AND t1.total_parcelas > 0 " +
+                    "AND t1.pago = 0 " +
+                    "AND t1.id NOT IN ( " +
+                    "    SELECT DISTINCT t2.id_mestre " +
+                    "    FROM transacoes t2 " +
+                    "    WHERE t2.id_usuario = ? " +
+                    "      AND t2.tipo = 2 " +
+                    "      AND t2.id_mestre IS NOT NULL " +
+                    "      AND substr(t2.data_movimentacao,1,7) = ? " +
+                    ")";
+            try (Cursor cur = db.rawQuery(queryMestresParceladas,
+                    new String[]{String.valueOf(idUsuario), String.valueOf(idUsuario), mesAno})) {
                 if (cur.moveToFirst() && !cur.isNull(0)) total += cur.getDouble(0);
             }
 

@@ -8,6 +8,7 @@ import android.util.Log;
 
 import com.example.app1.MeuDbHelper;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -283,6 +284,56 @@ public class TransacoesCartaoDAO {
         }
 
         return new int[]{diaFechamento, diaVencimento};
+    }
+
+    public void reprocessarFaturasAbertasPorFechamento(SQLiteDatabase db, int idCartao, int fechamentoAntigo, int fechamentoNovo, int vencimentoNovo) {
+        Cursor cursorFaturas = db.query("faturas",
+                new String[]{"id"},
+                "id_cartao = ? AND status = 0",
+                new String[]{String.valueOf(idCartao)},
+                null, null, null);
+
+        if (cursorFaturas == null) return;
+
+        while (cursorFaturas.moveToNext()) {
+            int idFatura = cursorFaturas.getInt(cursorFaturas.getColumnIndexOrThrow("id"));
+
+            Cursor cursorParcelas = db.query("parcelas_cartao",
+                    new String[]{"id", "data_compra", "valor"},
+                    "id_fatura = ?",
+                    new String[]{String.valueOf(idFatura)},
+                    null, null, null);
+
+            if (cursorParcelas == null) continue;
+
+            while (cursorParcelas.moveToNext()) {
+                int idParcela = cursorParcelas.getInt(cursorParcelas.getColumnIndexOrThrow("id"));
+                String dataCompraStr = cursorParcelas.getString(cursorParcelas.getColumnIndexOrThrow("data_compra"));
+                double valorParcela = cursorParcelas.getDouble(cursorParcelas.getColumnIndexOrThrow("valor"));
+
+                try {
+                    Date dataCompra = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(dataCompraStr);
+
+                    long novaFaturaId = localizarOuCriarFatura(db, idCartao, dataCompra, fechamentoNovo, vencimentoNovo);
+
+                    if (novaFaturaId != idFatura) {
+                        // Atualiza valor_total da fatura antiga subtraindo o valor da parcela
+                        db.execSQL("UPDATE faturas SET valor_total = valor_total - ? WHERE id = ?", new Object[]{valorParcela, idFatura});
+                        // Atualiza valor_total da nova fatura somando o valor da parcela
+                        db.execSQL("UPDATE faturas SET valor_total = valor_total + ? WHERE id = ?", new Object[]{valorParcela, novaFaturaId});
+
+                        // Atualiza id_fatura da parcela
+                        ContentValues cv = new ContentValues();
+                        cv.put("id_fatura", novaFaturaId);
+                        db.update("parcelas_cartao", cv, "id = ?", new String[]{String.valueOf(idParcela)});
+                    }
+                } catch (ParseException e) {
+                    Log.e(TAG, "Erro ao parsear data da compra para reprocessar faturas", e);
+                }
+            }
+            cursorParcelas.close();
+        }
+        cursorFaturas.close();
     }
 
 }
