@@ -1,163 +1,180 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:app="http://schemas.android.com/apk/res-auto" android:id="@+id/rootMenuConta" android:layout_width="match_parent" android:layout_height="match_parent">
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootMenuConta"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
 
     <!-- Fundo escurecido quando o menu está aberto -->
     <View
         android:id="@+id/overlayConta"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:background="#99000000"
-        android:visibility="gone" />
-
-    <!-- Menu que desliza para cima, fixado ao rodapé -->
-    <LinearLayout
-        android:id="@+id/slidingMenuConta"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/background_menu_flutuante"
-        android:orientation="vertical"
-        android:visibility="visible"
-        android:layout_gravity="bottom"
-        android:padding="10dp"
-        android:clickable="true"
-        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintEnd_toEndOf="parent" />
 
-        <TextView
+    <!-- CONTAINER QUE SOBE AUTOMATICAMENTE COM O TECLADO -->
+    <androidx.core.widget.NestedScrollView
+        android:id="@+id/scrollMenuConta"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:id="@+id/slidingMenuConta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Adicionar Conta"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textAlignment="center"
-            android:padding="16dp" />
+            android:background="@drawable/background_menu_flutuante"
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:clickable="true"
+            android:focusable="true">
 
-        <!-- Nome da Conta -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputNomeConta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_account_balance"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            app:endIconMode="clear_text"
-            android:hint="* Nome da Conta">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/inputNomeConta"
+            <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="textCapWords" />
+                android:text="Adicionar Conta"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textAlignment="center"
+                android:padding="16dp" />
 
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <!-- Saldo -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputSaldoConta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_attach_money"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            app:endIconMode="clear_text"
-            android:hint="Saldo Inicial (ex: 1234,56)">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/inputSaldoConta"
+            <!-- Nome da Conta -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputNomeConta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="numberDecimal"
-                android:maxLength="16" />
+                android:layout_marginTop="8dp"
+                android:hint="* Nome da Conta"
+                app:startIconDrawable="@drawable/ic_account_balance"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                app:endIconMode="clear_text">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputNomeConta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textCapWords" />
 
-        <!-- Tipo da Conta -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputTipoConta"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_local_atm"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Tipo da Conta">
+            </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.MaterialAutoCompleteTextView
-                android:id="@+id/autoCompleteTipoConta"
+            <!-- Saldo -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputSaldoConta"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:inputType="none" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="8dp"
+                android:hint="Saldo Inicial (ex: 1234,56)"
+                app:startIconDrawable="@drawable/ic_attach_money"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                app:endIconMode="clear_text">
 
-        <!-- Cor (hexadecimal) -->
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/textInputCorConta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            app:startIconDrawable="@drawable/ic_color_lens"
-            app:boxBackgroundMode="outline"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            android:hint="Cor (hexadecimal, ex: #FF0000)">
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputSaldoConta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="numberDecimal"
+                    android:maxLength="16" />
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/inputCorConta"
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Tipo da Conta -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputTipoConta"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:focusable="false"
-                android:clickable="true" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginTop="8dp"
+                android:hint="Tipo da Conta"
+                app:startIconDrawable="@drawable/ic_local_atm"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp">
 
-        <!-- Mostrar na Tela Inicial -->
-        <RadioGroup
-            android:id="@+id/radioGroupMostrarNaTelaInicial"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="8dp"
-            android:padding="8dp">
+                <com.google.android.material.textfield.MaterialAutoCompleteTextView
+                    android:id="@+id/autoCompleteTipoConta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="none" />
 
-            <RadioButton
-                android:id="@+id/radioMostrarSim"
-                android:layout_width="wrap_content"
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Cor -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/textInputCorConta"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Somar na Tela Inicial"
-                android:checked="true" />
+                android:layout_marginTop="8dp"
+                android:hint="Cor (hexadecimal, ex: #FF0000)"
+                app:startIconDrawable="@drawable/ic_color_lens"
+                app:boxBackgroundMode="outline"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp">
 
-            <RadioButton
-                android:id="@+id/radioMostrarNao"
-                android:layout_width="wrap_content"
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputCorConta"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:focusable="false"
+                    android:clickable="true" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Mostrar na Tela Inicial -->
+            <RadioGroup
+                android:id="@+id/radioGroupMostrarNaTelaInicial"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Não Somar"
-                android:layout_marginStart="24dp" />
-        </RadioGroup>
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp"
+                android:padding="8dp">
 
-        <!-- Botão Salvar -->
-        <Button
-            android:id="@+id/btnSalvarConta"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Salvar Conta"
-            android:layout_marginTop="16dp"
-            android:backgroundTint="#2F4F99"
-            android:textColor="#FFF"/>
+                <RadioButton
+                    android:id="@+id/radioMostrarSim"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Somar na Tela Inicial"
+                    android:checked="true" />
 
-    </LinearLayout>
-</FrameLayout>
+                <RadioButton
+                    android:id="@+id/radioMostrarNao"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Não Somar"
+                    android:layout_marginStart="24dp" />
+
+            </RadioGroup>
+
+            <!-- Botão Salvar -->
+            <Button
+                android:id="@+id/btnSalvarConta"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Salvar Conta"
+                android:layout_marginTop="16dp"
+                android:backgroundTint="#2F4F99"
+                android:textColor="#FFF" />
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+</androidx.constraintlayout.widget.ConstraintLayout>

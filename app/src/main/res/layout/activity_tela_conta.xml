@@ -87,10 +87,10 @@
         android:id="@+id/containerFragment"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/menuSuperior"
         app:layout_constraintBottom_toTopOf="@+id/menu_container"
-        app:layout_constraintTop_toBottomOf="@+id/menuSuperior" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <FrameLayout
         android:id="@+id/menu_container"
