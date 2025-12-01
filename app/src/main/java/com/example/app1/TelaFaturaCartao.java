@@ -61,6 +61,23 @@ public class TelaFaturaCartao extends AppCompatActivity implements BottomMenuLis
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+        View container = findViewById(R.id.containerFragment);
+        View menuContainer = findViewById(R.id.menu_container);
+        ViewCompat.setOnApplyWindowInsetsListener(container, (v, insets) -> {
+            boolean imeVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
+            int imeHeight = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom;
+
+            // Sobe o fragmento
+            v.setPadding(v.getPaddingLeft(), v.getPaddingTop(),
+                    v.getPaddingRight(), imeVisible ? imeHeight-110 : 0);
+
+            // Esconde/mostra o menu inferior
+            if (menuContainer != null) {
+                menuContainer.setVisibility(imeVisible ? View.GONE : View.VISIBLE);
+            }
+
+            return insets;
+        });
 
         bindViews();
 
