@@ -13,6 +13,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CompoundButton;
@@ -523,6 +524,7 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
                     .commit();
         });
 
+        // ✅ TextWatcher para buscar sugestões
         inputNomeDespesa.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {}
@@ -540,9 +542,23 @@ public class MenuCadDespesaFragment extends Fragment implements MenuCadCategoria
             }
         });
 
+// QUANDO O DROPDOWN FECHA = usuário selecionou algo
+        inputNomeDespesa.setOnDismissListener(() -> {
+            String textoFinal = inputNomeDespesa.getText().toString().trim();
+            if (!textoFinal.isEmpty()) {
+                preencherCamposPorNome(textoFinal);
+            }
+        });
+
+// ItemClick com proteção (backup)
         inputNomeDespesa.setOnItemClickListener((parent, view, position, id) -> {
-            String nomeSelecionado = (String) parent.getItemAtPosition(position);
-            preencherCamposPorNome(nomeSelecionado);
+            if (position >= 0 && position < parent.getCount()) {
+                String nomeSelecionado = (String) parent.getItemAtPosition(position);
+                if (nomeSelecionado != null && !nomeSelecionado.trim().isEmpty()) {
+                    inputNomeDespesa.setText(nomeSelecionado, false);
+                    preencherCamposPorNome(nomeSelecionado);
+                }
+            }
         });
 
     }
